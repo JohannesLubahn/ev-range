@@ -1,0 +1,5 @@
+body_type,drag_coefficient,frontal_area_m2,description,source
+sedan,0.24,2.25,"Saloon / fastback; modern EV sedans are among the most aerodynamic cars","Assumption: typical current EV sedans (e.g. BYD Seal 0.219 in your data, Tesla Model 3 0.23); area typical for mid-size sedans"
+hatchback,0.30,2.20,"Compact or small hatchback / city car","Assumption: typical compact EV hatchbacks 0.28-0.33; area typical for B/C-segment cars"
+SUV,0.28,2.55,"Crossover / SUV","Assumption: typical EV crossovers 0.25-0.32 (your data: Aion Hyptec HT 0.245, Deepal S05 0.25); area typical for compact/mid SUVs"
+MPV,0.32,2.80,"MPV / van-like body","Assumption: typical MPVs 0.30-0.35; larger frontal area"

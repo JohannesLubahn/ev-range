@@ -1,0 +1,5 @@
+cycle,file,duration_s,distance_km,avg_speed_kmh,max_speed_kmh,description,source
+WLTP,wltc3b.csv,1800,23.266,46.53,131.3,"WLTC class 3b (vehicles > 34 W/kg, v_max >= 120 km/h)","UN GTR No. 15 / Regulation (EU) 2017/1151 Annex XXI; trace from the JRC 'wltp' package (EUPL), checksum 83758.6"
+NEDC,nedc.csv,1179,11.013,33.63,120.0,New European Driving Cycle (4 x ECE-15 + EUDC),UN Regulation No. 83/101; trace from the JRC 'wltp' package (EUPL)
+EPA_CITY,epa_udds.csv,1369,11.990,31.53,91.2,US EPA Urban Dynamometer Driving Schedule (UDDS),"US EPA dynamometer drive schedules (uddscol.txt), converted from mph"
+EPA_HIGHWAY,epa_hwfet.csv,765,16.507,77.68,96.4,US EPA Highway Fuel Economy Test (HWFET),"US EPA dynamometer drive schedules (hwycol.txt), converted from mph"

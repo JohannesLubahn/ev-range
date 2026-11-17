@@ -1,0 +1,9 @@
+temperature_c,LFP,NMC,note
+-30,65,78,extrapolated from the points below - indicative only
+-20,78,88,"NMC: Kubal et al. (C/20: 10-13 % below 20 °C). LFP: indicative - sources range from ~95 % (A123 datasheet, -15 °C at 2.5C with self-heating) to 50-70 % (vendor technical notes, energy cells)"
+-10,88,94,interpolated
+0,95,99,"NMC: Kubal et al. (no notable loss at <= C/5). LFP: A123 datasheet, 0 °C at 2.5C = ~96 % of 23 °C capacity"
+10,98,100,interpolated
+25,100,100,reference
+40,100,100,Kubal et al.: capacities similar at 20 and 40 °C; A123: 45 °C slightly above 23 °C
+50,100,100,held constant
