@@ -1,0 +1,42 @@
+import type { Assumptions, Conditions, Scenario } from './types';
+
+export const DEFAULT_CONDITIONS: Conditions = {
+  airTemperatureC: 25,
+  altitudeM: 0,
+  payloadKg: 100,
+  tyrePressureBar: 2.5,
+  thermalMode: 'managed',
+  preconditionedC: 20,
+};
+
+/** The inputs of the spreadsheet's Battery Sizing tab (column D), as one scenario for all cars. */
+export function spreadsheetDefaults(a: Assumptions): Scenario {
+  return {
+    trafficJam: {
+      startPct: 60,
+      endPct: 5,
+      distBeforeKm: 10,
+      distJamKm: 10,
+      timeJamH: 5,
+      distAfterKm: 10,
+      speedOutsideKmh: 40,
+      usageOutsidePct: 90,
+      usageJamPct: 90,
+      profileOutside: 'city',
+    },
+    noCharger: { distanceKm: 300, startPct: 95, endPct: 5, speedKmh: 70, usagePct: 50, profile: 'rural', climbM: 0 },
+    longTrip: {
+      distanceKm: 800,
+      speedKmh: 60,
+      usageDrivingPct: 90,
+      usageChargingPct: 90,
+      chargeFromPct: 20,
+      chargeToPct: 80,
+      profile: 'rural',
+    },
+    batteryLife: { years: 20, kmPerYear: 15000, speedKmh: 40, usagePct: 60, profile: 'mixed' },
+    sprint: { distanceKm: 140, startPct: 95, endPct: 5, speedKmh: 120, usagePct: 90, profile: 'steady', climbM: 0 },
+    cost: { energyPrice: a.electricityPrice, maintenancePerYear: a.maintenancePerYear },
+    conditions: { ...DEFAULT_CONDITIONS, tyrePressureBar: a.tyrePressureRefBar },
+  };
+}

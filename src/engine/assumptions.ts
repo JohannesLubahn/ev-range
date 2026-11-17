@@ -1,0 +1,79 @@
+import type { Dataset } from '../data/types';
+import { parseNumber } from '../data/parse';
+import type { Assumptions } from './types';
+
+const NUMERIC_KEYS: Record<string, keyof Assumptions> = {
+  long_term_capacity_pct: 'longTermCapacityPct',
+  battery_managed_min_c: 'batteryManagedMinC',
+  battery_managed_max_c: 'batteryManagedMaxC',
+  battery_hvac_max_kw: 'batteryHvacMaxKw',
+  battery_heat_exchange_w_per_k: 'batteryHeatExchangeWPerK',
+  battery_pack_voltage_v: 'batteryPackVoltageV',
+  taper_speed_factor_pct: 'taperSpeedFactorPct',
+  charging_efficiency_pct: 'chargingEfficiencyPct',
+  rolling_resistance_n_per_kn: 'rollingResistanceNPerKn',
+  tyre_pressure_ref_bar: 'tyrePressureRefBar',
+  regen_efficiency_pct: 'regenEfficiencyPct',
+  rotating_mass_factor: 'rotatingMassFactor',
+  frontal_area_factor: 'frontalAreaFactor',
+  drivetrain_efficiency_default_pct: 'drivetrainEfficiencyDefaultPct',
+  test_payload_kg: 'testPayloadKg',
+  test_temperature_c: 'testTemperatureC',
+  electricity_price: 'electricityPrice',
+  maintenance_per_year: 'maintenancePerYear',
+  high_speed_factor: 'highSpeedFactor',
+};
+
+/** Fallbacks used only if a key is missing from assumptions.csv. */
+export const DEFAULT_ASSUMPTIONS: Assumptions = {
+  longTermCapacityPct: 80,
+  batteryManagedMinC: 10,
+  batteryManagedMaxC: 21,
+  batteryHvacMaxKw: 2,
+  batteryHeatExchangeWPerK: 200,
+  batteryPackVoltageV: 400,
+  taperSpeedFactorPct: 50,
+  chargingEfficiencyPct: 90,
+  rollingResistanceNPerKn: 8,
+  tyrePressureRefBar: 2.5,
+  regenEfficiencyPct: 70,
+  rotatingMassFactor: 1.05,
+  frontalAreaFactor: 0.85,
+  drivetrainEfficiencyDefaultPct: 88,
+  testPayloadKg: 100,
+  testTemperatureC: 23,
+  defaultBasis: 'WLTP',
+  electricityPrice: 7.5,
+  maintenancePerYear: 8000,
+  displayCurrency: 'THB',
+  highSpeedFactor: 2.5,
+  fx: { THB: 1 },
+};
+
+/** Reads data/assumptions.csv into typed assumptions. */
+export function assumptionsFromDataset(ds: Dataset): Assumptions {
+  const a: Assumptions = { ...DEFAULT_ASSUMPTIONS, fx: { ...DEFAULT_ASSUMPTIONS.fx } };
+  for (const [csvKey, field] of Object.entries(NUMERIC_KEYS)) {
+    const v = parseNumber(ds.assumptions[csvKey]?.value);
+    if (v !== null) (a[field] as number) = v;
+  }
+  if (ds.assumptions.default_basis?.value) a.defaultBasis = ds.assumptions.default_basis.value.toUpperCase();
+  if (ds.assumptions.display_currency?.value) a.displayCurrency = ds.assumptions.display_currency.value.toUpperCase();
+  for (const def of Object.values(ds.assumptions)) {
+    const m = /^fx_([A-Za-z]{3})$/.exec(def.key);
+    const v = parseNumber(def.value);
+    if (m && v !== null && v > 0) a.fx[m[1].toUpperCase()] = v;
+  }
+  return a;
+}
+
+/** Converts an amount from `currency` to the display currency. Returns null if no exchange rate is known. */
+export function toDisplayCurrency(amount: number, currency: string, a: Assumptions): number | null {
+  const from = currency.toUpperCase();
+  const to = a.displayCurrency.toUpperCase();
+  if (from === to) return amount;
+  const fxFrom = from === 'THB' ? 1 : a.fx[from];
+  const fxTo = to === 'THB' ? 1 : a.fx[to];
+  if (!fxFrom || !fxTo) return null;
+  return (amount * fxFrom) / fxTo;
+}

@@ -1,0 +1,42 @@
+import { G } from './air';
+import { rollingCoefficient } from './rolling';
+
+export interface VehiclePhysics {
+  massKg: number;
+  cd: number;
+  frontalAreaM2: number;
+  crrRef: number;
+  tyrePressureRefBar: number;
+  rotatingMassFactor: number;
+  /** Battery → wheel efficiency while driving (calibrated per car). */
+  etaDrive: number;
+  /** Wheel → battery efficiency while braking (0 for cars without regeneration). */
+  etaRegen: number;
+}
+
+export interface Environment {
+  airDensity: number;
+  tyrePressureBar: number;
+  /** Road slope as rise over run (e.g. 0.02 = 2 %). */
+  grade: number;
+}
+
+export interface Forces {
+  aero: number;
+  rolling: number;
+  grade: number;
+  inertia: number;
+  total: number;
+  crr: number;
+}
+
+/** Forces at the wheels (N) at speed v (m/s) and acceleration a (m/s²). */
+export function wheelForces(v: number, a: number, veh: VehiclePhysics, env: Environment): Forces {
+  const aero = 0.5 * env.airDensity * veh.cd * veh.frontalAreaM2 * v * v;
+  const crr = rollingCoefficient(v * 3.6, env.tyrePressureBar, veh.crrRef, veh.tyrePressureRefBar);
+  const moving = v > 0.01;
+  const rolling = moving ? crr * veh.massKg * G * Math.cos(Math.atan(env.grade)) : 0;
+  const grade = moving ? veh.massKg * G * Math.sin(Math.atan(env.grade)) : 0;
+  const inertia = veh.rotatingMassFactor * veh.massKg * a;
+  return { aero, rolling, grade, inertia, total: aero + rolling + grade + inertia, crr };
+}

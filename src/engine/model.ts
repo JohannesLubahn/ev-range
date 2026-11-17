@@ -1,0 +1,334 @@
+// The energy model of one car: segment energies (Simple or Physics) and the battery view (ideal or chemistry).
+import type { Dataset } from '../data/types';
+import type { DerivedCar } from './derive';
+import { Pack } from './battery/pack';
+import { onboardPower, type OnboardPower } from './onboard/loads';
+import { batteryTemperature } from './onboard/thermal';
+import { airDensity, pressureAtAltitude } from './physics/air';
+import { profileTrace } from './physics/profiles';
+import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
+import { simulate, type SimResult } from './physics/simulate';
+import type { Assumptions, Conditions, ModelSettings, Profile } from './types';
+import { clamp } from './util';
+
+export interface SegmentSpec {
+  label: string;
+  distanceKm: number;
+  /** Average speed including stops (km/h). Ignored if timeH is given. */
+  avgSpeedKmh?: number;
+  timeH?: number;
+  profile: Profile;
+  climbM?: number;
+  /** Usage of the onboard systems (Simple model) / cabin heating & AC (Physics model), %. */
+  usagePct: number;
+  /** Simple model: use the high-speed consumption (the spreadsheet's Sprint case). */
+  highSpeed?: boolean;
+}
+
+export interface SegmentEnergy {
+  spec: SegmentSpec;
+  distanceKm: number;
+  timeH: number;
+  avgSpeedKmh: number;
+  /** Driving energy from the battery terminals (kWh, or litres for ICE). */
+  driveKwh: number;
+  onboard: OnboardPower;
+  onboardKwh: number;
+  totalKwh: number;
+  /** Driving + onboard energy per km. */
+  perKm: number;
+  meanPowerKw: number;
+  rmsFactor: number;
+  physics?: {
+    trace: string;
+    airDensity: number;
+    massKg: number;
+    /** Work per km at the wheels, kWh/km. */
+    aeroPerKm: number;
+    rollingPerKm: number;
+    gradePerKm: number;
+    accelPerKm: number;
+    regenPerKm: number;
+    drivePerKm: number;
+    /** Steady-speed force breakdown at the average moving speed (N). */
+    forcesAtSpeed: { speedKmh: number; aero: number; rolling: number; grade: number; crr: number };
+  };
+}
+
+export interface BatteryView {
+  model: 'ideal' | 'chemistry';
+  availableKwh: number;
+  temperatureC: number;
+  temperatureNote: string;
+  /** Energy deliverable at the terminals between two states of charge at a mean power. */
+  deliverable(startPct: number, endPct: number, meanPowerKw: number, rmsFactor: number): { kwh: number; lossKwh: number; cutoff: boolean; powerLimited: boolean };
+  /** Long-term capacity (kWh) a battery of the same kind would need to deliver `energyKwh` in the window. */
+  requiredKwh(energyKwh: number, startPct: number, endPct: number, meanPowerKw: number, rmsFactor: number): number;
+  /** Losses for drawing `energyKwh` at the terminals (kWh). */
+  lossFor(energyKwh: number, meanPowerKw: number, rmsFactor: number): number;
+}
+
+export interface Calibration {
+  etaDrive: number;
+  cycle: string;
+  clamped: boolean;
+  /** Test-cycle energies (kWh/km) used for the calibration. */
+  ratedBatteryPerKm: number;
+  note: string;
+}
+
+export interface ModelContext {
+  ds: Dataset;
+  a: Assumptions;
+  conditions: Conditions;
+  settings: ModelSettings;
+}
+
+export class CarModel {
+  readonly d: DerivedCar;
+  readonly ctx: ModelContext;
+  private calibrationCache: Calibration | null = null;
+  private simCache = new Map<string, SimResult>();
+  private pack: Pack | null = null;
+
+  constructor(d: DerivedCar, ctx: ModelContext) {
+    this.d = d;
+    this.ctx = ctx;
+    const chem = d.chemistry ? ctx.ds.chemistries[d.chemistry] : undefined;
+    if (chem && d.batteryKwh) {
+      this.pack = new Pack({
+        chemistry: chem,
+        capacityTemps: ctx.ds.capacityTemps,
+        nominalKwh: d.batteryKwh,
+        sohFrac: d.longTermPct.value / 100,
+        packVoltageV: ctx.a.batteryPackVoltageV,
+      });
+    }
+  }
+
+  get physics(): boolean {
+    return this.ctx.settings.consumption === 'physics';
+  }
+
+  get usesChemistry(): boolean {
+    return this.ctx.settings.battery === 'chemistry' && this.pack !== null && !this.d.isIce;
+  }
+
+  // ------------------------------------------------------------------------------------------ onboard
+  onboard(usagePct: number): OnboardPower {
+    if (!this.physics) {
+      const kw = ((this.d.car.onboardKw ?? 0) * usagePct) / 100;
+      return { totalKw: kw, baseKw: 0, cabinKw: kw, batteryHvacKw: 0, cabinFullKw: this.d.car.onboardKw ?? 0 };
+    }
+    const c = this.ctx.conditions;
+    const p = onboardPower(this.ctx.ds, this.d.car.carClass, c.airTemperatureC, usagePct, c.thermalMode);
+    if (this.d.isIce) {
+      // Petrol car: onboard power is produced by the engine; convert kW into litres/hour with the calibrated factor.
+      const f = 1 / this.calibration().etaDrive;
+      return { totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, batteryHvacKw: 0, cabinFullKw: p.cabinFullKw * f };
+    }
+    return p;
+  }
+
+  // ------------------------------------------------------------------------------------------ physics
+  vehicle(etaDrive: number, test = false): VehiclePhysics {
+    const a = this.ctx.a;
+    return {
+      massKg: this.d.curbMassKg.value + (test ? a.testPayloadKg : this.ctx.conditions.payloadKg),
+      cd: this.d.cd.value,
+      frontalAreaM2: this.d.frontalAreaM2.value,
+      crrRef: this.d.crrRef.value,
+      tyrePressureRefBar: a.tyrePressureRefBar,
+      rotatingMassFactor: a.rotatingMassFactor,
+      etaDrive,
+      etaRegen: this.d.isIce ? 0 : a.regenEfficiencyPct / 100,
+    };
+  }
+
+  environment(grade: number, test = false): Environment {
+    const c = this.ctx.conditions;
+    const a = this.ctx.a;
+    return test
+      ? { airDensity: airDensity(a.testTemperatureC), tyrePressureBar: a.tyrePressureRefBar, grade: 0 }
+      : { airDensity: airDensity(c.airTemperatureC, pressureAtAltitude(c.altitudeM)), tyrePressureBar: c.tyrePressureBar, grade };
+  }
+
+  /**
+   * Effective drivetrain efficiency (battery → wheels), solved so that the car's own test cycle reproduces
+   * its rated consumption exactly:  rated × η_charge × D = E_wheel⁺/η − η_regen·E_wheel⁻ + aux·t + losses.
+   */
+  calibration(): Calibration {
+    if (this.calibrationCache) return this.calibrationCache;
+    const { ds, a } = this.ctx;
+    const d = this.d;
+    const fallback = a.drivetrainEfficiencyDefaultPct / 100;
+    const rated = d.consumption.value;
+    if (rated === null) {
+      return (this.calibrationCache = { etaDrive: fallback, cycle: '-', clamped: false, ratedBatteryPerKm: 0, note: 'no consumption: default efficiency' });
+    }
+    const cls = ds.onboardClasses[d.car.carClass] ?? ds.onboardClasses.regular;
+    const auxKw = d.isIce ? 0 : (cls?.generalKw ?? 0.4);
+    const chargeEff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
+    const veh = this.vehicle(1, true);
+    const env = this.environment(0, true);
+    const cycles: { id: string; weight: number }[] =
+      d.calibrationCycle === 'EPA'
+        ? [
+            { id: 'EPA_CITY', weight: 0.55 },
+            { id: 'EPA_HIGHWAY', weight: 0.45 },
+          ]
+        : [{ id: d.calibrationCycle === 'CLTC' && ds.cycles.CLTC ? 'CLTC' : d.calibrationCycle, weight: 1 }];
+    // EPA label values are lab results × 0.7 (derived 5-cycle adjustment); undo it for the lab cycles.
+    const labFactor = d.calibrationCycle === 'EPA' ? 0.7 : 1;
+    let posPerKm = 0;
+    let rest = 0;
+    let avgSpeedKmh = 0;
+    for (const { id, weight } of cycles) {
+      const cyc = ds.cycles[id];
+      if (!cyc) continue;
+      const sim = simulate(cyc.speedsKmh, veh, env, auxKw);
+      posPerKm += (weight * sim.wheelPosKwh) / sim.distanceKm;
+      rest += (weight * (auxKw * (sim.timeS / 3600) - veh.etaRegen * sim.wheelNegKwh)) / sim.distanceKm;
+      avgSpeedKmh += weight * (sim.distanceKm / (sim.timeS / 3600));
+    }
+    if (posPerKm <= 0) {
+      return (this.calibrationCache = { etaDrive: fallback, cycle: d.calibrationCycle, clamped: false, ratedBatteryPerKm: 0, note: 'cycle missing' });
+    }
+    let battPerKm = rated * labFactor * chargeEff;
+    // Remove the pack's own losses at test conditions, so they are not counted twice. Test cycles are highly
+    // dynamic; an RMS/mean power ratio of 1.3 is used for their losses.
+    if (this.usesChemistry && this.pack) {
+      const pMean = battPerKm * avgSpeedKmh;
+      const r = this.pack.discharge(90, 10, pMean, 1.3, a.testTemperatureC);
+      const lossFrac = r.terminalKwh > 0 ? r.lossKwh / r.terminalKwh : 0;
+      battPerKm = battPerKm / (1 + lossFrac);
+    }
+    let eta = posPerKm / (battPerKm - rest);
+    let clamped = false;
+    if (!d.isIce && (!Number.isFinite(eta) || eta > 1 || eta < 0.5)) {
+      clamped = true;
+      eta = Number.isFinite(eta) && eta > 0 ? clamp(eta, 0.5, 1) : fallback;
+    }
+    const note = d.isIce
+      ? `${eta.toFixed(2)} kWh at the wheels per litre (calibrated on ${d.calibrationCycle})`
+      : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}${clamped ? ' (outside 50–100 %: limited - check consumption, weight and Cd)' : ''}`;
+    return (this.calibrationCache = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
+  }
+
+  private simulateProfile(profile: Profile, avgKmh: number, grade: number): { sim: SimResult; trace: string; movingKmh: number } {
+    const tr = profileTrace(this.ctx.ds, profile, avgKmh);
+    const key = `${profile}|${avgKmh}|${grade}`;
+    let sim = this.simCache.get(key);
+    if (!sim) {
+      sim = simulate(tr.speedsKmh, this.vehicle(this.calibration().etaDrive), this.environment(grade));
+      this.simCache.set(key, sim);
+    }
+    return { sim, trace: tr.description, movingKmh: tr.movingAvgKmh };
+  }
+
+  // ------------------------------------------------------------------------------------------ segments
+  segment(spec: SegmentSpec): SegmentEnergy {
+    const distanceKm = spec.distanceKm;
+    const timeH = spec.timeH ?? (spec.avgSpeedKmh ? distanceKm / spec.avgSpeedKmh : 0);
+    const avgSpeedKmh = timeH > 0 ? distanceKm / timeH : 0;
+    const onboard = this.onboard(spec.usagePct);
+    const onboardKwh = onboard.totalKw * timeH;
+    if (!this.physics) {
+      const cons = (spec.highSpeed ? this.d.highSpeedConsumption : this.d.consumption.value) ?? 0;
+      const driveKwh = cons * distanceKm;
+      const totalKwh = driveKwh + onboardKwh;
+      return {
+        spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, totalKwh,
+        perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
+        meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
+        rmsFactor: 1,
+      };
+    }
+    const grade = distanceKm > 0 ? (spec.climbM ?? 0) / (distanceKm * 1000) : 0;
+    const { sim, trace, movingKmh } = this.simulateProfile(spec.profile, avgSpeedKmh, grade);
+    const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;
+    const driveKwh = perKmDrive * distanceKm;
+    const totalKwh = driveKwh + onboardKwh;
+    // RMS of the battery power over the trace incl. onboard load, relative to the mean.
+    const traceMeanKw = sim.timeS > 0 ? (sim.batteryKwh * 3600) / sim.timeS : 0;
+    const meanSq = sim.meanSquareKw2 + 2 * traceMeanKw * onboard.totalKw + onboard.totalKw ** 2;
+    const meanKw = traceMeanKw + onboard.totalKw;
+    const rmsFactor = meanKw > 0 ? Math.max(1, Math.sqrt(Math.max(meanSq, 0)) / meanKw) : 1;
+    const env = this.environment(grade);
+    const veh = this.vehicle(this.calibration().etaDrive);
+    const f = wheelForces(movingKmh / 3.6, 0, veh, env);
+    const per = (x: number) => (sim.distanceKm > 0 ? x / sim.distanceKm : 0);
+    return {
+      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, totalKwh,
+      perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
+      meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
+      rmsFactor,
+      physics: {
+        trace,
+        airDensity: env.airDensity,
+        massKg: veh.massKg,
+        aeroPerKm: per(sim.aeroKwh),
+        rollingPerKm: per(sim.rollingKwh),
+        gradePerKm: per(sim.gradeKwh),
+        accelPerKm: per(sim.accelKwh),
+        regenPerKm: per(sim.regenKwh),
+        drivePerKm: perKmDrive,
+        forcesAtSpeed: { speedKmh: movingKmh, aero: f.aero, rolling: f.rolling, grade: f.grade, crr: f.crr },
+      },
+    };
+  }
+
+  // ------------------------------------------------------------------------------------------ battery
+  /** Battery view for a load with the given mean power (the pack temperature depends on its losses). */
+  battery(meanPowerKw: number, rmsFactor = 1): BatteryView {
+    const d = this.d;
+    const available = d.longTermKwh ?? 0;
+    const c = this.ctx.conditions;
+    if (!this.usesChemistry || !this.pack) {
+      return {
+        model: 'ideal',
+        availableKwh: available,
+        temperatureC: c.airTemperatureC,
+        temperatureNote: d.isIce ? 'fuel tank' : 'ideal battery (no temperature or load effects)',
+        deliverable: (s, e) => ({ kwh: (available * (s - e)) / 100, lossKwh: 0, cutoff: false, powerLimited: false }),
+        requiredKwh: (energy, s, e) => (s - e > 0 ? energy / ((s - e) / 100) : Infinity),
+        lossFor: () => 0,
+      };
+    }
+    const pack = this.pack;
+    const a = this.ctx.a;
+    // Two passes: temperature without losses, then with the losses at that temperature.
+    let temp = batteryTemperature(c.airTemperatureC, 0, c.thermalMode, c.preconditionedC, a);
+    const r0 = pack.discharge(90, 10, meanPowerKw, rmsFactor, temp.temperatureC);
+    const lossKw = r0.terminalKwh > 0 ? (meanPowerKw * r0.lossKwh) / r0.terminalKwh : 0;
+    temp = batteryTemperature(c.airTemperatureC, lossKw, c.thermalMode, c.preconditionedC, a);
+    const t = temp.temperatureC;
+    const deliverable = (s: number, e: number, p: number, rho: number) => {
+      const r = pack.discharge(s, e, p, rho, t);
+      return { kwh: r.terminalKwh, lossKwh: r.lossKwh, cutoff: r.cutoff, powerLimited: r.powerLimited };
+    };
+    return {
+      model: 'chemistry',
+      availableKwh: available,
+      temperatureC: t,
+      temperatureNote: temp.description,
+      deliverable,
+      requiredKwh: (energy, s, e, p, rho) => {
+        // Scale the pack until the window delivers the energy (the C-rate changes with the size).
+        let nominal = pack.opts.nominalKwh;
+        for (let i = 0; i < 6; i++) {
+          const got = pack.withNominal(nominal).discharge(s, e, p, rho, t).terminalKwh;
+          if (got <= 0) return Infinity;
+          const next = nominal * (energy / got);
+          if (Math.abs(next - nominal) < 1e-6) break;
+          nominal = next;
+        }
+        return nominal * pack.opts.sohFrac;
+      },
+      lossFor: (energy, p, rho) => {
+        const r = pack.discharge(100, 0, p, rho, t);
+        return r.terminalKwh > 0 ? (energy * r.lossKwh) / r.terminalKwh : 0;
+      },
+    };
+  }
+}
