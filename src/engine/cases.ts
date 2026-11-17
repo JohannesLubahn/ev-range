@@ -208,7 +208,7 @@ function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: nu
   return { hours, steps };
 }
 
-export function longTrip(m: CarModel, i: LongTripInputs, exact = false): LongTripResult {
+export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.settings.exactSpreadsheet): LongTripResult {
   const seg = m.segment({ label: 'Driving', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, usagePct: i.usageDrivingPct });
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor);
   const perCharge = bat.deliverable(i.chargeToPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh;
@@ -293,7 +293,7 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
   };
 }
 
-export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs, exact = false): CostResult {
+export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs, exact = !!m.ctx.settings.exactSpreadsheet): CostResult {
   const d = m.d;
   const a = m.ctx.a;
   const currency = a.displayCurrency;

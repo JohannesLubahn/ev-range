@@ -1,6 +1,6 @@
 // The energy model of one car: segment energies (Simple or Physics) and the battery view (ideal or chemistry).
 import type { Dataset } from '../data/types';
-import type { DerivedCar } from './derive';
+import type { DataFlag, DerivedCar } from './derive';
 import { Pack } from './battery/pack';
 import { onboardPower, type OnboardPower } from './onboard/loads';
 import { batteryTemperature } from './onboard/thermal';
@@ -168,7 +168,10 @@ export class CarModel {
     }
     const cls = ds.onboardClasses[d.car.carClass] ?? ds.onboardClasses.regular;
     const auxKw = d.isIce ? 0 : (cls?.generalKw ?? 0.4);
-    const chargeEff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
+    // Rated (test) consumption is measured from the grid. A value calculated as battery ÷ range is already
+    // at the battery, so no charging losses are removed from it.
+    const fromRange = d.consumption.provenance === 'calculated';
+    const chargeEff = d.isIce || fromRange ? 1 : a.chargingEfficiencyPct / 100;
     const veh = this.vehicle(1, true);
     const env = this.environment(0, true);
     const cycles: { id: string; weight: number }[] =
@@ -209,10 +212,20 @@ export class CarModel {
       clamped = true;
       eta = Number.isFinite(eta) && eta > 0 ? clamp(eta, 0.5, 1) : fallback;
     }
+    const raw = posPerKm / (battPerKm - rest);
     const note = d.isIce
       ? `${eta.toFixed(2)} kWh at the wheels per litre (calibrated on ${d.calibrationCycle})`
-      : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}${clamped ? ' (outside 50–100 %: limited - check consumption, weight and Cd)' : ''}`;
+      : clamped
+        ? `${d.calibrationCycle} consumption would need a drivetrain efficiency of ${Number.isFinite(raw) && raw > 0 ? `${(raw * 100).toFixed(0)} %` : 'over 100 %'} with this weight, Cd and frontal area - limited to ${(eta * 100).toFixed(0)} %. Check the consumption (is it really ${d.calibrationCycle}?), weight and Cd`
+        : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}`;
     return (this.calibrationCache = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
+  }
+
+  /** Data-check messages that come from the physics calibration. */
+  calibrationFlags(): DataFlag[] {
+    if (!this.physics || this.d.consumption.value === null) return [];
+    const cal = this.calibration();
+    return cal.clamped ? [{ carId: this.d.car.id, severity: 'warning', field: 'consumption_kwh_per_km', message: cal.note }] : [];
   }
 
   private simulateProfile(profile: Profile, avgKmh: number, grade: number): { sim: SimResult; trace: string; movingKmh: number } {

@@ -7,3 +7,4 @@ dist-single/
 coverage/
 __pycache__/
 .claude/worktrees/
+tests/report.test.ts
