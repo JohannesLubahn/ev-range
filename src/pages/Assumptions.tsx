@@ -1,0 +1,166 @@
+import { NUMERIC_KEYS } from '../engine/assumptions';
+import type { Assumptions } from '../engine/types';
+import { num } from '../format';
+import { useEngine } from '../state/engine';
+import { useStore } from '../state/store';
+
+type Key = Exclude<keyof Assumptions, 'fx'>;
+
+const GROUP_ORDER = ['Battery', 'Charging', 'Driving physics', 'Test conditions', 'Costs', 'Exchange rates', 'Simple model'];
+
+export function AssumptionsPage() {
+  const { ds, a, baseAssumptions } = useEngine();
+  const overrides = useStore((s) => s.assumptionOverrides);
+  const fxOverrides = useStore((s) => s.fxOverrides);
+  const setAssumption = useStore((s) => s.setAssumption);
+  const setFx = useStore((s) => s.setFx);
+  const reset = useStore((s) => s.resetAssumptions);
+  const settings = useStore((s) => s.settings);
+  const setSettings = useStore((s) => s.setSettings);
+  const defs = Object.values(ds.assumptions);
+  const groups = [...new Set(defs.map((d) => d.group))].sort((x, y) => {
+    const ix = GROUP_ORDER.indexOf(x);
+    const iy = GROUP_ORDER.indexOf(y);
+    return (ix < 0 ? 99 : ix) - (iy < 0 ? 99 : iy);
+  });
+  const changed = Object.keys(overrides).length + Object.keys(fxOverrides).length;
+
+  return (
+    <div className="stack">
+      <div className="page-head">
+        <div className="stack" style={{ gap: 4 }}>
+          <h1>Assumptions</h1>
+          <p className="muted">
+            Every constant the model uses. Defaults come from <span className="mono">data/assumptions.csv</span>; changes here are kept in this
+            browser. To change a default for good, edit the CSV.
+          </p>
+        </div>
+        <button type="button" className="btn" disabled={changed === 0} onClick={reset}>
+          Reset to defaults{changed ? ` (${changed} changed)` : ''}
+        </button>
+      </div>
+
+      <section className="panel stack">
+        <h2>Model</h2>
+        <div className="row">
+          <span className="muted" style={{ minWidth: 120 }}>
+            Consumption
+          </span>
+          <div className="segmented" role="group" aria-label="Consumption model">
+            <button type="button" aria-pressed={settings.consumption === 'physics'} onClick={() => setSettings({ consumption: 'physics' })}>
+              Physics
+            </button>
+            <button type="button" aria-pressed={settings.consumption === 'simple'} onClick={() => setSettings({ consumption: 'simple' })}>
+              Simple (your spreadsheet)
+            </button>
+          </div>
+        </div>
+        <div className="row">
+          <span className="muted" style={{ minWidth: 120 }}>
+            Battery
+          </span>
+          <div className="segmented" role="group" aria-label="Battery model">
+            <button type="button" aria-pressed={settings.battery === 'chemistry'} onClick={() => setSettings({ battery: 'chemistry' })}>
+              Chemistry curves
+            </button>
+            <button type="button" aria-pressed={settings.battery === 'ideal'} onClick={() => setSettings({ battery: 'ideal' })}>
+              Ideal (your spreadsheet)
+            </button>
+          </div>
+        </div>
+        <p className="faint">
+          Physics: air drag, rolling resistance, slope and acceleration on real speed profiles, calibrated per car; onboard loads and battery
+          temperature follow the air temperature. Chemistry curves: open-circuit voltage, internal resistance and capacity per battery type and
+          temperature. Simple + Ideal reproduce your spreadsheet (with its formula issues fixed).
+        </p>
+      </section>
+
+      <div className="assumption-groups">
+        {groups.map((g) => (
+          <section key={g} className="panel">
+            <h2 style={{ marginBottom: 4 }}>{g}</h2>
+            {defs
+              .filter((d) => d.group === g)
+              .map((d) => {
+                const fxMatch = /^fx_([A-Z]{3})$/i.exec(d.key);
+                const key = NUMERIC_KEYS[d.key] as Key | undefined;
+                const isText = d.key === 'default_basis' || d.key === 'display_currency';
+                const current = fxMatch
+                  ? a.fx[fxMatch[1].toUpperCase()]
+                  : key
+                    ? (a[key] as number)
+                    : isText
+                      ? (a[d.key === 'default_basis' ? 'defaultBasis' : 'displayCurrency'] as string)
+                      : d.value;
+                const base = fxMatch
+                  ? baseAssumptions.fx[fxMatch[1].toUpperCase()]
+                  : key
+                    ? (baseAssumptions[key] as number)
+                    : d.value;
+                const isChanged = String(current) !== String(base);
+                const id = `as-${d.key}`;
+                return (
+                  <div key={d.key} className={`assumption ${isChanged ? 'changed' : ''}`}>
+                    <label htmlFor={id}>
+                      {d.label} {d.unit && <span className="faint">({d.unit})</span>}
+                    </label>
+                    {d.key === 'default_basis' ? (
+                      <select id={id} value={String(current)} onChange={(e) => setAssumption('defaultBasis', e.target.value)}>
+                        {['WLTP', 'NEDC', 'CLTC', 'EPA'].map((b) => (
+                          <option key={b}>{b}</option>
+                        ))}
+                      </select>
+                    ) : d.key === 'display_currency' ? (
+                      <input id={id} type="text" value={String(current)} readOnly title="Set in data/assumptions.csv" />
+                    ) : (
+                      <input
+                        id={id}
+                        type="number"
+                        step="any"
+                        value={typeof current === 'number' ? current : Number(current)}
+                        onChange={(e) => {
+                          const v = e.target.value === '' ? undefined : Number(e.target.value);
+                          if (v !== undefined && !Number.isFinite(v)) return;
+                          if (fxMatch) setFx(fxMatch[1].toUpperCase(), v);
+                          else if (key) setAssumption(key, v === base ? undefined : v);
+                        }}
+                      />
+                    )}
+                    <span className="desc">
+                      {[
+                        d.description,
+                        d.source ? `Source: ${d.source}` : '',
+                        isChanged ? `default ${typeof base === 'number' ? num(base, 4) : base}` : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </div>
+                );
+              })}
+          </section>
+        ))}
+      </div>
+
+      <section className="panel stack">
+        <h2>Other model tables</h2>
+        <p className="muted">These tables are edited directly as CSV files; the Physics page charts them.</p>
+        <ul className="flags">
+          <li>
+            <span className="mono">data/body_types.csv</span> <span className="muted">default drag coefficient and frontal area per body type</span>
+          </li>
+          <li>
+            <span className="mono">data/onboard/classes.csv</span>, <span className="mono">hvac.csv</span>{' '}
+            <span className="muted">onboard base loads and heating/cooling vs. temperature (your Facts tab)</span>
+          </li>
+          <li>
+            <span className="mono">data/battery/*.csv</span> <span className="muted">voltage curves, resistance and capacity vs. temperature per chemistry</span>
+          </li>
+          <li>
+            <span className="mono">data/cycles/*.csv</span> <span className="muted">official test-cycle speed traces used for the calibration</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+  );
+}

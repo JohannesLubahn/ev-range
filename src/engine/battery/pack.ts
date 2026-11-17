@@ -124,6 +124,30 @@ export class Pack {
     return { terminalKwh: term, lossKwh: loss, endSocPct: soc, cutoff, powerLimited };
   }
 
+  /**
+   * Discharge curve: cell terminal voltage vs. delivered charge (% of the rated capacity) at a constant
+   * power, from 100 % until the voltage cut-off.
+   */
+  dischargeCurve(powerKw: number, tempC: number): { deliveredPct: number; cellV: number }[] {
+    const kcap = this.capacityFactor(tempC);
+    const q = this.capacityAh * this.opts.sohFrac * kcap;
+    const r = this.resistance(tempC);
+    const vCut = this.opts.chemistry.cutoffCellV * this.nSeries;
+    const p = Math.max(0, powerKw) * 1000;
+    const pts: { deliveredPct: number; cellV: number }[] = [];
+    for (let soc = 100; soc >= 0; soc -= 1) {
+      const v = this.ocv(soc);
+      const disc = v * v - 4 * r * p;
+      if (disc < 0) break;
+      const i = r > 0 ? (v - Math.sqrt(disc)) / (2 * r) : p / v;
+      const vt = v - r * i;
+      pts.push({ deliveredPct: (100 - soc) * kcap, cellV: vt / this.nSeries });
+      if (vt < vCut) break;
+    }
+    void q;
+    return pts;
+  }
+
   withNominal(nominalKwh: number): Pack {
     return new Pack({ ...this.opts, nominalKwh });
   }

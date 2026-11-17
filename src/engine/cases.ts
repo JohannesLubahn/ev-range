@@ -78,11 +78,12 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   }
   steps.push({ label: `${name}: driving energy`, formula: `${fx(s.distanceKm, 1)} km × ${fx(s.distanceKm > 0 ? s.driveKwh / s.distanceKm : 0, 4)}`, value: s.driveKwh, unit: u });
   const o = s.onboard;
+  const rate = m.physics && m.d.isIce ? 'l/h' : 'kW';
   steps.push({
     label: `${name}: onboard systems`,
     formula: m.physics
-      ? `(base ${fx(o.baseKw, 2)} + cabin ${fx(o.cabinKw, 2)} + battery ${fx(o.batteryHvacKw, 2)}) kW × ${fx(s.timeH, 2)} h`
-      : `${fx(m.d.car.onboardKw ?? 0, 1)} kW × ${pct(s.spec.usagePct)} × ${fx(s.timeH, 2)} h`,
+      ? `(base ${fx(o.baseKw, 2)} + cabin ${fx(o.cabinKw, 2)} + battery ${fx(o.batteryHvacKw, 2)}) ${rate} × ${fx(s.timeH, 2)} h`
+      : `${fx(m.d.car.onboardKw ?? 0, 1)} ${u === 'l' ? 'l/h' : 'kW'} × ${pct(s.spec.usagePct)} × ${fx(s.timeH, 2)} h`,
     value: s.onboardKwh,
     unit: u,
   });

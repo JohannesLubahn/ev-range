@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     // The single-file preview build inlines everything into one HTML page (see scripts/inline_build.mjs).
     assetsInlineLimit: mode === 'single' ? 100_000_000 : 4096,
     cssCodeSplit: mode !== 'single',
-    rollupOptions: mode === 'single' ? { output: { inlineDynamicImports: true } } : undefined,
+    chunkSizeWarningLimit: 1500,
   },
   test: {
     environment: 'node',

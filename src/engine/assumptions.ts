@@ -2,7 +2,7 @@ import type { Dataset } from '../data/types';
 import { parseNumber } from '../data/parse';
 import type { Assumptions } from './types';
 
-const NUMERIC_KEYS: Record<string, keyof Assumptions> = {
+export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
   long_term_capacity_pct: 'longTermCapacityPct',
   battery_managed_min_c: 'batteryManagedMinC',
   battery_managed_max_c: 'batteryManagedMaxC',
