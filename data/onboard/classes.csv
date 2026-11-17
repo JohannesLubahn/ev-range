@@ -1,0 +1,3 @@
+class,label,general_kw,infotainment_kw,autonomous_driving_kw,description,source
+regular,Regular car,0.41,0.35,0.8,General = lights 0.05 + brakes & suspension 0.1 + idling 0.26 kW; autonomous driving: Nvidia Drive,Facts tab B5:B14
+premium,Large or premium car,0.5,0.7,2.5,Autonomous driving: Tesla (up to 2.5 kW),Facts tab C11:C14

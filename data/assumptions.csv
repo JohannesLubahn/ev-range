@@ -1,0 +1,28 @@
+key,value,unit,label,group,description,source
+long_term_capacity_pct,80,%,Battery capacity left after long-term use,Battery,Used as available capacity in every stress test,Car Details row 7 (nominal × 80 %)
+battery_managed_min_c,10,°C,Battery heated below,Battery,Thermal management heats the pack below this temperature,Facts tab: battery HVAC is 0 kW from 10 °C
+battery_managed_max_c,21,°C,Battery cooled above,Battery,Thermal management cools the pack above this temperature,Facts tab: battery HVAC is 0 kW up to 21 °C
+battery_hvac_max_kw,2,kW,Max. battery heating/cooling power,Battery,Beyond this the pack temperature drifts with the ambient temperature,Facts tab: 2 kW at 0 °C and at 30 °C
+battery_heat_exchange_w_per_k,200,W/K,Battery heat exchange with ambient,Battery,Heating/cooling power needed per °C of difference,Derived from the Facts tab slope (0.2 kW per °C)
+battery_pack_voltage_v,400,V,Nominal pack voltage,Battery,Only scales current; energy results do not depend on it,Typical 350–400 V passenger EV packs
+taper_speed_factor_pct,50,%,Charging speed outside the fast-charge window,Charging,Share of the fast charging speed below/above the fast window,Car Details comment: assumed to half the fast charging speed
+charging_efficiency_pct,90,%,Charging efficiency (grid → battery),Charging,"Test-cycle consumption is measured from the grid; this converts it to battery energy, and battery energy back to paid energy",Assumption; typical AC charging 85–95 %
+rolling_resistance_n_per_kn,8,N/kN,Tyre rolling resistance,Driving physics,"Used when a car has no tyre_rr value; 8 N/kN = EU tyre label class C, measured at 80 km/h (ISO 28580)",EU tyre label (Regulation (EU) 2020/740) class C: 7.8–9.0 N/kN
+tyre_pressure_ref_bar,2.5,bar,Reference tyre pressure,Driving physics,Tyre pressure at which the rolling resistance value applies,Assumption
+regen_efficiency_pct,70,%,Regenerative braking efficiency (wheel → battery),Driving physics,Share of braking energy that is recovered into the battery,Assumption; typical 60–80 %
+rotating_mass_factor,1.05,×,Rotating mass factor,Driving physics,Extra effective mass of wheels and motor during acceleration,Typical 1.03–1.08 for single-speed EVs
+frontal_area_factor,0.85,×,Frontal area ÷ (width × height),Driving physics,Used when a car has width and height but no frontal area,Common approximation for passenger cars
+drivetrain_efficiency_default_pct,88,%,Default drivetrain efficiency,Driving physics,Only used if a car cannot be calibrated (no consumption and no range),Assumption
+test_payload_kg,100,kg,Payload during the official test,Test conditions,Driver and test equipment on top of the curb weight,Assumption (WLTP test mass ≈ curb + 100 kg)
+test_temperature_c,23,°C,Test temperature,Test conditions,Ambient temperature of the official tests,WLTP and CLTC: 23 °C; NEDC: 20–30 °C
+default_basis,WLTP,,Standard assumed when a car has no rated range,Test conditions,Used to calibrate cars without any rated range,Assumption
+electricity_price,7.5,THB/kWh,Electricity price,Costs,Price paid per kWh from the grid,Battery Sizing row 73
+maintenance_per_year,8000,THB/year,Maintenance per year,Costs,,Battery Sizing row 74
+display_currency,THB,,Currency for comparisons,Costs,All costs are converted to this currency,
+high_speed_factor,2.5,×,Motor consumption at high speed,Simple model,Simple (spreadsheet) model only,Car Details comment: assuming 2.5 times the consumption
+fx_EUR,38.2248,THB per EUR,Exchange rate EUR → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
+fx_USD,33.3550,THB per USD,Exchange rate USD → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
+fx_CNY,4.9801,THB per CNY,Exchange rate CNY → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
+fx_MYR,8.1742,THB per MYR,Exchange rate MYR → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
+fx_JPY,0.2113,THB per JPY,Exchange rate JPY → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
+fx_AUD,23.7487,THB per AUD,Exchange rate AUD → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)

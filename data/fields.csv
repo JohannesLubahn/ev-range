@@ -1,0 +1,52 @@
+key,label,unit,group,type,better,description
+id,ID,,Identity,text,,"Unique short name (lowercase, no spaces); used in share links"
+name,Name,,Identity,text,,Model name as shown in the app
+brand,Brand,,Identity,text,,
+market,Market,,Identity,text,,Country the price applies to (e.g. TH)
+currency,Currency,,Costs,text,,"Currency of price, energy price and maintenance (THB, EUR, …)"
+price,Price,currency,Costs,number,lower,Purchase price in the car's currency
+powertrain,Powertrain,,Identity,enum:BEV|ICE,,"BEV = battery electric. ICE cars are modelled like an EV (approximation, as in the spreadsheet)"
+body_type,Body type,,Identity,enum:hatchback|sedan|SUV|MPV,,Selects default drag coefficient and frontal area when those are missing (see body_types.csv)
+car_class,Car class,,Identity,enum:regular|premium,,Onboard base loads and cabin heating/AC curve (Facts tab: regular vs. large or premium)
+battery_kwh,Nominal battery capacity,kWh,Battery & charging,number,higher,
+long_term_capacity_pct,Long-term capacity,%,Battery & charging,number,higher,Share of nominal capacity left after years of use. Blank = assumption (80 %)
+battery_type,Battery type,,Battery & charging,enum:LFP|NMC,,Cell chemistry; selects the temperature-dependent discharge curves
+battery_cycles,Battery cycles,full cycles,Battery & charging,number,higher,Rated full charge cycles
+consumption_kwh_per_km,Consumption of motors,kWh/km,Consumption & range,number,lower,From the same source and standard as the rated range. Blank = battery ÷ rated range
+range_cltc_km,Rated range CLTC,km,Consumption & range,number,higher,Chinese test cycle
+range_nedc_km,Rated range NEDC,km,Consumption & range,number,higher,New European Driving Cycle
+range_wltp_km,Rated range WLTP,km,Consumption & range,number,higher,Worldwide harmonised procedure
+range_epa_km,Rated range EPA,km,Consumption & range,number,higher,US EPA label
+consumption_basis,Consumption standard,,Consumption & range,enum:CLTC|NEDC|WLTP|EPA,,Only needed when ranges for several standards are given; otherwise taken from the filled range column
+onboard_kw,Onboard systems (Simple model),kW,Consumption & range,number,lower,Used only by the Simple (spreadsheet) model. Your note: sources mention between 3 and 10 kWh
+charge_from_pct,Charging test from,%,Battery & charging,number,,"Published fast-charging figure, e.g. 10 → 80 % in 30 min"
+charge_to_pct,Charging test to,%,Battery & charging,number,,
+charge_time_min,Charging test time,min,Battery & charging,number,lower,
+fast_window_from_pct,Fast charging starts at,%,Battery & charging,number,lower,"Below this, charging runs at the reduced (taper) speed. Blank = charging test 'from'"
+fast_window_to_pct,Fast charging ends at,%,Battery & charging,number,higher,"Above this, charging runs at the reduced (taper) speed. Blank = charging test 'to'"
+drag_coefficient,Drag coefficient (Cd),,Physics,number,lower,Blank = body-type default
+frontal_area_m2,Frontal area,m²,Physics,number,lower,"Blank = 0.85 × width × height, or body-type default"
+width_mm,Width,mm,Physics,number,,Without mirrors
+height_mm,Height,mm,Physics,number,,
+weight_kg,Curb weight,kg,Physics,number,lower,Blank = estimated from battery size
+tyre_rr,Tyre rolling resistance,N/kN,Physics,number,lower,EU tyre label value (e.g. 7.0). Blank = assumption
+accel_0_100_s,0–100 km/h,s,Performance,number,lower,
+top_speed_kmh,Top speed,km/h,Performance,number,higher,
+power_kw,Power,kW,Performance,number,higher,HP is calculated (× 1.341)
+torque_nm,Torque,Nm,Performance,number,higher,
+seats,Seats,,Comfort,number,higher,
+trunk_l,Storage volume,l,Comfort,number,higher,
+trunk_max_l,Storage max,l,Comfort,number,higher,
+turning_radius_m,Turning radius,m,Comfort,number,lower,
+interior_quality,Interior quality,,Comfort,text,,
+ui,UI,,Comfort,text,,
+suspension,Suspension,,Comfort,text,,
+airbags,Airbags,,Comfort,text,,
+adjustable_headrest,Adjustable headrest,,Comfort,text,,
+acc,ACC,,Comfort,text,,Adaptive cruise control (yes / no)
+cameras,Cameras,,Comfort,text,,
+energy_price,Energy price override,currency/kWh,Costs,number,lower,Per kWh (or per litre for ICE) in the car's currency. Blank = assumption
+maintenance_per_year,Maintenance override,currency/year,Costs,number,lower,In the car's currency. Blank = assumption
+source_url,Source,,Notes,text,,
+notes,Notes,,Notes,text,,
+updated,Last updated,,Notes,text,,Date of the last check of this row
