@@ -58,8 +58,8 @@ Parameters: `data/onboard/classes.csv` (per car class) and the *Cabin climate* g
 
 **Electronics:** control units, pumps, lights, steering and brakes, screens and audio, driver assistance.
 Regular car 0.22 kW (0.15 + 0.05 + 0.02), large/premium 0.42 kW (0.20 + 0.10 + 0.12 for an assistance computer and
-its sensors). Argonne measured 0.14–0.23 kW of non-climate load in two parked EVs; Tesla's HW3 computer draws under
-0.1 kW and an NVIDIA Orin module at most 60 W. The electronics also run during the official test (section 2).
+its sensors). Argonne measured 0.14–0.23 kW of non-climate load in two parked EVs; Tesla's self-driving computer
+(HW3) draws 72 W and an NVIDIA Orin module 15–60 W. The electronics also run during the official test (section 2).
 
 **Cabin heating and AC:** a steady heat balance of the cabin held at the setpoint (22 °C):
 
@@ -68,10 +68,10 @@ heat into the cabin  Q = UA · (T_air − T_cabin)               walls and windo
                        + ṁ_fresh · c_p · (T_air − T_cabin)     fresh air: 100 m³/h when heating (against fogged
                                                                windows), 45 m³/h when cooling (mostly recirculated)
                        + I_sun · A_sun                          sunshine (Conditions) × 1.0 m² (premium 1.2 m²)
-                       + people + screens + blower              75 W per person + their heat
+                       + people + screens + blower              73 W per person + their heat
 heating (Q < 0):  P = |Q| · (share_hp / COP_hp + (1 − share_hp))   resistive heater: 1 kW per kW of heat
 cooling (Q > 0):  P = (Q + moisture) / COP_ac                       moisture: fresh air dried to the 5 °C evaporator
-                                                                    + 55 W per person
+                                                                    + 59 W per person
 + blower 0.10 kW (premium 0.12)
 ```
 
@@ -127,20 +127,22 @@ draws while holding a temperature.
 
 ## 5. Sources
 
+The full list with links is on the Assumptions page (from `data/sources.csv`).
+
 | What | Source |
 |---|---|
 | WLTC class 3b, NEDC speed traces | UN GTR No. 15 / Regulation (EU) 2017/1151; UN R83/R101 — taken from the JRC `wltp` package (EUPL) |
 | EPA UDDS, HWFET | US EPA dynamometer drive schedules |
 | NMC open-circuit voltage | Chen et al. 2020, J. Electrochem. Soc. 167, 080534 (LG M50), via the PyBaMM `Chen2020` parameter set |
-| LFP open-circuit voltage | Prada et al. 2013, J. Electrochem. Soc. 159(9) (A123), LFP OCP Afshar 2017, via PyBaMM `Prada2013` |
-| NMC resistance vs. temperature | Kubal et al., Argonne National Laboratory (OSTI 1962091): 27–31 kJ/mol |
+| LFP open-circuit voltage | Prada et al. 2013, J. Electrochem. Soc. 160(4), A616 (A123), LFP OCP Afshar 2017, via PyBaMM `Prada2013` |
+| NMC resistance vs. temperature | Kubal et al. 2022, J. Power Sources 543, 231864 (Argonne, OSTI 1962091): 27–31 kJ/mol |
 | LFP resistance vs. temperature | Fitted to the A123 ANR26650M1-B datasheet (2.5C discharge at 0 °C and −15 °C): 27 kJ/mol |
 | Capacity vs. temperature | NMC: Kubal et al.; LFP: A123 datasheet + indicative vendor notes — **indicative, replace with datasheet values** |
 | Onboard measurements (heating, AC, electronics) | Argonne National Laboratory via DOE Vehicle Technologies Office Program Record "Impact of Cold Ambient Temperature and Extreme Conditions on EVs" (Sep 2024), Table 2; ADAC winter test (InsideEVs 2022) and summer traffic-jam test (electrive 2024); Car and Driver 2022; TEEL dynamometer data reported by Zhang & He 2026 (arXiv 2605.05919) |
 | Heat pump COP, share in deep cold | TEEL Tesla Model 3 (Humphries & Loiselle-Lapointe 2026, via Zhang & He 2026); Argonne (DOE 2024, Fig. 6) |
-| Body heat and moisture | ASHRAE Handbook – Fundamentals, ch. 18 |
+| Body heat and moisture | ASHRAE Handbook – Fundamentals, Table 1 of the people heat gains (as tabulated in the Autodesk Revit help) |
 | Cabin warming in the sun | McLaren, Null & Quinn 2005, Pediatrics 116:e109 |
-| Driver-assistance computers | Tesla Autonomy Day 2019 (HW3 < 100 W, via Electrek); NVIDIA DRIVE Orin (≤ 60 W per module); Gawron et al. 2018, Environ. Sci. Technol. 52:3249 |
+| Driver-assistance computers | Tesla FSD computer (HW3) 72 W (ComputerBase 2019; TechCrunch: about 100 W); NVIDIA Orin modules 15–60 W (NVIDIA); robotaxi-class Drive AGX Pegasus 500 W (ComputerBase); Gawron et al. 2018, Environ. Sci. Technol. 52:3249 (200 W modelled) |
 | Pack heat capacity and heat loss | Cell specific heat: measured LFP 1.0–1.15, NMC 0.96–1.04 J/(g·K) (batterydesign.net); pack specific energy: vendor figures; heat loss: Nissan Leaf owner measurement (~9 h time constant) |
 | Your Facts-tab onboard curves | Kept in `data/onboard/facts_tab.csv` for comparison only |
 | Rolling resistance | EU tyre label (Regulation (EU) 2020/740), class C = 8 N/kN; speed/pressure shape: empirical car-tyre formula |

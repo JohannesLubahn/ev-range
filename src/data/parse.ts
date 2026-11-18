@@ -11,6 +11,7 @@ import type {
   FieldDef,
   OnboardClass,
   OnboardMeasurement,
+  Source,
 } from './types';
 import { BASES } from './types';
 
@@ -23,6 +24,7 @@ export interface RawFiles {
   onboardClasses: string;
   factsTab: string;
   onboardMeasurements: string;
+  sources: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -240,6 +242,23 @@ export function parseDataset(files: RawFiles): Dataset {
     };
   });
 
+  const sources: Source[] = parseCsv(files.sources)
+    .rows.filter((r) => (r.title ?? '') !== '')
+    .map((r) => {
+      const url = r.url ?? '';
+      if (url && !/^https?:\/\//i.test(url)) warnings.push(`sources.csv, ${r.id}: url "${url}" does not start with http(s)://`);
+      return {
+        id: r.id ?? '',
+        topic: r.topic || 'Other',
+        title: r.title,
+        authors: r.authors ?? '',
+        publisher: r.publisher ?? '',
+        year: r.year ?? '',
+        url: /^https?:\/\//i.test(url) ? url : '',
+        usedFor: r.used_for ?? '',
+      };
+    });
+
   // Battery chemistry tables: one column per chemistry in ocv.csv and temperature.csv.
   const ocvTable = parseCsv(files.ocv);
   const tempTable = parseCsv(files.temperature);
@@ -303,6 +322,7 @@ export function parseDataset(files: RawFiles): Dataset {
     onboardClasses,
     factsTab,
     onboardMeasurements,
+    sources,
     chemistries,
     capacityTemps,
     capacityNotes,

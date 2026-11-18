@@ -1,3 +1,5 @@
+import { IconExternal } from '../components/Icons';
+import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import type { Assumptions } from '../engine/types';
 import { num } from '../format';
@@ -6,7 +8,43 @@ import { useStore } from '../state/store';
 
 type Key = Exclude<keyof Assumptions, 'fx'>;
 
-const GROUP_ORDER = ['Battery', 'Charging', 'Driving physics', 'Test conditions', 'Costs', 'Exchange rates', 'Simple model'];
+const GROUP_ORDER = ['Battery', 'Cabin climate', 'Charging', 'Driving physics', 'Test conditions', 'Costs', 'Exchange rates', 'Simple model'];
+
+/** The source list (data/sources.csv), numbered across topics, with clickable links. */
+function SourceList({ sources }: { sources: Source[] }) {
+  const topics = [...new Set(sources.map((s) => s.topic))];
+  let n = 0;
+  return (
+    <div className="sources">
+      {topics.map((topic) => {
+        const items = sources.filter((s) => s.topic === topic);
+        const start = n + 1;
+        n += items.length;
+        return (
+          <div key={topic} className="source-group">
+            <h3>{topic}</h3>
+            <ol start={start}>
+              {items.map((s) => (
+                <li key={s.id || s.title} id={s.id ? `source-${s.id}` : undefined}>
+                  {s.url ? (
+                    <a href={s.url} target="_blank" rel="noreferrer">
+                      {s.title}
+                      <IconExternal size={12} className="ext" />
+                    </a>
+                  ) : (
+                    <span className="title">{s.title}</span>
+                  )}
+                  <div className="meta">{[s.authors, s.publisher, s.year].filter(Boolean).join(' · ')}</div>
+                  {s.usedFor && <div className="used">Used for: {s.usedFor}</div>}
+                </li>
+              ))}
+            </ol>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function AssumptionsPage() {
   const { ds, a, baseAssumptions } = useEngine();
@@ -142,6 +180,17 @@ export function AssumptionsPage() {
           </section>
         ))}
       </div>
+
+      <section className="panel stack" id="sources">
+        <div>
+          <h2>Sources</h2>
+          <p className="muted">
+            Everything the values above and the model tables rest on, with links. The list is kept in{' '}
+            <span className="mono">data/sources.csv</span>: add a row there when you cite a new source.
+          </p>
+        </div>
+        <SourceList sources={ds.sources} />
+      </section>
 
       <section className="panel stack">
         <h2>Other model tables</h2>

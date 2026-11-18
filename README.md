@@ -31,6 +31,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/onboard/facts_tab.csv` | Your Facts-tab onboard curves, kept for comparison only. |
 | `data/battery/*.csv` | Voltage curves, resistance and capacity vs. temperature per chemistry (LFP, NMC). |
 | `data/cycles/*.csv` | Official test-cycle speed traces (WLTP, NEDC, EPA) used for the calibration. |
+| `data/sources.csv` | Every source the data and the model rest on, with links (shown on the Assumptions page). |
 
 - **Add a car:** add a line to `cars.csv`.
 - **Add a spec:** add a column to `cars.csv` and a line to `fields.csv`; it appears on the Cars page.

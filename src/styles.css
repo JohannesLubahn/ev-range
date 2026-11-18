@@ -970,6 +970,51 @@ table {
   margin-top: 3px;
 }
 
+/* ------------------------------------------------------------------ sources */
+/* Entries flow through as many columns as fit, so short topics leave no gaps. */
+.sources {
+  columns: 400px;
+  column-gap: 32px;
+}
+.source-group h3 {
+  margin-bottom: 6px;
+  break-after: avoid;
+}
+.source-group + .source-group h3 {
+  margin-top: 14px;
+}
+.sources ol {
+  margin: 0;
+  padding-left: 28px;
+}
+.sources li {
+  font-size: 13.5px;
+  line-height: 1.45;
+  padding-bottom: 10px;
+  break-inside: avoid;
+}
+.sources li::marker {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.sources a,
+.sources .title {
+  overflow-wrap: anywhere;
+}
+.sources a .ext {
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: -1px;
+}
+.sources .meta,
+.sources .used {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.sources .used {
+  color: var(--ink-2);
+}
+
 /* ------------------------------------------------------------------ physics & charts */
 .grid-2 {
   display: grid;

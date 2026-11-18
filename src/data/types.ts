@@ -96,6 +96,20 @@ export interface OnboardClass {
   source: string;
 }
 
+/** One entry of the source list (data/sources.csv), shown on the Assumptions page. */
+export interface Source {
+  id: string;
+  topic: string;
+  title: string;
+  authors: string;
+  publisher: string;
+  year: string;
+  /** Link to the source; blank for local files. */
+  url: string;
+  /** Which values of the model rest on this source. */
+  usedFor: string;
+}
+
 /** The spreadsheet's Facts-tab onboard curves (data/onboard/facts_tab.csv), kept for comparison only. */
 export interface FactsTabRow {
   temperatureC: number;
@@ -171,6 +185,7 @@ export interface Dataset {
   onboardClasses: Record<string, OnboardClass>;
   factsTab: FactsTabRow[];
   onboardMeasurements: OnboardMeasurement[];
+  sources: Source[];
   chemistries: Record<string, Chemistry>;
   capacityTemps: number[];
   capacityNotes: string[];

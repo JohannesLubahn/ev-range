@@ -150,23 +150,26 @@ def battery_tables():
     ocv_rows = [(soc, f"{lfp[soc]:.4f}", f"{nmc[soc]:.4f}") for soc in range(101)]
     chem = [
         ("chemistry", "label", "nominal_cell_v", "cutoff_cell_v", "max_cell_v", "dv_1c_25c_pct",
-         "resistance_ea_kj_per_mol", "ocv_source", "resistance_source", "capacity_source"),
+         "resistance_ea_kj_per_mol", "pack_wh_per_kg", "specific_heat_j_per_kgk", "ocv_source", "resistance_source",
+         "capacity_source", "thermal_source"),
         ("LFP", "Lithium iron phosphate (LiFePO4) / graphite", f"{mean(lfp):.3f}", f"{lfp[0]:.2f}", f"{lfp[100]:.2f}",
-         "3.0", "27",
-         "Prada et al. 2013, J. Electrochem. Soc. 159(9) (A123 LFP/graphite cell model); LFP OCP Afshar 2017, "
+         "3.0", "27", "140", "1100",
+         "Prada et al. 2013, J. Electrochem. Soc. 160(4), A616 (A123 LFP/graphite cell model); LFP OCP Afshar 2017, "
          f"graphite OCP Chen 2020; full-cell curve computed from the PyBaMM 'Prada2013' parameter set ({lfp_ah:.2f} Ah vs 2.3 Ah rated)",
          "Activation energy fitted to the A123 ANR26650M1-B datasheet (MD100113-02, 2.5C discharge): voltage drop "
          "x2.5 at 0 °C and x5 at -15 °C vs 23 °C, both = 27 kJ/mol. Voltage drop at 1C/25 °C: assumption for a "
          "complete EV pack incl. interconnects",
-         "See temperature.csv"),
+         "See temperature.csv",
+         "Pack: BYD Han Blade pack ≈ 140 Wh/kg (vendor figure; Tesla's LFP Model 3 pack ≈ 125 Wh/kg). Cells: measured LFP pouch and prismatic cells 1.0–1.15 J/(g·K) (batterydesign.net summary of measurements)"),
         ("NMC", "Lithium nickel manganese cobalt oxide (NMC811) / graphite", f"{mean(nmc):.3f}", f"{nmc[0]:.2f}",
-         f"{nmc[100]:.2f}", "3.0", "28",
+         f"{nmc[100]:.2f}", "3.0", "28", "170", "1000",
          "Chen et al. 2020, J. Electrochem. Soc. 167, 080534 (LG M50 NMC811/graphite-SiOx cell); full-cell curve "
          f"computed from the PyBaMM 'Chen2020' parameter set ({nmc_ah:.2f} Ah vs 5.0 Ah rated)",
-         "Kubal et al., Argonne National Laboratory (OSTI 1962091): apparent activation energy of the area-specific "
+         "Kubal et al. 2022, J. Power Sources 543, 231864 (Argonne National Laboratory, OSTI 1962091): apparent activation energy of the area-specific "
          "impedance 27-31 kJ/mol for NMC532/622/811 full cells, -20..40 °C. Voltage drop at 1C/25 °C: assumption "
          "for a complete EV pack incl. interconnects",
-         "See temperature.csv"),
+         "See temperature.csv",
+         "Pack: NMC packs ≈ 160–180 Wh/kg (vendor figures). Cells: measured NMC cells 0.96–1.04 J/(g·K) (batterydesign.net summary of measurements)"),
     ]
     temp = [
         ("temperature_c", "LFP", "NMC", "note"),

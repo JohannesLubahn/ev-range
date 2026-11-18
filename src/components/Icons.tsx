@@ -75,6 +75,12 @@ export const IconLink = (p: P) => (
   </svg>
 );
 
+export const IconExternal = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9.5 2.5h4v4M13.3 2.7L7.5 8.5M11.5 9.5v3a1 1 0 01-1 1h-7a1 1 0 01-1-1v-7a1 1 0 011-1h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const IconDownload = (p: P) => (
   <svg {...base(p)}>
     <path d="M8 2v8M4.8 7l3.2 3.2L11.2 7M2.5 13.5h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
