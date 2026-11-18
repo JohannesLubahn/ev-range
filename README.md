@@ -1,9 +1,13 @@
 # EV Compare
 
-A website that compares electric cars in the stress tests of `EV Calculations.ods`: traffic jam, no charger,
-sprint, battery life, long trip and cost of ownership. Consumption is calculated from first principles (air drag,
-rolling resistance, slope, acceleration, heating and AC from a heat balance of the cabin, battery chemistry and
-temperature) and calibrated per car to its rated consumption. Your spreadsheet's own model is still available as the **Simple** model.
+A website that compares electric cars in the stress tests of `EV Calculations.ods` (traffic jam, no charger,
+sprint, long trip, battery life) and in their cost of ownership. Consumption is calculated from first principles (air
+drag, rolling resistance, slope, acceleration, heating and AC from a heat balance of the cabin, battery chemistry and
+temperature) and calibrated per car to its rated consumption.
+
+Pages: **Compare** (all results in one table), **Stress tests** (one tab per test: battery needed vs. available
+and the average consumption in kWh/100 km), **Cost of ownership**, **Cars** (specs and data check), **Physics** (how
+the model behaves, checked against measurements) and **Assumptions** (every constant, with sources).
 
 ## Run it
 
@@ -50,7 +54,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | Command | What it does |
 |---|---|
 | `npm run dev` | Development server with hot reload |
-| `npm test` | Engine tests: spreadsheet parity, physics, fixes (Vitest) |
+| `npm test` | Engine tests: physics, onboard measurements, spreadsheet fixes, average consumption, sources (Vitest) |
 | `npm run build` | Type check + production build into `dist/` |
 | `npm run build:single` | One self-contained HTML file in `dist-single/` |
 | `npm run import-ods` | Re-import from `~/Documents/Tools/EV Calculations.ods` (never overwrites existing data files without `--force`) |
@@ -69,6 +73,6 @@ src/engine/            calculations only (no UI): physics/, battery/, onboard/, 
 src/data/              CSV parsing
 src/state/             app state (Zustand) and the engine provider
 src/components, pages/ the UI (React)
-tests/                 parity, physics and fix tests; fixtures/spreadsheet.json comes from the .ods
+tests/                 physics, fixes and source tests
 scripts/               ods_to_csv.py, build_reference_data.py, inline_build.mjs
 ```

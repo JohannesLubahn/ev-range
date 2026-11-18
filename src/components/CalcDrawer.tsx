@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { CASES } from '../caseMeta';
-import type { CapacityCheck, CarResults, Step } from '../engine/types';
-import { fixed, hours, money, num, plural, signedPct } from '../format';
+import type { AverageConsumption, CapacityCheck, CarResults, Step } from '../engine/types';
+import { fixed, hours, money, num, plural } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore, type CaseKey } from '../state/store';
 import { IconClose, IconInfo, IconWarning } from './Icons';
@@ -23,6 +23,11 @@ function StepsTable({ steps }: { steps: Step[] }) {
       </tbody>
     </table>
   );
+}
+
+/** "18.4 kWh/100 km on average", or nothing without a distance. */
+function averageText(avg: AverageConsumption, unit: string): string {
+  return Number.isFinite(avg.total) ? ` · ${fixed(avg.total, 1)} ${unit}/100 km on average` : '';
 }
 
 function CapacitySummary({ r, unit, howFar }: { r: CapacityCheck; unit: string; howFar: string }) {
@@ -51,6 +56,7 @@ function CapacitySummary({ r, unit, howFar }: { r: CapacityCheck; unit: string; 
         <PassFail pass={r.pass} margin={r.margin} />
         <span className="muted">
           {r.pass ? `${fixed(-short, 1)} ${unit} spare` : `${fixed(short, 1)} ${unit} short`} · {howFar}
+          {averageText(r.average, unit)}
         </span>
       </div>
     </div>
@@ -72,6 +78,7 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
           <PassFail pass={b.pass} margin={b.margin} />
           <span className="muted">
             {num(b.cyclesRequired, 0)} of {num(b.cyclesAvailable, 0)} rated cycles · rated cycles last {fixed(b.yearsUntilRated, 1)} years
+            {averageText(b.average, unit)}
           </span>
         </div>
       );
@@ -83,6 +90,7 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
           <b className="num" style={{ fontSize: 20 }}>{hours(t.tripTimeH)}</b>
           <span className="muted">
             {hours(t.timeDrivingH)} driving + {hours(t.timeChargingH)} charging ({plural(t.stops, "stop", "stops")}, {fixed(t.chargingSharePct, 0)} %)
+            {averageText(t.average, unit)}
           </span>
         </div>
       );
@@ -99,29 +107,10 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
   }
 }
 
-function simpleLine(key: CaseKey, s: CarResults | undefined, currency: string): string | null {
-  if (!s) return null;
-  switch (key) {
-    case 'trafficJam':
-    case 'noCharger':
-    case 'sprint': {
-      const r = s[key];
-      return `${fixed(r.requiredKwh, 1)} kWh needed of ${fixed(r.availableKwh, 1)} → ${r.pass ? '✓' : '✗'} ${signedPct(r.margin)}`;
-    }
-    case 'batteryLife':
-      return `${num(s.batteryLife.cyclesRequired, 0)} cycles needed → ${signedPct(s.batteryLife.margin)}`;
-    case 'longTrip':
-      return `trip time ${hours(s.longTrip.tripTimeH)}`;
-    case 'cost':
-      return s.cost.costPerKm === null ? null : `${fixed(s.cost.costPerKm, 2)} ${currency}/km`;
-  }
-}
-
 export function CalcDrawer() {
   const drawer = useStore((s) => s.drawer);
   const close = useStore((s) => s.closeDrawer);
-  const settings = useStore((s) => s.settings);
-  const { out, simple, derivedById, flagsById, a } = useEngine();
+  const { out, derivedById, flagsById, a } = useEngine();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -142,8 +131,6 @@ export function CalcDrawer() {
   const steps = caseResult?.steps ?? [];
   const warnings = caseResult?.warnings ?? [];
   const flags = flagsById[d.car.id] ?? [];
-  const physicsActive = settings.consumption === 'physics' || settings.battery === 'chemistry';
-  const sLine = physicsActive ? simpleLine(drawer.caseKey, simple.results[d.car.id], a.displayCurrency) : null;
 
   return (
     <>
@@ -172,11 +159,6 @@ export function CalcDrawer() {
               <h3>How it is calculated</h3>
               <StepsTable steps={steps} />
             </div>
-          )}
-          {sLine && (
-            <p className="muted">
-              <b>Simple model (your spreadsheet)</b>: {sLine}
-            </p>
           )}
           {flags.length > 0 && (
             <div className="stack" style={{ gap: 6 }}>

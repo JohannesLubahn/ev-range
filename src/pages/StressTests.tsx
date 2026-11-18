@@ -1,18 +1,19 @@
 import type { ReactNode } from 'react';
-import { CASES } from '../caseMeta';
-import { BulletRows, StackedRows, TipLines, type BulletRow, type StackedRow } from '../components/Bars';
+import { STRESS_TESTS } from '../caseMeta';
+import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type SideColumn, type StackSeries, type StackedRow } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
-import { PROFILES, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
-import { compact, fixed, hours, money, num, plural, signedPct } from '../format';
+import type { DerivedCar } from '../engine/derive';
+import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
+import { fixed, hours, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
-import { useStore, type CaseKey } from '../state/store';
+import { useStore, type StressKey } from '../state/store';
 
 const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
+const USAGE = 'Cabin AC / heating';
 
-function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scenario; set: (s: Scenario) => void; physics: boolean }) {
-  const usageLabel = physics ? 'Cabin AC / heating' : 'Onboard systems';
+function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; set: (s: Scenario) => void }) {
   switch (tab) {
     case 'trafficJam': {
       const i = scenario.trafficJam;
@@ -26,9 +27,9 @@ function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scena
           <NumberField label="Distance before the jam" unit="km" min={0} max={200} value={i.distBeforeKm} onChange={(v) => u({ distBeforeKm: v })} />
           <NumberField label="Distance after the jam" unit="km" min={0} max={200} value={i.distAfterKm} onChange={(v) => u({ distAfterKm: v })} />
           <NumberField label="Average speed outside the jam" unit="km/h" min={10} max={130} value={i.speedOutsideKmh} onChange={(v) => u({ speedOutsideKmh: v })} />
-          {physics && <SelectField label="Driving outside the jam" value={i.profileOutside} options={profileOptions} onChange={(v: Profile) => u({ profileOutside: v })} />}
-          <NumberField label={`${usageLabel} outside the jam`} unit="%" min={0} max={100} value={i.usageOutsidePct} onChange={(v) => u({ usageOutsidePct: v })} />
-          <NumberField label={`${usageLabel} in the jam`} unit="%" min={0} max={100} value={i.usageJamPct} onChange={(v) => u({ usageJamPct: v })} />
+          <SelectField label="Driving outside the jam" value={i.profileOutside} options={profileOptions} onChange={(v: Profile) => u({ profileOutside: v })} />
+          <NumberField label={`${USAGE} outside the jam`} unit="%" min={0} max={100} value={i.usageOutsidePct} onChange={(v) => u({ usageOutsidePct: v })} />
+          <NumberField label={`${USAGE} in the jam`} unit="%" min={0} max={100} value={i.usageJamPct} onChange={(v) => u({ usageJamPct: v })} />
         </div>
       );
     }
@@ -40,11 +41,11 @@ function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scena
         <div className="fields">
           <NumberField label="Distance between chargers" unit="km" min={10} max={1000} sliderMax={600} step={5} value={i.distanceKm} onChange={(v) => u({ distanceKm: v })} />
           <NumberField label="Average speed" unit="km/h" min={10} max={200} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          {physics && <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />}
-          {physics && <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} value={i.climbM} onChange={(v) => u({ climbM: v })} />}
+          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
+          <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} value={i.climbM} onChange={(v) => u({ climbM: v })} />
           <NumberField label="Charge at the start" unit="%" min={10} max={100} value={i.startPct} onChange={(v) => u({ startPct: v })} />
           <NumberField label="Charge on arrival" unit="%" min={0} max={50} value={i.endPct} onChange={(v) => u({ endPct: v })} />
-          <NumberField label={usageLabel} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
+          <NumberField label={USAGE} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
         </div>
       );
     }
@@ -55,11 +56,11 @@ function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scena
         <div className="fields">
           <NumberField label="Trip distance" unit="km" min={50} max={3000} sliderMax={2000} step={10} value={i.distanceKm} onChange={(v) => u({ distanceKm: v })} />
           <NumberField label="Average speed" unit="km/h" min={20} max={150} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          {physics && <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />}
+          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
           <NumberField label="Charge from" unit="%" min={0} max={90} value={i.chargeFromPct} onChange={(v) => u({ chargeFromPct: v })} />
           <NumberField label="Charge to" unit="%" min={20} max={100} value={i.chargeToPct} onChange={(v) => u({ chargeToPct: v })} />
-          <NumberField label={`${usageLabel} while driving`} unit="%" min={0} max={100} value={i.usageDrivingPct} onChange={(v) => u({ usageDrivingPct: v })} />
-          <NumberField label={`${usageLabel} while charging`} unit="%" min={0} max={100} value={i.usageChargingPct} onChange={(v) => u({ usageChargingPct: v })} />
+          <NumberField label={`${USAGE} while driving`} unit="%" min={0} max={100} value={i.usageDrivingPct} onChange={(v) => u({ usageDrivingPct: v })} />
+          <NumberField label={`${USAGE} while charging`} unit="%" min={0} max={100} value={i.usageChargingPct} onChange={(v) => u({ usageChargingPct: v })} />
         </div>
       );
     }
@@ -71,21 +72,10 @@ function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scena
           <NumberField label="Years of use" unit="years" min={1} max={40} value={i.years} onChange={(v) => u({ years: v })} />
           <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} value={i.kmPerYear} onChange={(v) => u({ kmPerYear: v })} />
           <NumberField label="Average speed" unit="km/h" min={10} max={120} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          {physics && <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />}
-          <NumberField label={usageLabel} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
-        </div>
-      );
-    }
-    case 'cost': {
-      const i = scenario.cost;
-      const u = (p: Partial<typeof i>) => set({ ...scenario, cost: { ...i, ...p } });
-      return (
-        <div className="fields">
-          <NumberField label="Electricity price" unit="/kWh" min={0} max={40} step={0.1} value={i.energyPrice} onChange={(v) => u({ energyPrice: v })} />
-          <NumberField label="Maintenance per year" unit="/year" min={0} max={100000} sliderMax={40000} step={500} value={i.maintenancePerYear} onChange={(v) => u({ maintenancePerYear: v })} />
+          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
+          <NumberField label={USAGE} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
           <p className="faint">
-            Years and distance come from the Battery life tab ({scenario.batteryLife.years} years × {num(scenario.batteryLife.kmPerYear, 0)} km). Cars
-            with their own energy price or maintenance in cars.csv keep those.
+            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving.
           </p>
         </div>
       );
@@ -93,28 +83,71 @@ function Inputs({ tab, scenario, set, physics }: { tab: CaseKey; scenario: Scena
   }
 }
 
-function capacityRows(key: 'trafficJam' | 'noCharger' | 'sprint', ids: string[], results: Record<string, CarResults>, names: Record<string, string>, open: (id: string) => void): BulletRow[] {
+const CONSUMPTION_SERIES: StackSeries[] = [
+  { key: 'driving', label: 'Driving', color: 'var(--series-1)' },
+  { key: 'onboard', label: 'Onboard systems', color: 'var(--series-2)' },
+  { key: 'battery', label: 'Battery heating/cooling', color: 'var(--series-3)' },
+];
+
+/** The average consumption of each car in this test, as a second bar column next to the main chart. */
+function consumptionColumn(ids: string[], average: (r: CarResults) => AverageConsumption, results: Record<string, CarResults>, derivedById: Record<string, DerivedCar>): SideColumn {
+  const cells: Record<string, SideCell> = {};
+  for (const id of ids) {
+    const d = derivedById[id];
+    const avg = average(results[id]);
+    const u = d.energyUnit;
+    const ok = Number.isFinite(avg.total);
+    const rated = d.consumption.value;
+    const kwh = u === 'kWh';
+    const ratedLabel =
+      d.consumption.provenance === 'calculated' ? `battery ÷ ${d.basis.value} range` : `rated (${d.basis.value} test${kwh ? ', from the grid' : ''})`;
+    cells[id] = {
+      // Litres (petrol cars) do not share the kWh scale: no bar, the value with its unit in its place.
+      parts: ok && kwh ? [avg.driving, avg.onboard, avg.battery] : [],
+      note: ok && !kwh ? `${fixed(avg.total, 1)} l/100 km` : undefined,
+      end: !ok ? '–' : kwh ? fixed(avg.total, 1) : '',
+      tip: (
+        <TipLines
+          title={`${d.car.name}: average consumption`}
+          lines={[
+            { color: 'var(--series-1)', value: `${fixed(avg.driving, 1)} ${u}`, label: 'driving' },
+            { color: 'var(--series-2)', value: `${fixed(avg.onboard, 1)} ${u}`, label: 'onboard systems (heating/AC, electronics)' },
+            ...(avg.battery > 0 ? [{ color: 'var(--series-3)', value: `${fixed(avg.battery, 1)} ${u}`, label: 'battery heating/cooling' }] : []),
+            { value: `${fixed(avg.total, 1)} ${u}/100 km`, label: `over ${num(avg.distanceKm, 0)} km, from the ${kwh ? 'battery' : 'tank'}` },
+            ...(rated !== null ? [{ value: `${fixed(rated * 100, 1)} ${u}/100 km`, label: ratedLabel }] : []),
+          ]}
+        />
+      ),
+      aria: `${d.car.name}: average consumption ${fixed(avg.total, 1)} ${u} per 100 km`,
+    };
+  }
+  return { title: 'Average consumption, kWh/100 km', series: CONSUMPTION_SERIES, cells };
+}
+
+function capacityRows(key: 'trafficJam' | 'noCharger' | 'sprint', ids: string[], results: Record<string, CarResults>, derivedById: Record<string, DerivedCar>, open: (id: string) => void): BulletRow[] {
   return ids
     .filter((id) => results[id])
     .sort((x, y) => results[y][key].margin - results[x][key].margin)
     .map((id) => {
       const c: CapacityCheck = results[id][key];
+      const d = derivedById[id];
+      const u = d.energyUnit;
       const extra =
         key === 'trafficJam'
           ? `lasts ${fixed(results[id].trafficJam.maxJamHours, 1)} h in the jam`
           : `reaches ~${num(results[id][key].maxDistanceKm, 0)} km`;
       return {
         id,
-        label: names[id],
+        label: d.car.name,
         value: c.requiredKwh,
         target: c.availableKwh,
         end: <PassFail pass={c.pass} margin={c.margin} />,
         tip: (
           <TipLines
-            title={names[id]}
+            title={d.car.name}
             lines={[
-              { color: 'var(--series-1)', value: `${fixed(c.requiredKwh, 1)} kWh`, label: 'needed' },
-              { color: 'var(--ink)', value: `${fixed(c.availableKwh, 1)} kWh`, label: 'available' },
+              { color: 'var(--series-1)', value: `${fixed(c.requiredKwh, 1)} ${u}`, label: 'needed' },
+              { color: 'var(--ink)', value: `${fixed(c.availableKwh, 1)} ${u}`, label: 'available' },
               { value: signedPct(c.margin), label: c.pass ? 'spare' : 'short' },
               { value: '', label: extra },
             ]}
@@ -139,22 +172,23 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
 }
 
 export function StressTestsPage() {
-  const { scenario, out, selectedIds, derivedById, a, stale } = useEngine();
+  const { scenario, out, selectedIds, derivedById, stale } = useEngine();
   const tab = useStore((s) => s.stressTab);
   const setTab = useStore((s) => s.setStressTab);
   const setScenario = useStore((s) => s.setScenario);
-  const settings = useStore((s) => s.settings);
   const openDrawer = useStore((s) => s.openDrawer);
-  const physics = settings.consumption === 'physics';
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = selectedIds.filter((id) => out.results[id]);
-  const meta = CASES.find((c) => c.key === tab) ?? CASES[0];
+  const meta = STRESS_TESTS.find((c) => c.key === tab) ?? STRESS_TESTS[0];
   const open = (id: string) => openDrawer(id, tab);
+  const side = consumptionColumn(ids, (r) => r[tab].average, out.results, derivedById);
 
   let chart: ReactNode = null;
   let howFar: ReactNode = null;
   if (tab === 'trafficJam' || tab === 'noCharger' || tab === 'sprint') {
-    chart = <BulletRows rows={capacityRows(tab, ids, out.results, names, open)} valueName="Battery needed (kWh, long-term)" targetName="Battery available" />;
+    chart = (
+      <BulletRows rows={capacityRows(tab, ids, out.results, derivedById, open)} valueName="Battery needed (kWh, long-term)" targetName="Battery available" side={side} />
+    );
     const sorted = [...ids].sort((x, y) =>
       tab === 'trafficJam'
         ? out.results[y].trafficJam.maxJamHours - out.results[x].trafficJam.maxJamHours
@@ -197,7 +231,13 @@ export function StressTestsPage() {
           onClick: () => open(id),
         };
       });
-    chart = <BulletRows rows={rows} valueName="Full charge cycles needed" targetName="Rated cycles" />;
+    const noCycles = ids.filter((id) => out.results[id].batteryLife.cyclesAvailable === null);
+    chart = (
+      <div className="stack">
+        <BulletRows rows={rows} valueName="Full charge cycles needed" targetName="Rated cycles" side={side} />
+        {noCycles.length > 0 && <p className="faint">No rated cycles in cars.csv: {noCycles.map((id) => names[id]).join(', ')}</p>}
+      </div>
+    );
     howFar = (
       <div className="stack" style={{ gap: 8 }}>
         <h3>Years until the rated cycles are used up</h3>
@@ -208,7 +248,7 @@ export function StressTestsPage() {
         />
       </div>
     );
-  } else if (tab === 'longTrip') {
+  } else {
     const rows: StackedRow[] = [...ids]
       .sort((x, y) => out.results[x].longTrip.tripTimeH - out.results[y].longTrip.tripTimeH)
       .map((id) => {
@@ -219,7 +259,7 @@ export function StressTestsPage() {
           parts: [t.timeDrivingH, t.timeChargingH],
           end: (
             <span>
-              {hours(t.tripTimeH)} <span className="faint">· {plural(t.stops, "stop", "stops")}</span>
+              {hours(t.tripTimeH)} <span className="faint">· {plural(t.stops, 'stop', 'stops')}</span>
             </span>
           ),
           tip: (
@@ -227,7 +267,7 @@ export function StressTestsPage() {
               title={names[id]}
               lines={[
                 { color: 'var(--series-1)', value: hours(t.timeDrivingH), label: 'driving' },
-                { color: 'var(--series-2)', value: hours(t.timeChargingH), label: `charging (${plural(t.stops, "stop", "stops")})` },
+                { color: 'var(--series-2)', value: hours(t.timeChargingH), label: `charging (${plural(t.stops, 'stop', 'stops')})` },
                 { value: hours(t.tripTimeH), label: 'total' },
               ]}
             />
@@ -239,55 +279,11 @@ export function StressTestsPage() {
       <StackedRows
         rows={rows}
         series={[
-          { key: 'drive', label: 'Driving', color: 'var(--series-1)' },
-          { key: 'charge', label: 'Charging', color: 'var(--series-2)' },
+          { key: 'drive', label: 'Driving time', color: 'var(--series-1)' },
+          { key: 'charge', label: 'Charging time', color: 'var(--series-2)' },
         ]}
+        side={side}
       />
-    );
-  } else {
-    const cur = a.displayCurrency;
-    const rows: StackedRow[] = ids
-      .filter((id) => out.results[id].cost.tco !== null)
-      .sort((x, y) => (out.results[x].cost.costPerKm ?? 0) - (out.results[y].cost.costPerKm ?? 0))
-      .map((id) => {
-        const c = out.results[id].cost;
-        return {
-          id,
-          label: names[id],
-          parts: [c.purchase ?? 0, c.energyCost, c.maintenanceCost],
-          end: (
-            <span>
-              {fixed(c.costPerKm, 2)} <span className="faint">{cur}/km</span>
-            </span>
-          ),
-          tip: (
-            <TipLines
-              title={names[id]}
-              lines={[
-                { color: 'var(--series-1)', value: money(c.purchase, cur), label: 'purchase' },
-                { color: 'var(--series-2)', value: money(c.energyCost, cur), label: 'energy' },
-                { color: 'var(--series-3)', value: money(c.maintenanceCost, cur), label: 'maintenance' },
-                { value: money(c.tco, cur), label: 'total' },
-              ]}
-            />
-          ),
-          onClick: () => open(id),
-        };
-      });
-    const missing = ids.filter((id) => out.results[id].cost.tco === null);
-    chart = (
-      <div className="stack">
-        <StackedRows
-          rows={rows}
-          series={[
-            { key: 'buy', label: 'Purchase', color: 'var(--series-1)' },
-            { key: 'energy', label: 'Energy', color: 'var(--series-2)' },
-            { key: 'maint', label: 'Maintenance', color: 'var(--series-3)' },
-          ]}
-        />
-        {missing.length > 0 && <p className="faint">No price in cars.csv: {missing.map((id) => names[id]).join(', ')}</p>}
-        <p className="faint">Totals over {scenario.batteryLife.years} years in {cur}; the bar ends show cost per km. Hover a bar for its parts ({compact(1e6)} = 1 million).</p>
-      </div>
     );
   }
 
@@ -301,7 +297,7 @@ export function StressTestsPage() {
         <PresetPicker />
       </div>
       <div className="tabs" role="tablist" aria-label="Stress test">
-        {CASES.map((c) => (
+        {STRESS_TESTS.map((c) => (
           <button key={c.key} type="button" role="tab" aria-selected={tab === c.key} onClick={() => setTab(c.key)}>
             {c.label}
           </button>
@@ -314,12 +310,22 @@ export function StressTestsPage() {
               <h2>{meta.label}</h2>
               <p className="muted">{meta.question}</p>
             </div>
-            <Inputs tab={tab} scenario={scenario} set={setScenario} physics={physics} />
+            <Inputs tab={tab} scenario={scenario} set={setScenario} />
           </div>
-          {physics && <ConditionsPanel />}
+          <ConditionsPanel />
         </div>
         <div className={`panel stack ${stale ? 'stale' : ''}`} style={{ minWidth: 0 }}>
-          {ids.length === 0 ? <p className="muted">No cars selected (Compare → Cars).</p> : chart}
+          {ids.length === 0 ? (
+            <p className="muted">No cars selected (Compare → Cars).</p>
+          ) : (
+            <>
+              {chart}
+              <p className="faint">
+                Average consumption: the energy taken from the battery over the test ÷ its distance, including the onboard systems (heating/AC,
+                electronics, cooling or warming the parked cabin) and battery heating/cooling. Petrol cars: litres per 100 km.
+              </p>
+            </>
+          )}
           {howFar}
         </div>
       </div>

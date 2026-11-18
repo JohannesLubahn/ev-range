@@ -4,6 +4,7 @@ import { IconBolt, IconMonitor, IconMoon, IconSun } from './components/Icons';
 import { AssumptionsPage } from './pages/Assumptions';
 import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
+import { CostPage } from './pages/Cost';
 import { PhysicsPage } from './pages/Physics';
 import { StressTestsPage } from './pages/StressTests';
 import { useEngine } from './state/engine';
@@ -47,8 +48,6 @@ export function App() {
   const view = useView();
   const theme = useStore((s) => s.theme);
   const setTheme = useStore((s) => s.setTheme);
-  const settings = useStore((s) => s.settings);
-  const setSettings = useStore((s) => s.setSettings);
   const { ds } = useEngine();
   useApplyTheme(theme);
   useEffect(() => {
@@ -72,24 +71,6 @@ export function App() {
             ))}
           </nav>
           <div className="topbar-tools">
-            <div className="segmented" role="group" aria-label="Consumption model">
-              <button
-                type="button"
-                aria-pressed={settings.consumption === 'physics'}
-                onClick={() => setSettings({ consumption: 'physics', battery: 'chemistry' })}
-                title="First-principles physics, calibrated per car"
-              >
-                Physics
-              </button>
-              <button
-                type="button"
-                aria-pressed={settings.consumption === 'simple'}
-                onClick={() => setSettings({ consumption: 'simple', battery: 'ideal' })}
-                title="Your spreadsheet's model"
-              >
-                Simple
-              </button>
-            </div>
             <button type="button" className="btn ghost" onClick={() => setTheme(NEXT_THEME[theme])} aria-label={THEME_LABEL[theme]} title={THEME_LABEL[theme]}>
               {theme === 'system' ? <IconMonitor /> : theme === 'light' ? <IconSun /> : <IconMoon />}
             </button>
@@ -109,6 +90,7 @@ export function App() {
         )}
         {view === 'compare' && <ComparePage />}
         {view === 'stress-tests' && <StressTestsPage />}
+        {view === 'cost' && <CostPage />}
         {view === 'cars' && <CarsPage />}
         {view === 'physics' && <PhysicsPage />}
         {view === 'assumptions' && <AssumptionsPage />}

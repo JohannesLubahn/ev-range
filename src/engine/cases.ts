@@ -1,8 +1,9 @@
-// The stress cases of the spreadsheet (Battery Sizing tab), on top of the car model (Simple or Physics).
+// The stress cases of the spreadsheet (Battery Sizing tab) and the cost of ownership, on top of the physics car model.
 import { toDisplayCurrency } from './assumptions';
 import type { BatteryView, CarModel, SegmentEnergy, SegmentSpec } from './model';
 import type { CabinClimate } from './onboard/climate';
 import type {
+  AverageConsumption,
   BatteryLifeInputs,
   BatteryLifeResult,
   CapacityCheck,
@@ -32,6 +33,24 @@ function combine(segs: SegmentEnergy[]) {
 }
 
 const kw = (w: number) => fx(Math.abs(w) / 1000, 2);
+/** Energy amounts: whole numbers once they are large (battery life), else two decimals. */
+const amount = (v: number) => fx(v, Math.abs(v) >= 100 ? 0 : 2);
+
+/** Average consumption per 100 km from the energy taken from the battery, and its explanation line. */
+function average(distanceKm: number, driving: number, onboard: number, battery: number, unit: string): { average: AverageConsumption; step: Step } {
+  const per = (v: number) => (distanceKm > 0 ? (v / distanceKm) * 100 : NaN);
+  const avg: AverageConsumption = { distanceKm, driving: per(driving), onboard: per(onboard), battery: per(battery), total: per(driving + onboard + battery) };
+  const parts = `driving ${amount(driving)} + onboard ${amount(onboard)}${battery > 0 ? ` + battery heating/cooling ${amount(battery)}` : ''}`;
+  return {
+    average: avg,
+    step: {
+      label: 'Average consumption',
+      formula: `(${parts}) ${unit} ÷ ${fx(distanceKm, 0)} km`,
+      value: Number.isFinite(avg.total) ? avg.total : null,
+      unit: `${unit}/100 km`,
+    },
+  };
+}
 
 /** The cabin heat balance in words: where the heat comes from and what it costs. */
 function climateText(cl: CabinClimate, engineHeat: boolean): string {
@@ -78,45 +97,40 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     value: s.timeH,
     unit: 'h',
   });
-  if (s.physics) {
-    const p = s.physics;
-    const f = p.forcesAtSpeed;
-    steps.push({
-      label: `${name}: speed profile`,
-      formula: `${p.trace}; air ${fx(p.airDensity, 3)} kg/m³, mass ${fx(p.massKg, 0)} kg`,
-      value: null,
-      unit: '',
-      kind: 'note',
-    });
-    steps.push({
-      label: `Forces at ${fx(f.speedKmh, 0)} km/h`,
-      formula: `air drag ${fx(f.aero, 0)} N + rolling ${fx(f.rolling, 0)} N (Crr ${fx(f.crr, 4)})${Math.abs(f.grade) > 0.5 ? ` + slope ${fx(f.grade, 0)} N` : ''}`,
-      value: f.aero + f.rolling + f.grade,
-      unit: 'N',
-    });
-    steps.push({
-      label: 'Work at the wheels per km',
-      formula: `air ${fx(p.aeroPerKm, 3)} + rolling ${fx(p.rollingPerKm, 3)}${Math.abs(p.gradePerKm) > 1e-4 ? ` + slope ${fx(p.gradePerKm, 3)}` : ''} + accelerating ${fx(p.accelPerKm, 3)} kWh/km`,
-      value: p.aeroPerKm + p.rollingPerKm + p.gradePerKm + p.accelPerKm,
-      unit: 'kWh/km',
-    });
-    const cal = m.calibration();
-    steps.push({
-      label: 'From the battery for driving',
-      formula: m.d.isIce
-        ? `÷ ${fx(cal.etaDrive, 2)} kWh per litre (calibrated)`
-        : `÷ drivetrain ${fx(cal.etaDrive * 100, 1)} % (calibrated), − regeneration ${fx(p.regenPerKm, 3)} kWh/km`,
-      value: p.drivePerKm,
-      unit: `${u}/km`,
-    });
-  } else {
-    const cons = s.distanceKm > 0 ? s.driveKwh / s.distanceKm : 0;
-    steps.push({ label: `${name}: motors`, formula: `${fx(cons, 4)} ${u}/km${s.spec.highSpeed ? ' (high speed)' : ''}`, value: cons, unit: `${u}/km` });
-  }
+  const p = s.physics;
+  const f = p.forcesAtSpeed;
+  steps.push({
+    label: `${name}: speed profile`,
+    formula: `${p.trace}; air ${fx(p.airDensity, 3)} kg/m³, mass ${fx(p.massKg, 0)} kg`,
+    value: null,
+    unit: '',
+    kind: 'note',
+  });
+  steps.push({
+    label: `Forces at ${fx(f.speedKmh, 0)} km/h`,
+    formula: `air drag ${fx(f.aero, 0)} N + rolling ${fx(f.rolling, 0)} N (Crr ${fx(f.crr, 4)})${Math.abs(f.grade) > 0.5 ? ` + slope ${fx(f.grade, 0)} N` : ''}`,
+    value: f.aero + f.rolling + f.grade,
+    unit: 'N',
+  });
+  steps.push({
+    label: 'Work at the wheels per km',
+    formula: `air ${fx(p.aeroPerKm, 3)} + rolling ${fx(p.rollingPerKm, 3)}${Math.abs(p.gradePerKm) > 1e-4 ? ` + slope ${fx(p.gradePerKm, 3)}` : ''} + accelerating ${fx(p.accelPerKm, 3)} kWh/km`,
+    value: p.aeroPerKm + p.rollingPerKm + p.gradePerKm + p.accelPerKm,
+    unit: 'kWh/km',
+  });
+  const cal = m.calibration();
+  steps.push({
+    label: 'From the battery for driving',
+    formula: m.d.isIce
+      ? `÷ ${fx(cal.etaDrive, 2)} kWh per litre (calibrated)`
+      : `÷ drivetrain ${fx(cal.etaDrive * 100, 1)} % (calibrated), − regeneration ${fx(p.regenPerKm, 3)} kWh/km`,
+    value: p.drivePerKm,
+    unit: `${u}/km`,
+  });
   steps.push({ label: `${name}: driving energy`, formula: `${fx(s.distanceKm, 1)} km × ${fx(s.distanceKm > 0 ? s.driveKwh / s.distanceKm : 0, 4)}`, value: s.driveKwh, unit: u });
   const o = s.onboard;
-  const rate = m.physics && m.d.isIce ? 'l/h' : 'kW';
-  if (m.physics && o.climate) {
+  const rate = m.d.isIce ? 'l/h' : 'kW';
+  if (o.climate) {
     steps.push({
       label: `${name}: cabin climate`,
       formula: `${climateText(o.climate, m.d.isIce)}${m.d.isIce ? ' (in litres via the calibrated engine factor)' : ''}`,
@@ -126,10 +140,9 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   }
   steps.push({
     label: `${name}: onboard systems`,
-    formula: m.physics
-      ? `(electronics ${fx(o.baseKw, 2)} + heating/AC ${fx(o.cabinFullKw, 2)} × ${pct(s.spec.usagePct)}) ${rate} × ${fx(s.timeH, 2)} h` +
-        (s.startKwh > 0 ? ` + ${o.climate && o.climate.soakC > o.climate.setpointC ? 'cooling' : 'warming'} the parked cabin from ${fx(o.climate?.soakC ?? 0, 0)} °C ${fx(s.startKwh, 2)} ${u}` : '')
-      : `${fx(m.d.car.onboardKw ?? 0, 1)} ${u === 'l' ? 'l/h' : 'kW'} × ${pct(s.spec.usagePct)} × ${fx(s.timeH, 2)} h`,
+    formula:
+      `(electronics ${fx(o.baseKw, 2)} + heating/AC ${fx(o.cabinFullKw, 2)} × ${pct(s.spec.usagePct)}) ${rate} × ${fx(s.timeH, 2)} h` +
+      (s.startKwh > 0 ? ` + ${o.climate && o.climate.soakC > o.climate.setpointC ? 'cooling' : 'warming'} the parked cabin from ${fx(o.climate?.soakC ?? 0, 0)} °C ${fx(s.startKwh, 2)} ${u}` : ''),
     value: s.onboardKwh,
     unit: u,
   });
@@ -152,6 +165,14 @@ function capacityCheck(m: CarModel, segs: SegmentEnergy[], startPct: number, end
   steps.push(...thermalStep(bat, u));
   const parts = [...segs.map((s) => s.totalKwh), ...(bat.thermal ? [bat.thermalKwh] : [])];
   steps.push({ label: 'Energy needed', formula: parts.map((v) => fx(v, 2)).join(' + '), value: energy, unit: u, kind: 'subtotal' });
+  const avg = average(
+    segs.reduce((x, s) => x + s.distanceKm, 0),
+    segs.reduce((x, s) => x + s.driveKwh, 0),
+    segs.reduce((x, s) => x + s.onboardKwh, 0),
+    bat.thermalKwh,
+    u,
+  );
+  steps.push(avg.step);
   if (bat.model === 'chemistry') {
     steps.push({
       label: 'Battery',
@@ -177,7 +198,17 @@ function capacityCheck(m: CarModel, segs: SegmentEnergy[], startPct: number, end
     unit: u,
     kind: 'result',
   });
-  return { requiredKwh: required, availableKwh: available, margin, pass: margin >= 0, energyKwh: energy, deliverableKwh: deliv.kwh, steps, warnings };
+  return {
+    requiredKwh: required,
+    availableKwh: available,
+    margin,
+    pass: margin >= 0,
+    energyKwh: energy,
+    deliverableKwh: deliv.kwh,
+    average: avg.average,
+    steps,
+    warnings,
+  };
 }
 
 export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
@@ -226,7 +257,6 @@ export function sprint(m: CarModel, i: SprintInputs): DistanceCheckResult {
       profile: i.profile,
       climbM: i.climbM,
       usagePct: i.usagePct,
-      highSpeed: true,
       tripStart: true,
     },
     i.startPct,
@@ -235,20 +265,13 @@ export function sprint(m: CarModel, i: SprintInputs): DistanceCheckResult {
 }
 
 /** Time (h) to charge from `fromPct` to `toPct`, fast inside the car's fast window, at taper speed outside. */
-function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: number, exact: boolean): { hours: number; steps: Step[] } {
+function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: number): { hours: number; steps: Step[] } {
   const d = m.d;
   const rf = d.fastPctPerH ?? 0;
   const rs = d.slowPctPerH ?? 0;
   const ws = d.fastWindow?.from ?? fromPct;
   const we = d.fastWindow?.to ?? toPct;
   const steps: Step[] = [];
-  if (exact) {
-    // Spreadsheet formulas (Battery Sizing rows 41-43), including the kW-vs-%/h mix.
-    const tLow = fromPct < ws ? (ws - fromPct) / (rs - onboardKw) : 0;
-    const tFast = (Math.max(toPct, we) - Math.max(fromPct, ws)) / (rf - onboardKw);
-    const tHigh = toPct < we ? (toPct - we) / (rs - onboardKw) : 0;
-    return { hours: tLow + tFast + tHigh, steps };
-  }
   const cap = d.longTermKwh && d.longTermKwh > 0 ? d.longTermKwh : 1;
   const drain = (onboardKw / cap) * 100; // %/h used by onboard systems while plugged in
   const parts = [
@@ -268,7 +291,7 @@ function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: nu
   return { hours, steps };
 }
 
-export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.settings.exactSpreadsheet): LongTripResult {
+export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
   const seg = m.segment({
     label: 'Driving',
     distanceKm: i.distanceKm,
@@ -280,10 +303,9 @@ export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.setting
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, seg.timeH);
   const perCharge = bat.deliverable(i.chargeToPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh;
   const energy = seg.totalKwh + bat.thermalKwh;
-  let chargings = perCharge > 0 ? energy / perCharge - 1 : Infinity;
-  if (!exact) chargings = Math.max(0, chargings);
+  const chargings = perCharge > 0 ? Math.max(0, energy / perCharge - 1) : Infinity;
   const onboardCharging = m.onboard(i.usageChargingPct).totalKw;
-  const ct = chargingTime(m, i.chargeFromPct, i.chargeToPct, onboardCharging, exact);
+  const ct = chargingTime(m, i.chargeFromPct, i.chargeToPct, onboardCharging);
   const timeDrivingH = i.speedKmh > 0 ? i.distanceKm / i.speedKmh : 0;
   const timeChargingH = ct.hours * chargings;
   const tripTimeH = timeDrivingH + timeChargingH;
@@ -291,6 +313,7 @@ export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.setting
   const warnings: string[] = [];
   if (!Number.isFinite(ct.hours)) warnings.push('Onboard consumption while charging exceeds the charging speed');
   if (m.d.fastPctPerH === null) warnings.push('Charging test data missing');
+  const avg = average(seg.distanceKm, seg.driveKwh, seg.onboardKwh, bat.thermalKwh, u);
   const steps: Step[] = [
     ...segmentSteps(m, seg),
     ...thermalStep(bat, u),
@@ -301,6 +324,7 @@ export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.setting
       unit: u,
       kind: 'subtotal',
     },
+    avg.step,
     {
       label: `Energy per charge (${pct(i.chargeFromPct)} → ${pct(i.chargeToPct)})`,
       formula: bat.model === 'chemistry' ? `deliverable at ${fx(bat.temperatureC, 1)} °C` : `${fx(bat.availableKwh, 1)} × (${pct(i.chargeToPct)} − ${pct(i.chargeFromPct)})`,
@@ -325,6 +349,7 @@ export function longTrip(m: CarModel, i: LongTripInputs, exact = !!m.ctx.setting
     timeChargingH,
     tripTimeH,
     chargingSharePct: tripTimeH > 0 ? (timeChargingH / tripTimeH) * 100 : 0,
+    average: avg.average,
     steps,
     warnings,
   };
@@ -341,18 +366,19 @@ function lifeEnergy(m: CarModel, i: BatteryLifeInputs) {
   const dayH = days > 0 ? seg.timeH / days : 0;
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, dayH);
   const losses = bat.lossFor(seg.totalKwh, seg.meanPowerKw, seg.rmsFactor);
-  const startKwh = m.physics ? seg.onboard.startKwh * days : 0;
+  const startKwh = seg.onboard.startKwh * days;
   const thermalKwh = bat.thermalKwh * days;
   return { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy: seg.totalKwh + losses + startKwh + thermalKwh };
 }
 
 export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResult {
-  const { totalKm, seg, bat, losses, days, dayH, startKwh, energy } = lifeEnergy(m, i);
+  const { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy } = lifeEnergy(m, i);
   const available = bat.availableKwh;
   const cyclesRequired = available > 0 ? energy / available : Infinity;
   const rated = m.d.car.batteryCycles;
   const margin = rated ? (rated - cyclesRequired) / rated : null;
   const u = m.d.energyUnit;
+  const avg = average(totalKm, seg.driveKwh, seg.onboardKwh + startKwh, thermalKwh, u);
   const steps: Step[] = [
     { label: 'Total distance', formula: `${fx(i.years, 0)} years × ${fx(i.kmPerYear, 0)} km`, value: totalKm, unit: 'km' },
     ...segmentSteps(m, seg),
@@ -362,6 +388,7 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     ...thermalStep(bat, u, days, ` per day (${fx(dayH, 2)} h of driving) × ${fx(days, 0)} days`),
     ...(losses > 0 ? [{ label: 'Battery losses', formula: `at ${fx(bat.temperatureC, 1)} °C`, value: losses, unit: u } as Step] : []),
     { label: 'Energy over the life', formula: '', value: energy, unit: u, kind: 'subtotal' },
+    avg.step,
     { label: 'Full cycles needed', formula: `${fx(energy, 0)} ÷ ${fx(available, 1)} ${u}`, value: cyclesRequired, unit: 'cycles', kind: 'result' },
     { label: 'Rated cycles', formula: '', value: rated, unit: 'cycles', kind: 'result' },
   ];
@@ -373,33 +400,24 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     margin,
     pass: margin === null ? null : margin >= 0,
     yearsUntilRated: rated && cyclesRequired > 0 ? (rated * i.years) / cyclesRequired : null,
+    average: avg.average,
     steps,
     warnings: rated ? [] : ['Rated battery cycles missing'],
   };
 }
 
-export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs, exact = !!m.ctx.settings.exactSpreadsheet): CostResult {
+export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs): CostResult {
   const d = m.d;
   const a = m.ctx.a;
   const currency = a.displayCurrency;
   const warnings: string[] = [];
-  const { totalKm, seg, energy } = lifeEnergy(m, life);
-  // Energy paid for per km: rated figures (Simple model) are grid values already; physics values are at the
-  // battery, so charging losses are added. Petrol: litres.
-  let energyPerKm: number;
-  let basisNote: string;
-  if (exact) {
-    energyPerKm = d.consumption.value ?? 0;
-    basisNote = 'motors only (as in the spreadsheet)';
-  } else if (!m.physics) {
-    energyPerKm = seg.perKm;
-    basisNote = 'motors + onboard systems (rated, from the grid)';
-  } else {
-    const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
-    energyPerKm = totalKm > 0 ? energy / totalKm / eff : 0;
-    basisNote = d.isIce ? 'litres per km' : `battery energy ÷ ${fx(eff * 100, 0)} % charging efficiency`;
-  }
-  const convert = (v: number) => (exact ? v : toDisplayCurrency(v, d.car.currency, a));
+  const { totalKm, energy } = lifeEnergy(m, life);
+  // Energy paid for per km: the battery's energy over the life (driving, onboard systems, battery heating /
+  // cooling and losses) plus the charging losses. Petrol: litres.
+  const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
+  const energyPerKm = totalKm > 0 ? energy / totalKm / eff : 0;
+  const basisNote = d.isIce ? 'litres over the life ÷ km' : `battery energy over the life ÷ ${fx(eff * 100, 0)} % charging efficiency`;
+  const convert = (v: number) => toDisplayCurrency(v, d.car.currency, a);
   let unitPrice = ci.energyPrice;
   if (d.car.energyPrice !== null) {
     const c = convert(d.car.energyPrice);
@@ -411,7 +429,7 @@ export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs, exact
     const c = convert(d.car.maintenancePerYear);
     if (c !== null) maintenance = c;
   }
-  const purchase = exact ? d.car.price : d.priceDisplay.value;
+  const purchase = d.priceDisplay.value;
   if (purchase === null) warnings.push('Price missing');
   const energyCost = unitPrice * energyPerKm * totalKm;
   const maintenanceCost = maintenance * life.years;

@@ -10,7 +10,7 @@ export interface EngineOutput {
   results: Record<string, CarResults>;
 }
 
-export function evaluateCar(m: CarModel, scenario: Scenario, exact = false): CarResults {
+export function evaluateCar(m: CarModel, scenario: Scenario): CarResults {
   const tj = trafficJam(m, scenario.trafficJam);
   const nc = noCharger(m, scenario.noCharger);
   const sp = sprint(m, scenario.sprint);
@@ -21,9 +21,9 @@ export function evaluateCar(m: CarModel, scenario: Scenario, exact = false): Car
     trafficJam: tj,
     noCharger: nc,
     sprint: sp,
-    longTrip: longTrip(m, scenario.longTrip, exact),
+    longTrip: longTrip(m, scenario.longTrip),
     batteryLife: bl,
-    cost: cost(m, scenario.batteryLife, scenario.cost, exact),
+    cost: cost(m, scenario.batteryLife, scenario.cost),
     passCount: checks.filter((c) => c === true).length,
     checkCount: checks.filter((c) => c !== null).length,
   };
@@ -40,7 +40,7 @@ export function runEngine(ds: Dataset, a: Assumptions, scenario: Scenario, setti
     models[d.car.id] = m;
     if (wanted && !wanted.has(d.car.id)) continue;
     if (d.consumption.value === null || d.batteryKwh === null) continue;
-    results[d.car.id] = evaluateCar(m, scenario, settings.exactSpreadsheet);
+    results[d.car.id] = evaluateCar(m, scenario);
   }
   return { derived, models, results };
 }

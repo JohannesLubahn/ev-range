@@ -1,4 +1,4 @@
-// The energy model of one car: segment energies (Simple or Physics) and the battery view (ideal or chemistry).
+// The energy model of one car: segment energies from the physics and the battery view (chemistry or ideal).
 import type { Dataset } from '../data/types';
 import type { DataFlag, DerivedCar } from './derive';
 import { Pack } from './battery/pack';
@@ -20,11 +20,9 @@ export interface SegmentSpec {
   timeH?: number;
   profile: Profile;
   climbM?: number;
-  /** Usage of the onboard systems (Simple model) / cabin heating & AC (Physics model), %. */
+  /** Share of the time the cabin heating / AC is on, %. */
   usagePct: number;
-  /** Simple model: use the high-speed consumption (the spreadsheet's Sprint case). */
-  highSpeed?: boolean;
-  /** First segment of a trip: the parked cabin is heated or cooled to the setpoint (Physics model). */
+  /** First segment of a trip: the parked cabin is heated or cooled to the setpoint. */
   tripStart?: boolean;
 }
 
@@ -45,7 +43,7 @@ export interface SegmentEnergy {
   perKm: number;
   meanPowerKw: number;
   rmsFactor: number;
-  physics?: {
+  physics: {
     trace: string;
     airDensity: number;
     massKg: number;
@@ -119,20 +117,12 @@ export class CarModel {
     }
   }
 
-  get physics(): boolean {
-    return this.ctx.settings.consumption === 'physics';
-  }
-
   get usesChemistry(): boolean {
     return this.ctx.settings.battery === 'chemistry' && this.pack !== null && !this.d.isIce;
   }
 
   // ------------------------------------------------------------------------------------------ onboard
   onboard(usagePct: number): OnboardPower {
-    if (!this.physics) {
-      const kw = ((this.d.car.onboardKw ?? 0) * usagePct) / 100;
-      return { totalKw: kw, baseKw: 0, cabinKw: kw, cabinFullKw: this.d.car.onboardKw ?? 0, startKwh: 0, climate: null };
-    }
     const { ds, a, conditions } = this.ctx;
     const p = onboardPower(ds, a, conditions, this.d.car.carClass, this.d.heatPump.value, usagePct, this.d.isIce);
     if (this.d.isIce) {
@@ -237,7 +227,7 @@ export class CarModel {
 
   /** Data-check messages that come from the physics calibration. */
   calibrationFlags(): DataFlag[] {
-    if (!this.physics || this.d.consumption.value === null) return [];
+    if (this.d.consumption.value === null) return [];
     const cal = this.calibration();
     return cal.clamped ? [{ carId: this.d.car.id, severity: 'warning', field: 'consumption_kwh_per_km', message: cal.note }] : [];
   }
@@ -261,17 +251,6 @@ export class CarModel {
     const onboard = this.onboard(spec.usagePct);
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
     const onboardKwh = onboard.totalKw * timeH + startKwh;
-    if (!this.physics) {
-      const cons = (spec.highSpeed ? this.d.highSpeedConsumption : this.d.consumption.value) ?? 0;
-      const driveKwh = cons * distanceKm;
-      const totalKwh = driveKwh + onboardKwh;
-      return {
-        spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, startKwh, totalKwh,
-        perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
-        meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
-        rmsFactor: 1,
-      };
-    }
     const grade = distanceKm > 0 ? (spec.climbM ?? 0) / (distanceKm * 1000) : 0;
     const { sim, trace, movingKmh } = this.simulateProfile(spec.profile, avgSpeedKmh, grade);
     const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;

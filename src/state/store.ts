@@ -1,18 +1,23 @@
 import { create } from 'zustand';
+import { NUMERIC_KEYS } from '../engine/assumptions';
 import { spreadsheetDefaults } from '../engine/scenario';
 import type { Assumptions, Conditions, ModelSettings, Scenario } from '../engine/types';
 import { load, save } from './storage';
 
-export type View = 'compare' | 'stress-tests' | 'cars' | 'physics' | 'assumptions';
+export type View = 'compare' | 'stress-tests' | 'cost' | 'cars' | 'physics' | 'assumptions';
 export const VIEWS: { id: View; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'stress-tests', label: 'Stress tests' },
+  { id: 'cost', label: 'Cost of ownership' },
   { id: 'cars', label: 'Cars' },
   { id: 'physics', label: 'Physics' },
   { id: 'assumptions', label: 'Assumptions' },
 ];
 
-export type CaseKey = 'trafficJam' | 'noCharger' | 'sprint' | 'batteryLife' | 'longTrip' | 'cost';
+export type CaseKey = 'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost';
+/** The stress tests (tabs of the Stress tests page); cost of ownership has its own page. */
+export type StressKey = Exclude<CaseKey, 'cost'>;
+const STRESS_KEYS: StressKey[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip', 'batteryLife'];
 export type SortKey = 'overall' | 'name' | CaseKey;
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -65,7 +70,7 @@ export interface AppState extends SharedState {
   sort: { key: SortKey; dir: 1 | -1 };
   theme: Theme;
   drawer: { carId: string; caseKey: CaseKey } | null;
-  stressTab: CaseKey;
+  stressTab: StressKey;
   physicsCars: string[];
 
   setScenario: (s: Scenario) => void;
@@ -82,7 +87,7 @@ export interface AppState extends SharedState {
   setTheme: (t: Theme) => void;
   openDrawer: (carId: string, caseKey: CaseKey) => void;
   closeDrawer: () => void;
-  setStressTab: (t: CaseKey) => void;
+  setStressTab: (t: StressKey) => void;
   setPhysicsCars: (ids: string[]) => void;
   setAssumption: (key: Exclude<keyof Assumptions, 'fx'>, value: number | string | undefined) => void;
   setFx: (cur: string, value: number | undefined) => void;
@@ -92,13 +97,32 @@ export interface AppState extends SharedState {
   applyShared: (s: Partial<SharedState>) => void;
 }
 
-const DEFAULT_SETTINGS: ModelSettings = { consumption: 'physics', battery: 'chemistry' };
+/**
+ * Settings saved or shared by older versions may still hold the removed Simple model, which always came with the
+ * ideal battery ({consumption: 'simple', battery: 'ideal'}): those go back to the chemistry curves.
+ */
+function normalizeSettings(raw: unknown): ModelSettings {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as { battery?: unknown; consumption?: unknown };
+  return { battery: r.battery === 'ideal' && r.consumption !== 'simple' ? 'ideal' : 'chemistry' };
+}
+
+const ASSUMPTION_KEYS = new Set<string>([...Object.values(NUMERIC_KEYS), 'defaultBasis', 'displayCurrency']);
+
+/** Overrides of assumptions that no longer exist (e.g. the Simple model's high-speed factor) are dropped. */
+function knownOverrides(raw: unknown): AssumptionOverrides {
+  if (!raw || typeof raw !== 'object') return {};
+  return Object.fromEntries(Object.entries(raw).filter(([k]) => ASSUMPTION_KEYS.has(k))) as AssumptionOverrides;
+}
+
+function stressKey(v: unknown): StressKey {
+  return STRESS_KEYS.includes(v as StressKey) ? (v as StressKey) : 'noCharger';
+}
 
 export const useStore = create<AppState>((set, get) => ({
   scenario: load<Scenario | null>('scenario', null),
-  settings: { ...DEFAULT_SETTINGS, ...load<Partial<ModelSettings>>('settings', {}), exactSpreadsheet: false },
+  settings: normalizeSettings(load<unknown>('settings', {})),
   selectedIds: load<string[] | null>('selected', null),
-  assumptionOverrides: load<AssumptionOverrides>('assumptions', {}),
+  assumptionOverrides: knownOverrides(load<unknown>('assumptions', {})),
   fxOverrides: load<Record<string, number>>('fx', {}),
   carsCsv: load<string | null>('carsCsv', null),
   carsCsvName: load<string | null>('carsCsvName', null),
@@ -109,7 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
   sort: load<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'overall', dir: 1 }),
   theme: load<Theme>('theme', 'system'),
   drawer: null,
-  stressTab: load<CaseKey>('stressTab', 'noCharger'),
+  stressTab: stressKey(load<unknown>('stressTab', 'noCharger')),
   physicsCars: load<string[]>('physicsCars', []),
 
   setScenario: (s) => set({ scenario: s, presetId: 'custom' }),
@@ -166,7 +190,13 @@ export const useStore = create<AppState>((set, get) => ({
   resetAssumptions: () => set({ assumptionOverrides: {}, fxOverrides: {} }),
   loadCarsCsv: (text, name) => set({ carsCsv: text, carsCsvName: name, selectedIds: null }),
   resetCarsCsv: () => set({ carsCsv: null, carsCsvName: null, selectedIds: null }),
-  applyShared: (s) => set({ ...s, presetId: s.scenario ? 'custom' : get().presetId }),
+  applyShared: (s) =>
+    set({
+      ...s,
+      ...(s.settings ? { settings: normalizeSettings(s.settings) } : {}),
+      ...(s.assumptionOverrides ? { assumptionOverrides: knownOverrides(s.assumptionOverrides) } : {}),
+      presetId: s.scenario ? 'custom' : get().presetId,
+    }),
 }));
 
 // Remember the viewer's settings in this browser.

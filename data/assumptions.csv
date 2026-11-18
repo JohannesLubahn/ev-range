@@ -32,7 +32,6 @@ default_basis,WLTP,,Standard assumed when a car has no rated range,Test conditio
 electricity_price,7.5,THB/kWh,Electricity price,Costs,Price paid per kWh from the grid,Battery Sizing row 73
 maintenance_per_year,8000,THB/year,Maintenance per year,Costs,,Battery Sizing row 74
 display_currency,THB,,Currency for comparisons,Costs,All costs are converted to this currency,
-high_speed_factor,2.5,×,Motor consumption at high speed,Simple model,Simple (spreadsheet) model only,Car Details comment: assuming 2.5 times the consumption
 fx_EUR,38.2248,THB per EUR,Exchange rate EUR → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_USD,33.3550,THB per USD,Exchange rate USD → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_CNY,4.9801,THB per CNY,Exchange rate CNY → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)

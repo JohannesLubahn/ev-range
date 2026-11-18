@@ -34,7 +34,6 @@ export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
   test_temperature_c: 'testTemperatureC',
   electricity_price: 'electricityPrice',
   maintenance_per_year: 'maintenancePerYear',
-  high_speed_factor: 'highSpeedFactor',
 };
 
 /** Fallbacks used only if a key is missing from assumptions.csv. */
@@ -72,7 +71,6 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   electricityPrice: 7.5,
   maintenancePerYear: 8000,
   displayCurrency: 'THB',
-  highSpeedFactor: 2.5,
   fx: { THB: 1 },
 };
 

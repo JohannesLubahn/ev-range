@@ -21,7 +21,6 @@ export interface Car {
   consumptionKwhPerKm: number | null;
   ranges: Partial<Record<Basis, number>>;
   consumptionBasis: Basis | null;
-  onboardKw: number | null;
   chargeFromPct: number | null;
   chargeToPct: number | null;
   chargeTimeMin: number | null;

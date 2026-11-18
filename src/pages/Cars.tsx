@@ -45,7 +45,6 @@ function unitFor(f: FieldDef, d: DerivedCar): string {
 
 function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecRow[] }[] {
   const { ds, derivedById, out, a, scenario } = useEngine();
-  const settings = useStore((s) => s.settings);
   return useMemo(() => {
     const groups = new Map<string, SpecRow[]>();
     const add = (group: string, row: SpecRow) => {
@@ -94,27 +93,25 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
       calc('Battery & charging', 'c_slowkw', 'Charging outside the fast window', 'kW', 'higher', (d) => n(d.slowKw, 1));
       calc('Consumption & range', 'c_basis', 'Consumption standard', '', '', (d) => ({ text: d.basis.value, value: null, prov: d.basis.provenance }));
       calc('Consumption & range', 'c_implied', 'Battery ÷ rated range', 'kWh/km', 'lower', (d) => n(d.impliedConsumption, 3));
-      if (settings.consumption === 'physics') {
-        calc('Consumption & range', 'c_eta', 'Drivetrain efficiency (calibrated)', '%', 'higher', (d) => {
+      calc('Consumption & range', 'c_eta', 'Drivetrain efficiency (calibrated)', '%', 'higher', (d) => {
+        const m = out.models[d.car.id];
+        if (!m || d.consumption.value === null || d.isIce) return { text: '', value: null };
+        const cal = m.calibration();
+        return { text: `${fixed(cal.etaDrive * 100, 1)}${cal.clamped ? ' (limited)' : ''}`, value: cal.etaDrive * 100 };
+      });
+      for (const speed of [90, 120]) {
+        calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)`, `${'kWh'}/100 km`, 'lower', (d) => {
           const m = out.models[d.car.id];
-          if (!m || d.consumption.value === null || d.isIce) return { text: '', value: null };
-          const cal = m.calibration();
-          return { text: `${fixed(cal.etaDrive * 100, 1)}${cal.clamped ? ' (limited)' : ''}`, value: cal.etaDrive * 100 };
-        });
-        for (const speed of [90, 120]) {
-          calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)`, `${'kWh'}/100 km`, 'lower', (d) => {
-            const m = out.models[d.car.id];
-            if (!m || d.consumption.value === null) return { text: '', value: null };
-            const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', usagePct: 0 });
-            return n(seg.driveKwh, 1);
-          });
-        }
-        calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC on`, 'kW', 'lower', (d) => {
-          const m = out.models[d.car.id];
-          if (!m || d.isIce) return { text: '', value: null };
-          return n(m.onboard(100).totalKw, 2);
+          if (!m || d.consumption.value === null) return { text: '', value: null };
+          const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', usagePct: 0 });
+          return n(seg.driveKwh, 1);
         });
       }
+      calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC on`, 'kW', 'lower', (d) => {
+        const m = out.models[d.car.id];
+        if (!m || d.isIce) return { text: '', value: null };
+        return n(m.onboard(100).totalKw, 2);
+      });
       calc('Performance', 'c_hp', 'Power', 'HP', 'higher', (d) => n(d.powerHp, 0));
       if (ids.some((id) => derivedById[id].car.currency !== a.displayCurrency))
         calc('Costs', 'c_price', `Price in ${a.displayCurrency}`, a.displayCurrency, 'lower', (d) => n(d.priceDisplay.value, 0, d.priceDisplay.provenance));
@@ -123,7 +120,7 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
     return [...groups.entries()]
       .sort((x, y) => (order.indexOf(x[0]) + 99 * +(order.indexOf(x[0]) < 0)) - (order.indexOf(y[0]) + 99 * +(order.indexOf(y[0]) < 0)))
       .map(([group, rows]) => ({ group, rows }));
-  }, [ds, derivedById, out, ids, showCalc, settings.consumption, a.displayCurrency, scenario.conditions.airTemperatureC]);
+  }, [ds, derivedById, out, ids, showCalc, a.displayCurrency, scenario.conditions.airTemperatureC]);
 }
 
 function download(name: string, text: string) {

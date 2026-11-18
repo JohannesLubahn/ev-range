@@ -19,10 +19,7 @@ function thermalOptions(a: Assumptions): { id: ThermalMode; label: string; descr
 /** One-line summary of the conditions under which the results hold. */
 export function ConditionsSummary() {
   const { scenario } = useEngine();
-  const settings = useStore((s) => s.settings);
   const c = scenario.conditions;
-  if (settings.consumption === 'simple')
-    return <span className="conditions">Simple model: your spreadsheet’s constant consumption, no weather or speed effects</span>;
   return (
     <span className="conditions">
       <span>
@@ -113,7 +110,6 @@ function SaveButton({ onSave }: { onSave: (name: string) => void }) {
 export function ConditionsPanel() {
   const { scenario, a } = useEngine();
   const setScenario = useStore((s) => s.setScenario);
-  const settings = useStore((s) => s.settings);
   const c = scenario.conditions;
   const set = (p: Partial<Conditions>) => setScenario({ ...scenario, conditions: { ...c, ...p } });
   return (
@@ -121,9 +117,8 @@ export function ConditionsPanel() {
       <div>
         <h3>Conditions</h3>
         <p className="muted">
-          {settings.consumption === 'physics'
-            ? 'Shared by all stress tests. They act on air drag, rolling resistance, heating / AC (temperature, sun, humidity) and the battery.'
-            : 'These only take effect with the Physics model.'}
+          Shared by all stress tests and the cost of ownership. They act on air drag, rolling resistance, heating / AC (temperature, sun,
+          humidity) and the battery.
         </p>
       </div>
       <div className="fields">

@@ -1,14 +1,24 @@
 # The model
 
-Two models can be switched at the top of the app:
+Consumption comes from the forces on the car, calibrated per car (sections 1–2); heating and AC from a heat
+balance of the cabin (air temperature, sun, humidity, section 3); the battery is simulated per chemistry, with its
+temperature over the trip from its heat capacity, losses and thermal management (section 4). On the Assumptions page
+the battery can be switched to *ideal* (every kWh of the charge window is delivered, at any temperature and load).
 
-- **Physics** (default): consumption from the forces on the car, calibrated per car; heating and AC from a heat
-  balance of the cabin (air temperature, sun, humidity); the battery is simulated per chemistry, with its
-  temperature over the trip from its heat capacity, losses and thermal management.
-- **Simple**: the spreadsheet's model (constant consumption, 2.5× at high speed, onboard kW × usage %, ideal
-  battery), with the spreadsheet's formula issues fixed.
+The stress tests are traffic jam, no charger, sprint, long trip and battery life; the cost of ownership has its own
+page. Each stress test shows, per car:
 
-The stress tests are the same in both: traffic jam, no charger, sprint, battery life, long trip, total cost.
+- the battery needed vs. available (traffic jam, no charger, sprint), the trip time with charging (long trip) or the
+  charge cycles needed vs. rated (battery life);
+- the **average consumption**: the energy taken from the battery over the test ÷ its distance, in kWh/100 km, split
+  into driving, onboard systems (electronics, heating/AC, bringing the parked cabin to temperature) and battery
+  heating/cooling. In a traffic jam it is far above the rated value because the onboard systems run for hours
+  over a short distance. Petrol cars: litres per 100 km. The cost of ownership uses the same energy from the grid,
+  i.e. ÷ the charging efficiency and including the battery's own losses.
+
+The spreadsheet's own model (constant consumption, 2.5× at high speed, onboard kW × usage %, ideal battery) was
+available as the *Simple* model until 18 Nov 2026 and was then removed at your request; it is in the git history
+(up to commit 6ba5808).
 
 ## 1. Driving energy
 
@@ -154,45 +164,44 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
    converted to %/h of the battery.
 2. The fast-charge window used `MAX(to, stop)` instead of `MIN`, and the condition for the slow part above the
    window was reversed.
-3. MG Windsor / MG Windsor LG had no high-speed consumption (Sprint showed 2.3 / 0.8 kWh needed). Derived values
-   are now computed for every car.
+3. MG Windsor / MG Windsor LG had no high-speed consumption (Sprint showed 2.3 / 0.8 kWh needed). The sprint now
+   comes from the physics at the sprint speed for every car, instead of the spreadsheet's 2.5× factor.
 4. Total cost used motor consumption only; it now includes the onboard systems like every other case.
 5. Aion Y Plus horsepower was calculated from torque; horsepower is now always kW × 1.341.
 6. Mixed currencies: each car has a currency; prices and cost overrides are converted with the exchange rates.
 
-The parity test (`tests/parity.test.ts`) proves that the Simple model in "exact spreadsheet" mode reproduces the
-Battery Sizing and Summary tabs for all 21 cars before these fixes.
+Until the Simple model was removed, a parity test showed that it reproduced the Battery Sizing and Summary tabs
+for all 21 cars before these fixes.
 
 ## 7. How the results moved (spreadsheet defaults, 25 °C)
 
-Each cell: **spreadsheet** · **Simple model (fixed)** · **Physics model**. Percentages are the spare (+) or missing
-(−) battery capacity.
+Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) or missing (−) battery capacity.
 
-| Car | Traffic jam | No charger | Sprint | Battery life (cycles) | Long trip (h) | Cost (THB/km) |
+| Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|
-| Neta V | +26 % · +26 % · **+66 %** | −29 % · −29 % · **−35 %** | −41 % · −41 % · **+10 %** | 1308 · 1308 · **1231** | 16.8 · 17.0 · **16.0** | 3.21 · 3.43 · **3.48** |
-| Ora Good Cat | −25 % · −25 % · **+65 %** | −87 % · −87 % · **−55 %** | −100 % · −100 % · **+3 %** | 1941 · 1941 · **1398** | 18.4 · 18.8 · **16.1** | 4.51 · 4.96 · **4.61** |
-| BYD Atto 3 | +12 % · +12 % · **+77 %** | −4 % · −4 % · **+8 %** | −8 % · −8 % · **+39 %** | 1134 · 1134 · **832** | 15.5 · 15.6 · **14.5** | 4.32 · 4.77 · **4.52** |
-| Tesla Model 3 2021 | −34 % · −34 % · **+69 %** | −34 % · −34 % · **+1 %** | −35 % · −35 % · **+42 %** | 1513 · 1513 · **924** | 15.4 · 15.5 · **14.2** | 6.93 · 7.61 · **7.05** |
-| Nio ET7 75kW | −13 % · −13 % · **+72 %** | −29 % · −29 % · **+1 %** | −34 % · −34 % · **+45 %** | 1415 · 1415 · **917** | 15.8 · 15.9 · **14.5** | 7.75 · 8.43 · **7.87** |
-| Neta S | +42 % · +42 % · **+83 %** | +25 % · +25 % · **+29 %** | +21 % · +21 % · **+60 %** | 801 · 801 · **640** | 15.5 · 15.6 · **14.5** | 7.61 · 8.06 · **7.88** |
-| Neta X | +13 % · +13 % · **+76 %** | −6 % · −6 % · **−1 %** | −11 % · −11 % · **+34 %** | 1143 · 1143 · **912** | 16.3 · 16.5 · **15.1** | 4.17 · 4.62 · **4.46** |
-| Aion Y Plus | +12 % · +12 % · **+75 %** | −13 % · −13 % · **−10 %** | −19 % · −19 % · **+30 %** | 1209 · 1209 · **983** | 16.8 · 16.9 · **15.4** | 4.91 · 5.36 · **5.21** |
-| Aion Hyptec HT | +7 % · +7 % · **+77 %** | +4 % · +4 % · **+17 %** | +3 % · +3 % · **+51 %** | 1074 · 1074 · **761** | 14.3 · 14.5 · **13.9** | 6.49 · 7.17 · **6.78** |
-| Deepal L07 | +20 % · +20 % · **+77 %** | +5 % · +5 % · **+12 %** | +2 % · +2 % · **+48 %** | 1027 · 1027 · **796** | 16.4 · 16.6 · **15.0** | 5.89 · 6.34 · **6.15** |
-| BYD Seal low | +9 % · +9 % · **+72 %** | −27 % · −27 % · **−21 %** | −35 % · −35 % · **+34 %** | 1337 · 1337 · **1097** | 17.0 · 17.2 · **15.6** | 5.06 · 5.51 · **5.37** |
-| BYD Seal high | +30 % · +30 % · **+76 %** | −9 % · −9 % · **−5 %** | −17 % · −17 % · **+45 %** | 1124 · 1124 · **950** | 16.3 · 16.3 · **15.2** | 5.94 · 6.39 · **6.28** |
-| Zeekr X | +15 % · +15 % · **+73 %** | −25 % · −25 % · **−24 %** | −34 % · −34 % · **+25 %** | 1304 · 1304 · **1108** | 15.4 · 15.4 · **14.7** | 5.83 · 6.28 · **6.18** |
-| Xpeng G6 | −20 % · −20 % · **+69 %** | −38 % · −38 % · **−24 %** | −42 % · −42 % · **+25 %** | 1506 · 1506 · **1132** | 15.0 · 15.0 · **14.3** | 6.65 · 7.32 · **6.99** |
-| Avatar 11 | +31 % · +31 % · **+81 %** | +17 % · +17 % · **+24 %** | +13 % · +13 % · **+56 %** | 900 · 900 · **687** | 15.2 · 15.2 · **14.3** | 8.96 · 9.64 · **9.32** |
-| Ora 07 | +31 % · +31 % · **+76 %** | −6 % · −6 % · **−4 %** | −14 % · −14 % · **+43 %** | 1096 · 1096 · **928** | 16.7 · 16.8 · **15.5** | 6.25 · 6.70 · **6.59** |
-| Honda City | +35 % · +35 % · **+91 %** | +56 % · +56 % · **+64 %** | +60 % · +60 % · **+84 %** | 550 · 550 · **325** | 13.3 · 13.3 · **13.3** | 4.28 · 6.38 · **4.81** |
-| Deepal S05 | +1 % · +1 % · **+70 %** | −39 % · −39 % · **−34 %** | −47 % · −47 % · **+20 %** | 1457 · 1457 · **1211** | 15.3 · 15.4 · **14.6** | 4.38 · 4.83 · **4.71** |
-| BYD Dolphin | +35 % · +35 % · **+67 %** | −38 % · −38 % · **−45 %** | −53 % · −53 % · **+11 %** | 1358 · 1358 · **1309** | 16.0 · 16.0 · **15.4** | 3.34 · 3.56 · **3.66** |
-| Dolphin ER | +45 % · +45 % · **+72 %** | −19 % · −19 % · **−26 %** | −33 % · −33 % · **+24 %** | 1172 · 1172 · **1131** | 15.3 · 15.4 · **14.9** | 3.73 · 3.95 · **4.05** |
-| Hyundai Inster | +32 % · +32 % · **+68 %** | −43 % · −43 % · **−27 %** | −59 % · −59 % · **+19 %** | 1408 · 1408 · **1150** | 15.6 · 15.7 · **14.8** | 1.76 · 5.01 · **4.89** |
-| MG Windsor LG | +42 % · +42 % · **+73 %** | −4 % · −4 % · **−7 %** | −14 % · −14 % · **+30 %** | 1048 · 1048 · **971** | 15.7 · 15.7 · **15.0** | – · – · **–** |
-| MG Windsor | +22 % · +22 % · **+65 %** | −40 % · −40 % · **−41 %** | −53 % · −53 % · **+6 %** | 1415 · 1415 · **1284** | 16.7 · 16.9 · **15.8** | – · – · **–** |
+| Neta V | +26 % · **+66 %** | −29 % · **−35 %** | −41 % · **+10 %** | 16.8 · **16.0** | 1308 · **1231** | 3.21 · **3.48** |
+| Ora Good Cat | −25 % · **+65 %** | −87 % · **−55 %** | −100 % · **+3 %** | 18.4 · **16.1** | 1941 · **1398** | 4.51 · **4.61** |
+| BYD Atto 3 | +12 % · **+77 %** | −4 % · **+8 %** | −8 % · **+39 %** | 15.5 · **14.5** | 1134 · **832** | 4.32 · **4.52** |
+| Tesla Model 3 2021 | −34 % · **+69 %** | −34 % · **+1 %** | −35 % · **+42 %** | 15.4 · **14.2** | 1513 · **924** | 6.93 · **7.05** |
+| Nio ET7 75kW | −13 % · **+72 %** | −29 % · **+1 %** | −34 % · **+45 %** | 15.8 · **14.5** | 1415 · **917** | 7.75 · **7.87** |
+| Neta S | +42 % · **+83 %** | +25 % · **+29 %** | +21 % · **+60 %** | 15.5 · **14.5** | 801 · **640** | 7.61 · **7.88** |
+| Neta X | +13 % · **+76 %** | −6 % · **−1 %** | −11 % · **+34 %** | 16.3 · **15.1** | 1143 · **912** | 4.17 · **4.46** |
+| Aion Y Plus | +12 % · **+75 %** | −13 % · **−10 %** | −19 % · **+30 %** | 16.8 · **15.4** | 1209 · **983** | 4.91 · **5.21** |
+| Aion Hyptec HT | +7 % · **+77 %** | +4 % · **+17 %** | +3 % · **+51 %** | 14.3 · **13.9** | 1074 · **761** | 6.49 · **6.78** |
+| Deepal L07 | +20 % · **+77 %** | +5 % · **+12 %** | +2 % · **+48 %** | 16.4 · **15.0** | 1027 · **796** | 5.89 · **6.15** |
+| BYD Seal low | +9 % · **+72 %** | −27 % · **−21 %** | −35 % · **+34 %** | 17.0 · **15.6** | 1337 · **1097** | 5.06 · **5.37** |
+| BYD Seal high | +30 % · **+76 %** | −9 % · **−5 %** | −17 % · **+45 %** | 16.3 · **15.2** | 1124 · **950** | 5.94 · **6.28** |
+| Zeekr X | +15 % · **+73 %** | −25 % · **−24 %** | −34 % · **+25 %** | 15.4 · **14.7** | 1304 · **1108** | 5.83 · **6.18** |
+| Xpeng G6 | −20 % · **+69 %** | −38 % · **−24 %** | −42 % · **+25 %** | 15.0 · **14.3** | 1506 · **1132** | 6.65 · **6.99** |
+| Avatar 11 | +31 % · **+81 %** | +17 % · **+24 %** | +13 % · **+56 %** | 15.2 · **14.3** | 900 · **687** | 8.96 · **9.32** |
+| Ora 07 | +31 % · **+76 %** | −6 % · **−4 %** | −14 % · **+43 %** | 16.7 · **15.5** | 1096 · **928** | 6.25 · **6.59** |
+| Honda City | +35 % · **+91 %** | +56 % · **+64 %** | +60 % · **+84 %** | 13.3 · **13.3** | 550 · **325** | 4.28 · **4.81** |
+| Deepal S05 | +1 % · **+70 %** | −39 % · **−34 %** | −47 % · **+20 %** | 15.3 · **14.6** | 1457 · **1211** | 4.38 · **4.71** |
+| BYD Dolphin | +35 % · **+67 %** | −38 % · **−45 %** | −53 % · **+11 %** | 16.0 · **15.4** | 1358 · **1309** | 3.34 · **3.66** |
+| Dolphin ER | +45 % · **+72 %** | −19 % · **−26 %** | −33 % · **+24 %** | 15.3 · **14.9** | 1172 · **1131** | 3.73 · **4.05** |
+| Hyundai Inster | +32 % · **+68 %** | −43 % · **−27 %** | −59 % · **+19 %** | 15.6 · **14.8** | 1408 · **1150** | 1.76 · **4.89** |
+| MG Windsor LG | +42 % · **+73 %** | −4 % · **−7 %** | −14 % · **+30 %** | 15.7 · **15.0** | 1048 · **971** | – · **–** |
+| MG Windsor | +22 % · **+65 %** | −40 % · **−41 %** | −53 % · **+6 %** | 16.7 · **15.8** | 1415 · **1284** | – · **–** |
 
 What drives the differences:
 

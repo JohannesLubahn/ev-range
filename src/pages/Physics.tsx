@@ -56,7 +56,6 @@ const TEMPS = Array.from({ length: 13 }, (_, i) => -20 + i * 5);
 
 export function PhysicsPage() {
   const { out, selectedIds, derivedById, ds, a, scenario } = useEngine();
-  const settings = useStore((s) => s.settings);
   const physicsCars = useStore((s) => s.physicsCars);
   const setPhysicsCars = useStore((s) => s.setPhysicsCars);
   const c = useThemeColors();
@@ -65,7 +64,6 @@ export function PhysicsPage() {
   const chosen = (physicsCars.filter((id) => candidates.includes(id)).length ? physicsCars.filter((id) => candidates.includes(id)) : candidates).slice(0, 3);
   const [chem, setChem] = useState<string>(Object.keys(ds.chemistries)[0] ?? 'LFP');
   const usage = scenario.noCharger.usagePct;
-  const physics = settings.consumption === 'physics';
 
   const speedData = useMemo(
     () =>
@@ -82,11 +80,11 @@ export function PhysicsPage() {
 
   const first = chosen[0];
   const breakdown: StackedRow[] = useMemo(() => {
-    if (!first || !physics) return [];
+    if (!first) return [];
     const m = out.models[first];
     return [30, 60, 90, 120, 150].map((v) => {
       const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', usagePct: usage });
-      const p = seg.physics!;
+      const p = seg.physics;
       const eta = m.calibration().etaDrive;
       const rolling = (p.rollingPerKm / eta) * 100;
       const air = (p.aeroPerKm / eta) * 100;
@@ -108,7 +106,7 @@ export function PhysicsPage() {
         ),
       };
     });
-  }, [first, out, usage, physics, derivedById, c]);
+  }, [first, out, usage, derivedById, c]);
 
   const cond = scenario.conditions;
   const thermal = cond.thermalMode;
@@ -198,7 +196,6 @@ export function PhysicsPage() {
           </p>
         </div>
       </div>
-      {!physics && <p className="notice">The Simple model is active, so the speed charts show your spreadsheet’s constant consumption. Switch to Physics at the top.</p>}
 
       <div className="grid-2">
         <section className="panel stack">
@@ -269,7 +266,7 @@ export function PhysicsPage() {
               No-charger AC usage ({usage} %).
             </p>
           </div>
-          {physics && breakdown.length ? (
+          {breakdown.length ? (
             <StackedRows
               rows={breakdown}
               series={[
@@ -529,7 +526,7 @@ export function PhysicsPage() {
               <tbody>
                 {out.derived.map((d) => {
                   const m = out.models[d.car.id];
-                  const cal = physics && d.consumption.value !== null ? m.calibration() : null;
+                  const cal = d.consumption.value !== null ? m.calibration() : null;
                   return (
                     <tr key={d.car.id}>
                       <td>{d.car.name}</td>

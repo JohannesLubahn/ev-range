@@ -18,7 +18,6 @@ range_nedc_km,Rated range NEDC,km,Consumption & range,number,higher,New European
 range_wltp_km,Rated range WLTP,km,Consumption & range,number,higher,Worldwide harmonised procedure
 range_epa_km,Rated range EPA,km,Consumption & range,number,higher,US EPA label
 consumption_basis,Consumption standard,,Consumption & range,enum:CLTC|NEDC|WLTP|EPA,,Only needed when ranges for several standards are given; otherwise taken from the filled range column
-onboard_kw,Onboard systems (Simple model),kW,Consumption & range,number,lower,Used only by the Simple (spreadsheet) model. Your note: sources mention between 3 and 10 kWh
 charge_from_pct,Charging test from,%,Battery & charging,number,,"Published fast-charging figure, e.g. 10 → 80 % in 30 min"
 charge_to_pct,Charging test to,%,Battery & charging,number,,
 charge_time_min,Charging test time,min,Battery & charging,number,lower,

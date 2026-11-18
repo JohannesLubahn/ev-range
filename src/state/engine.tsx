@@ -16,8 +16,6 @@ export interface EngineState {
   a: Assumptions;
   scenario: Scenario;
   out: EngineOutput;
-  /** The Simple (spreadsheet) model on the same inputs, for comparison. */
-  simple: EngineOutput;
   derivedById: Record<string, DerivedCar>;
   flagsById: Record<string, DataFlag[]>;
   allIds: string[];
@@ -56,14 +54,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const dSettings = useDeferredValue(settings);
   const dA = useDeferredValue(a);
 
-  const out = useMemo(() => runEngine(ds, dA, dScenario, { ...dSettings, exactSpreadsheet: false }), [ds, dA, dScenario, dSettings]);
-  const simple = useMemo(
-    () =>
-      dSettings.consumption === 'simple' && dSettings.battery === 'ideal'
-        ? out
-        : runEngine(ds, dA, dScenario, { consumption: 'simple', battery: 'ideal' }),
-    [ds, dA, dScenario, dSettings, out],
-  );
+  const out = useMemo(() => runEngine(ds, dA, dScenario, dSettings), [ds, dA, dScenario, dSettings]);
 
   const value = useMemo<EngineState>(() => {
     const derivedById = Object.fromEntries(out.derived.map((d) => [d.car.id, d]));
@@ -80,14 +71,13 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       a,
       scenario,
       out,
-      simple,
       derivedById,
       flagsById,
       allIds,
       selectedIds,
       stale: dScenario !== scenario || dSettings !== settings || dA !== a,
     };
-  }, [ds, baseAssumptions, a, scenario, out, simple, selected, dScenario, dSettings, dA, settings]);
+  }, [ds, baseAssumptions, a, scenario, out, selected, dScenario, dSettings, dA, settings]);
 
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
 }

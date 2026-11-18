@@ -1,48 +1,51 @@
-// The spreadsheet issues fixed in the website (Simple model, normal mode), checked against hand calculations.
+// The spreadsheet issues fixed in the website, checked on the physics model, and the stress tests' average
+// consumption.
 import { describe, expect, it } from 'vitest';
 import { loadBundledDataset } from '../src/data/bundled';
 import { assumptionsFromDataset } from '../src/engine/assumptions';
-import { cost, longTrip, sprint } from '../src/engine/cases';
+import { batteryLife, cost, longTrip, noCharger, sprint, trafficJam } from '../src/engine/cases';
 import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
 import { spreadsheetDefaults } from '../src/engine/scenario';
+import type { BatteryModel } from '../src/engine/types';
 
 const ds = loadBundledDataset();
 const a = assumptionsFromDataset(ds);
 const sc = spreadsheetDefaults(a);
 const derived = Object.fromEntries(deriveAll(ds, a).map((d) => [d.car.id, d]));
-const simple = (id: string, exact = false) =>
-  new CarModel(derived[id], { ds, a, conditions: sc.conditions, settings: { consumption: 'simple', battery: 'ideal', exactSpreadsheet: exact } });
+const model = (id: string, battery: BatteryModel = 'chemistry') => new CarModel(derived[id], { ds, a, conditions: sc.conditions, settings: { battery } });
 
 describe('1+2: charging time uses consistent units and the fast window correctly', () => {
+  // Neta V charges 30 → 80 % in 30 min: 100 %/h inside that window, 50 %/h (taper) outside it.
+  const m = model('neta-v');
+  const drain = (m.onboard(sc.longTrip.usageChargingPct).totalKw / (derived['neta-v'].longTermKwh as number)) * 100; // %/h
   it('Neta V 20 → 80 %: 10 % below the window at half speed, 50 % inside, onboard drain in %/h', () => {
-    const r = longTrip(simple('neta-v'), sc.longTrip);
-    const drain = ((2 * 0.9) / 32.56) * 100; // 1.8 kW of a 32.56 kWh long-term battery
-    expect(r.timePerChargeH).toBeCloseTo(10 / (50 - drain) + 50 / (100 - drain), 9);
+    expect(drain).toBeGreaterThan(0);
+    expect(longTrip(m, sc.longTrip).timePerChargeH).toBeCloseTo(10 / (50 - drain) + 50 / (100 - drain), 9);
   });
   it('charging above the fast window is slow (the sheet counted it as fast)', () => {
-    const above = longTrip(simple('neta-v'), { ...sc.longTrip, chargeToPct: 90 });
-    const drain = ((2 * 0.9) / 32.56) * 100;
+    const above = longTrip(m, { ...sc.longTrip, chargeToPct: 90 });
     expect(above.timePerChargeH).toBeCloseTo(10 / (50 - drain) + 50 / (100 - drain) + 10 / (50 - drain), 9);
-    const sheet = longTrip(simple('neta-v', true), { ...sc.longTrip, chargeToPct: 90 });
-    expect(sheet.timePerChargeH).toBeLessThan(above.timePerChargeH);
   });
 });
 
-describe('3: high-speed consumption is derived for every car', () => {
-  it('MG Windsor sprint needs a sensible battery (the sheet showed 0.8 kWh)', () => {
-    const r = sprint(simple('mg-windsor'), sc.sprint);
-    const cons = 38.9 / 333; // battery ÷ WLTP range
-    expect(r.energyKwh).toBeCloseTo(140 * cons * 2.5 + 2 * 0.9 * (140 / 120), 9);
-    expect(r.requiredKwh).toBeGreaterThan(30);
+describe('3: every car gets a sprint result from the physics (the sheet showed 0.8 kWh for the MG Windsor)', () => {
+  it('MG Windsor uses more per km at 120 km/h than at 70 km/h and needs a sensible battery', () => {
+    const m = model('mg-windsor');
+    const sp = sprint(m, sc.sprint);
+    expect(sp.average.driving).toBeGreaterThan(noCharger(m, sc.noCharger).average.driving);
+    expect(sp.requiredKwh).toBeGreaterThan(15);
   });
 });
 
-describe('4: total cost includes the onboard systems', () => {
-  it('Neta V energy cost = 7.5 × (0.112 + 2 kW × 60 % × 7500 h ÷ 300000 km) × 300000 km', () => {
-    const r = cost(simple('neta-v'), sc.batteryLife, sc.cost);
-    expect(r.energyCost).toBeCloseTo(7.5 * 0.142 * 300000, 6);
-    expect(cost(simple('neta-v', true), sc.batteryLife, sc.cost, true).energyCost).toBeCloseTo(252000, 6);
+describe('4: total cost includes the onboard systems and the charging losses', () => {
+  it('energy paid for = battery energy over the life ÷ charging efficiency', () => {
+    const m = model('neta-v');
+    const life = batteryLife(m, sc.batteryLife);
+    const c = cost(m, sc.batteryLife, sc.cost);
+    expect(life.average.onboard).toBeGreaterThan(0);
+    expect(c.energyPerKm * life.totalKm * (a.chargingEfficiencyPct / 100)).toBeCloseTo(life.energyKwh, 6);
+    expect(c.energyCost).toBeCloseTo(sc.cost.energyPrice * c.energyPerKm * life.totalKm, 6);
   });
 });
 
@@ -52,5 +55,51 @@ describe('5 + 6: horsepower and currencies', () => {
   });
   it('Hyundai Inster price is converted from EUR with your exchange rate', () => {
     expect(derived['hyundai-inster'].priceDisplay.value).toBeCloseTo(24400 * a.fx.EUR, 6);
+  });
+});
+
+describe('average consumption of the stress tests (energy from the battery per 100 km)', () => {
+  const jamKm = sc.trafficJam.distBeforeKm + sc.trafficJam.distJamKm + sc.trafficJam.distAfterKm;
+  for (const d of Object.values(derived)) {
+    if (d.consumption.value === null || d.batteryKwh === null) continue;
+    it(`${d.car.id}: the parts add up and match the energy of each test`, () => {
+      const m = model(d.car.id);
+      const tj = trafficJam(m, sc.trafficJam);
+      const nc = noCharger(m, sc.noCharger);
+      const sp = sprint(m, sc.sprint);
+      const lt = longTrip(m, sc.longTrip);
+      const bl = batteryLife(m, sc.batteryLife);
+      for (const avg of [tj.average, nc.average, sp.average, lt.average, bl.average]) {
+        expect(avg.driving + avg.onboard + avg.battery).toBeCloseTo(avg.total, 9);
+        expect(avg.driving).toBeGreaterThan(0);
+        expect(avg.onboard).toBeGreaterThan(0);
+        expect(avg.battery).toBeGreaterThanOrEqual(0);
+      }
+      expect((tj.average.total * jamKm) / 100).toBeCloseTo(tj.energyKwh, 6);
+      expect((nc.average.total * sc.noCharger.distanceKm) / 100).toBeCloseTo(nc.energyKwh, 6);
+      expect((sp.average.total * sc.sprint.distanceKm) / 100).toBeCloseTo(sp.energyKwh, 6);
+      expect((lt.average.total * sc.longTrip.distanceKm) / 100).toBeCloseTo(lt.energyKwh, 6);
+      // The battery-life energy also counts the cells' own losses; the consumption at the terminals does not.
+      expect((bl.average.total * bl.totalKm) / 100).toBeLessThanOrEqual(bl.energyKwh + 1e-6);
+    });
+  }
+  it('a traffic jam costs more per km than the open road, because of the onboard systems', () => {
+    const m = model('byd-atto-3');
+    const tj = trafficJam(m, sc.trafficJam);
+    const nc = noCharger(m, sc.noCharger);
+    expect(tj.average.total).toBeGreaterThan(nc.average.total);
+    expect(tj.average.onboard).toBeGreaterThan(3 * nc.average.onboard);
+  });
+  it('a cold day adds battery heating; an ideal battery has none', () => {
+    const cold = { ...sc.conditions, airTemperatureC: -10 };
+    const chem = new CarModel(derived['byd-atto-3'], { ds, a, conditions: cold, settings: { battery: 'chemistry' } });
+    const ideal = new CarModel(derived['byd-atto-3'], { ds, a, conditions: cold, settings: { battery: 'ideal' } });
+    expect(trafficJam(chem, sc.trafficJam).average.battery).toBeGreaterThan(0);
+    expect(trafficJam(ideal, sc.trafficJam).average.battery).toBe(0);
+  });
+  it('no distance: no average (NaN), and no explanation value', () => {
+    const r = trafficJam(model('byd-atto-3'), { ...sc.trafficJam, distBeforeKm: 0, distJamKm: 0, distAfterKm: 0 });
+    expect(r.average.total).toBeNaN();
+    expect(r.steps.find((s) => s.label === 'Average consumption')?.value).toBeNull();
   });
 });

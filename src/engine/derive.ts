@@ -41,8 +41,6 @@ export interface DerivedCar {
   slowPctPerH: number | null;
   fastKw: number | null;
   slowKw: number | null;
-  /** Simple (spreadsheet) model: motor consumption at high speed. */
-  highSpeedConsumption: number | null;
   bodyType: string;
   cd: Val<number>;
   frontalAreaM2: Val<number>;
@@ -146,7 +144,6 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     flag('warning', 'charge_time_min', 'Charging test (from / to / time) incomplete - long trip cannot be calculated');
   }
   const taper = a.taperSpeedFactorPct / 100;
-  const highSpeedConsumption = consumption.value !== null ? consumption.value * a.highSpeedFactor : null;
 
   // --- physics parameters
   const bodyKey = (car.bodyType || '').toLowerCase();
@@ -230,7 +227,6 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     slowPctPerH: fastPctPerH !== null ? fastPctPerH * taper : null,
     fastKw,
     slowKw: fastKw !== null ? fastKw * taper : null,
-    highSpeedConsumption,
     bodyType: body?.bodyType ?? car.bodyType,
     cd,
     frontalAreaM2,

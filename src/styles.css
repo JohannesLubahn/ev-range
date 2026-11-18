@@ -376,6 +376,19 @@ body::before {
   gap: 8px;
   align-items: center;
 }
+/* Narrow screens: brand and theme button on the first row, the (scrollable) navigation below. */
+@media (max-width: 860px) {
+  .topbar-inner {
+    row-gap: 0;
+  }
+  .topbar-tools {
+    margin-left: auto;
+  }
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
 main.wrap {
   padding-block: 20px 48px;
 }
@@ -816,6 +829,36 @@ table {
 .bars.compact {
   grid-template-columns: 70px minmax(0, 1fr) auto;
 }
+/* A second bar column on the same rows (e.g. average consumption), with its own scale and legend. */
+.bars.paired {
+  grid-template-columns: minmax(90px, 150px) minmax(0, 1.5fr) auto minmax(0, 1fr) auto;
+}
+.bars .row-head {
+  display: contents;
+}
+.bars .row-head .legend {
+  grid-column: span 2;
+  align-self: end;
+  padding-bottom: 2px;
+}
+.bars .row-head .legend b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.bars .track.side,
+.bars .row-head .head-side {
+  margin-left: 16px;
+}
+.bars .track .note {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 @media (max-width: 520px) {
   .bars:not(.compact) {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -823,6 +866,17 @@ table {
   .bars:not(.compact) .label {
     grid-column: 1 / -1;
     margin-bottom: -4px;
+  }
+  .bars.paired {
+    grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr) auto;
+    column-gap: 8px;
+  }
+  .bars .row-head .head-label {
+    display: none;
+  }
+  .bars .track.side,
+  .bars .row-head .head-side {
+    margin-left: 4px;
   }
 }
 
@@ -1060,6 +1114,7 @@ table {
 }
 .chart-tooltip .line b {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .chart-tooltip .line span {
   color: var(--ink-2);
@@ -1083,6 +1138,19 @@ table {
 .data-table td.r,
 .data-table td.nowrap {
   white-space: nowrap;
+}
+/* A name in a table that opens its calculation: looks like a link, works as a button. */
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+.link-btn:hover {
+  text-decoration: underline;
 }
 
 /* ------------------------------------------------------------------ assumptions */

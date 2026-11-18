@@ -82,8 +82,8 @@ const COLUMNS: { key: SortKey; label: string; sub: (s: ReturnType<typeof useEngi
   { key: 'trafficJam', label: 'Traffic jam', sub: (s) => `${s.trafficJam.timeJamH} h jam` },
   { key: 'noCharger', label: 'No charger', sub: (s) => `${s.noCharger.distanceKm} km` },
   { key: 'sprint', label: 'Sprint', sub: (s) => `${s.sprint.distanceKm} km @ ${s.sprint.speedKmh}` },
-  { key: 'batteryLife', label: 'Battery life', sub: (s) => `${s.batteryLife.years} years` },
   { key: 'longTrip', label: 'Long trip', sub: (s) => `${s.longTrip.distanceKm} km` },
+  { key: 'batteryLife', label: 'Battery life', sub: (s) => `${s.batteryLife.years} years` },
   { key: 'cost', label: 'Cost', sub: () => 'per km' },
 ];
 
@@ -158,9 +158,6 @@ export function ScoreTable({ ids }: { ids: string[] }) {
                       <CapacityCell id={id} k="sprint" r={r} unit={unit} />
                     </td>
                     <td className="cell">
-                      <LifeCell id={id} r={r} />
-                    </td>
-                    <td className="cell">
                       <MetricCell
                         id={id}
                         k="longTrip"
@@ -168,6 +165,9 @@ export function ScoreTable({ ids }: { ids: string[] }) {
                         detail={`${plural(r.longTrip.stops, "stop", "stops")} · ${hours(r.longTrip.timeChargingH)} charging`}
                         frac={Number.isFinite(r.longTrip.tripTimeH) ? r.longTrip.tripTimeH / tripMax : null}
                       />
+                    </td>
+                    <td className="cell">
+                      <LifeCell id={id} r={r} />
                     </td>
                     <td className="cell">
                       <MetricCell
@@ -218,8 +218,8 @@ export function ScoreCards({ ids }: { ids: string[] }) {
                 <CapacityCell id={id} k="trafficJam" r={r} unit={d.energyUnit} />
                 <CapacityCell id={id} k="noCharger" r={r} unit={d.energyUnit} />
                 <CapacityCell id={id} k="sprint" r={r} unit={d.energyUnit} />
-                <LifeCell id={id} r={r} />
                 <MetricCell id={id} k="longTrip" text={`Trip ${hours(r.longTrip.tripTimeH)}`} detail={plural(r.longTrip.stops, "stop", "stops")} frac={null} />
+                <LifeCell id={id} r={r} />
                 <MetricCell
                   id={id}
                   k="cost"

@@ -186,7 +186,7 @@ describe('calibration reproduces each car’s rated consumption on its own test 
   for (const d of derived) {
     if (d.consumption.value === null) continue;
     it(d.car.id, () => {
-      const m = new CarModel(d, { ds, a, conditions: DEFAULT_CONDITIONS, settings: { consumption: 'physics', battery: 'ideal' } });
+      const m = new CarModel(d, { ds, a, conditions: DEFAULT_CONDITIONS, settings: { battery: 'ideal' } });
       const cal = m.calibration();
       if (cal.clamped) return; // flagged in the data check; cannot reproduce by design
       const veh = m.vehicle(cal.etaDrive, true);

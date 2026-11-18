@@ -1,6 +1,5 @@
 // Shared types of the calculation engine. The engine is pure TypeScript: no UI, no browser APIs.
 
-export type ConsumptionModel = 'physics' | 'simple';
 export type BatteryModel = 'chemistry' | 'ideal';
 export type ThermalMode = 'managed' | 'ambient' | 'preconditioned';
 export type Profile = 'steady' | 'motorway' | 'rural' | 'city' | 'mixed' | 'jam';
@@ -49,7 +48,6 @@ export interface Assumptions {
   electricityPrice: number;
   maintenancePerYear: number;
   displayCurrency: string;
-  highSpeedFactor: number;
   /** Exchange rates: units of display currency (THB) per unit of the given currency. */
   fx: Record<string, number>;
 }
@@ -68,10 +66,8 @@ export interface Conditions {
 }
 
 export interface ModelSettings {
-  consumption: ConsumptionModel;
+  /** Chemistry curves (default) or an ideal battery without temperature and load effects. */
   battery: BatteryModel;
-  /** Reproduce the spreadsheet's formulas including its known issues (used by the parity test only). */
-  exactSpreadsheet?: boolean;
 }
 
 export interface TrafficJamInputs {
@@ -152,6 +148,21 @@ export interface Step {
   kind?: 'result' | 'subtotal' | 'note';
 }
 
+/**
+ * Average consumption over a stress test: energy taken from the battery per 100 km (litres per 100 km for petrol
+ * cars), split into its parts. NaN when the test has no distance.
+ */
+export interface AverageConsumption {
+  distanceKm: number;
+  /** Driving: the motors, after regeneration. */
+  driving: number;
+  /** Onboard systems: electronics, heating / AC and bringing the parked cabin to temperature. */
+  onboard: number;
+  /** Battery heating and cooling. */
+  battery: number;
+  total: number;
+}
+
 export interface CapacityCheck {
   /** Long-term battery capacity the trip would need (kWh), comparable with availableKwh. */
   requiredKwh: number;
@@ -164,6 +175,7 @@ export interface CapacityCheck {
   energyKwh: number;
   /** Energy the battery can deliver in the given state-of-charge window under the conditions (kWh). */
   deliverableKwh: number;
+  average: AverageConsumption;
   steps: Step[];
   warnings: string[];
 }
@@ -188,6 +200,7 @@ export interface LongTripResult {
   timeChargingH: number;
   tripTimeH: number;
   chargingSharePct: number;
+  average: AverageConsumption;
   steps: Step[];
   warnings: string[];
 }
@@ -201,6 +214,7 @@ export interface BatteryLifeResult {
   pass: boolean | null;
   /** Years until the rated cycles are used up at this yearly distance. */
   yearsUntilRated: number | null;
+  average: AverageConsumption;
   steps: Step[];
   warnings: string[];
 }

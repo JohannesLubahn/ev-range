@@ -121,7 +121,6 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, where),
       ranges,
       consumptionBasis: basis,
-      onboardKw: num(row, 'onboard_kw', warnings, where),
       chargeFromPct: num(row, 'charge_from_pct', warnings, where),
       chargeToPct: num(row, 'charge_to_pct', warnings, where),
       chargeTimeMin: num(row, 'charge_time_min', warnings, where),

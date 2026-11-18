@@ -8,7 +8,7 @@ import { useStore } from '../state/store';
 
 type Key = Exclude<keyof Assumptions, 'fx'>;
 
-const GROUP_ORDER = ['Battery', 'Cabin climate', 'Charging', 'Driving physics', 'Test conditions', 'Costs', 'Exchange rates', 'Simple model'];
+const GROUP_ORDER = ['Battery', 'Cabin climate', 'Charging', 'Driving physics', 'Test conditions', 'Costs', 'Exchange rates'];
 
 /** The source list (data/sources.csv), numbered across topics, with clickable links. */
 function SourceList({ sources }: { sources: Source[] }) {
@@ -82,19 +82,6 @@ export function AssumptionsPage() {
         <h2>Model</h2>
         <div className="row">
           <span className="muted" style={{ minWidth: 120 }}>
-            Consumption
-          </span>
-          <div className="segmented" role="group" aria-label="Consumption model">
-            <button type="button" aria-pressed={settings.consumption === 'physics'} onClick={() => setSettings({ consumption: 'physics' })}>
-              Physics
-            </button>
-            <button type="button" aria-pressed={settings.consumption === 'simple'} onClick={() => setSettings({ consumption: 'simple' })}>
-              Simple (your spreadsheet)
-            </button>
-          </div>
-        </div>
-        <div className="row">
-          <span className="muted" style={{ minWidth: 120 }}>
             Battery
           </span>
           <div className="segmented" role="group" aria-label="Battery model">
@@ -102,15 +89,15 @@ export function AssumptionsPage() {
               Chemistry curves
             </button>
             <button type="button" aria-pressed={settings.battery === 'ideal'} onClick={() => setSettings({ battery: 'ideal' })}>
-              Ideal (your spreadsheet)
+              Ideal (no losses)
             </button>
           </div>
         </div>
         <p className="faint">
-          Physics: air drag, rolling resistance, slope and acceleration on real speed profiles, calibrated per car; heating and AC from a heat
-          balance of the cabin (air temperature, sun, humidity); battery temperature from the pack’s heat capacity, its losses and the thermal
-          management. Chemistry curves: open-circuit voltage, internal resistance and capacity per battery type and temperature. Simple + Ideal
-          reproduce your spreadsheet (with its formula issues fixed).
+          Consumption comes from the physics: air drag, rolling resistance, slope and acceleration on real speed profiles, calibrated per car;
+          heating and AC from a heat balance of the cabin (air temperature, sun, humidity); battery temperature from the pack’s heat capacity,
+          its losses and the thermal management. Chemistry curves: open-circuit voltage, internal resistance and capacity per battery type and
+          temperature. Ideal: every kWh of the charge window is delivered, at any temperature and load, as in your spreadsheet.
         </p>
       </section>
 

@@ -55,7 +55,6 @@ export function ComparePage() {
   const sort = useStore((s) => s.sort);
   const layout = useStore((s) => s.layout);
   const setLayout = useStore((s) => s.setLayout);
-  const settings = useStore((s) => s.settings);
   const narrow = useNarrow();
   const [editing, setEditing] = useState(false);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
@@ -99,11 +98,9 @@ export function ComparePage() {
           </div>
           <div className="toolbar">
             <ConditionsSummary />
-            {settings.consumption === 'physics' && (
-              <button type="button" className="btn small" aria-expanded={editing} onClick={() => setEditing(!editing)}>
-                {editing ? 'Done' : 'Edit conditions'}
-              </button>
-            )}
+            <button type="button" className="btn small" aria-expanded={editing} onClick={() => setEditing(!editing)}>
+              {editing ? 'Done' : 'Edit conditions'}
+            </button>
           </div>
         </div>
         {editing && <ConditionsPanel />}
