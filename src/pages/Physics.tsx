@@ -4,8 +4,10 @@ import { StackedRows, TipLines, type StackedRow } from '../components/Bars';
 import { niceTicks } from '../components/ticks';
 import { useThemeColors, type ThemeColors } from '../components/useThemeColors';
 import { Pack } from '../engine/battery/pack';
-import { onboardPower } from '../engine/onboard/loads';
-import { batteryTemperature } from '../engine/onboard/thermal';
+import { coolingCop } from '../engine/onboard/climate';
+import { factsTabPower, onboardPower } from '../engine/onboard/loads';
+import { packHeatCapacity, packThermal } from '../engine/onboard/thermal';
+import { checkMeasurement } from '../engine/onboard/validation';
 import { fixed, num } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
@@ -42,6 +44,11 @@ function axisProps(c: ThemeColors) {
 
 function LegendText({ value }: { value: string }) {
   return <span style={{ color: 'var(--ink-2)', fontSize: 12.5 }}>{value}</span>;
+}
+
+/** Legend items in the order of the series (Recharts sorts them alphabetically by default). */
+function seriesOrder(keys: string[]) {
+  return (item: { dataKey?: unknown }) => keys.indexOf(String(item.dataKey));
 }
 
 const SPEEDS = Array.from({ length: 15 }, (_, i) => 20 + i * 10);
@@ -103,21 +110,40 @@ export function PhysicsPage() {
     });
   }, [first, out, usage, physics, derivedById, c]);
 
-  const thermal = scenario.conditions.thermalMode;
+  const cond = scenario.conditions;
+  const thermal = cond.thermalMode;
   const tempData = useMemo(() => {
+    const loadKw = 20;
     return TEMPS.map((t) => {
       const row: Record<string, number> = { air: t };
       for (const code of Object.keys(ds.chemistries)) {
-        const pack = new Pack({ chemistry: ds.chemistries[code], capacityTemps: ds.capacityTemps, nominalKwh: 60, sohFrac: 1, packVoltageV: a.batteryPackVoltageV });
-        const bt = batteryTemperature(t, 0, thermal, scenario.conditions.preconditionedC, a).temperatureC;
-        row[code] = (pack.discharge(95, 5, 20, 1.1, bt).terminalKwh / pack.discharge(95, 5, 20, 1.1, 25).terminalKwh) * 100;
-        row[`bt_${code}`] = bt;
+        const chemistry = ds.chemistries[code];
+        const pack = new Pack({ chemistry, capacityTemps: ds.capacityTemps, nominalKwh: 60, sohFrac: 1, packVoltageV: a.batteryPackVoltageV });
+        const ref = pack.discharge(95, 5, loadKw, 1.1, 25);
+        // Pack temperature over the trip that empties it (95 → 5 % at 20 kW), from its heat capacity and losses.
+        const th = packThermal({
+          airC: t,
+          durationH: ref.terminalKwh / loadKw,
+          lossKw: ref.terminalKwh > 0 ? (loadKw * ref.lossKwh) / ref.terminalKwh : 0,
+          heatCapacityJPerK: packHeatCapacity(60, chemistry),
+          mode: thermal,
+          preconditionedC: cond.preconditionedC,
+          coolingCop: coolingCop(t, a),
+          a,
+        });
+        row[code] = (pack.discharge(95, 5, loadKw, 1.1, th.meanC).terminalKwh / ref.terminalKwh) * 100;
+        row[`bt_${code}`] = th.meanC;
+        row[`th_${code}`] = th.heatingKwh + th.coolingKwh;
       }
-      row.regular = onboardPower(ds, 'regular', t, 100, thermal).totalKw;
-      row.premium = onboardPower(ds, 'premium', t, 100, thermal).totalKw;
+      const at = { ...cond, airTemperatureC: t };
+      row.regular = onboardPower(ds, a, at, 'regular', false, 100).totalKw;
+      row.regularHp = onboardPower(ds, a, at, 'regular', true, 100).totalKw;
+      row.premium = onboardPower(ds, a, at, 'premium', true, 100).totalKw;
+      row.facts = factsTabPower(ds, 'regular', t, 100)?.totalKw ?? NaN;
       return row;
     });
-  }, [ds, a, thermal, scenario.conditions.preconditionedC]);
+  }, [ds, a, cond, thermal]);
+  const checks = useMemo(() => ds.onboardMeasurements.map((m) => checkMeasurement(ds, a, m)), [ds, a]);
 
   const curveTemps = [-20, -10, 0, 25, 40];
   const ord = [c['--ord-1'], c['--ord-2'], c['--ord-3'], c['--ord-4'], c['--ord-5']];
@@ -153,7 +179,7 @@ export function PhysicsPage() {
   const speedTicks = niceTicks(0, Math.max(1, ...speedData.flatMap((r) => chosen.map((id) => r[id] ?? 0))));
   const chemCodes = Object.keys(ds.chemistries);
   const tempTicks = niceTicks(Math.min(100, ...tempData.flatMap((r) => chemCodes.map((k) => r[k]))), 100, 4);
-  const powerTicks = niceTicks(0, Math.max(1, ...tempData.map((r) => Math.max(r.regular, r.premium))));
+  const powerTicks = niceTicks(0, Math.max(1, ...tempData.map((r) => Math.max(r.regular, r.regularHp, r.premium, Number.isFinite(r.facts) ? r.facts : 0))));
   const curveValues = curves.flatMap((r) => Object.entries(r).filter(([k, v]) => k !== 'x' && v !== null).map(([, v]) => v as number));
   const curveTicks = niceTicks(curveValues.length ? Math.min(...curveValues) : 2, curveValues.length ? Math.max(...curveValues) : 4);
   const SpeedTip = useMemo(() => makeTooltip((l) => `${l} km/h, steady`, 'kWh/100 km'), []);
@@ -200,7 +226,7 @@ export function PhysicsPage() {
                 <XAxis dataKey="speed" {...axisProps(c)} unit=" km/h" />
                 <YAxis {...axisProps(c)} width={44} ticks={speedTicks} domain={[speedTicks[0], speedTicks[speedTicks.length - 1]]} />
                 <Tooltip content={SpeedTip} cursor={{ stroke: c['--line-strong'] }} />
-                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" />
+                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" itemSorter={seriesOrder(chosen)} />
                 {chosen.map((id, k) => (
                   <Line key={id} dataKey={id} name={derivedById[id].car.name} stroke={series[k]} strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: c['--surface'], strokeWidth: 2 }} isAnimationActive={false} />
                 ))}
@@ -265,8 +291,12 @@ export function PhysicsPage() {
           <div>
             <h2>Battery energy vs. air temperature</h2>
             <p className="muted">
-              Usable energy from 95 to 5 % (20 kW load, 60 kWh pack) relative to 25 °C, with the battery{' '}
-              {thermal === 'managed' ? 'heated/cooled as in your Facts tab' : thermal === 'ambient' ? 'at air temperature' : 'preconditioned'}.
+              Usable energy from 95 to 5 % (20 kW load, 60 kWh pack, about 2.7 h) relative to 25 °C. The pack starts{' '}
+              {thermal === 'preconditioned' ? `preconditioned to ${cond.preconditionedC} °C` : 'at the air temperature'} and{' '}
+              {thermal === 'ambient'
+                ? 'is not heated or cooled'
+                : `is heated below ${a.batteryManagedMinC} °C and cooled above ${a.batteryManagedMaxC} °C`}
+              ; its own losses warm it slowly (heat capacity ≈ 7 kJ/K per kWh).
             </p>
           </div>
           <div className="chart-box">
@@ -276,7 +306,7 @@ export function PhysicsPage() {
                 <XAxis dataKey="air" {...axisProps(c)} unit=" °C" />
                 <YAxis {...axisProps(c)} width={48} ticks={tempTicks} domain={[tempTicks[0], tempTicks[tempTicks.length - 1]]} unit=" %" />
                 <Tooltip content={TempTip} cursor={{ stroke: c['--line-strong'] }} />
-                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" />
+                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" itemSorter={seriesOrder(chemCodes)} />
                 {Object.keys(ds.chemistries).map((code, k) => (
                   <Line key={code} dataKey={code} name={code} stroke={series[k]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
                 ))}
@@ -288,14 +318,13 @@ export function PhysicsPage() {
               <thead>
                 <tr>
                   <th>Air</th>
-                  <th className="r">Battery</th>
+                  <th className="r">Battery (mean)</th>
                   {Object.keys(ds.chemistries).map((code) => (
                     <th key={code} className="r">
                       {code} usable
                     </th>
                   ))}
-                  <th className="r">Onboard, regular</th>
-                  <th className="r">Onboard, premium</th>
+                  <th className="r">Heating / cooling</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,21 +332,23 @@ export function PhysicsPage() {
                   .filter((r) => [-20, -10, 0, 10, 20, 30, 40].includes(r.air))
                   .map((r) => (
                     <tr key={r.air}>
-                      <td>{r.air} °C</td>
+                      <td className="nowrap">{r.air} °C</td>
                       <td className="r">{fixed(r[`bt_${Object.keys(ds.chemistries)[0]}`], 0)} °C</td>
                       {Object.keys(ds.chemistries).map((code) => (
                         <td key={code} className="r">
                           {fixed(r[code], 0)} %
                         </td>
                       ))}
-                      <td className="r">{fixed(r.regular, 1)} kW</td>
-                      <td className="r">{fixed(r.premium, 1)} kW</td>
+                      <td className="r">{fixed(r[`th_${Object.keys(ds.chemistries)[0]}`], 1)} kWh</td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
-          <p className="faint" style={{ fontSize: 12.5 }}>Onboard power at 100 % heating/AC, from your Facts tab.</p>
+          <p className="faint" style={{ fontSize: 12.5 }}>
+            Battery temperature and heating/cooling energy for {Object.keys(ds.chemistries)[0]}. The heating/cooling energy is added to the energy
+            needed in each stress test.
+          </p>
         </section>
 
         <section className="panel stack">
@@ -341,7 +372,7 @@ export function PhysicsPage() {
                 <XAxis dataKey="x" {...axisProps(c)} unit=" %" type="number" domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} />
                 <YAxis {...axisProps(c)} width={48} ticks={curveTicks} domain={[curveTicks[0], curveTicks[curveTicks.length - 1]]} unit=" V" />
                 <Tooltip content={CurveTip} cursor={{ stroke: c['--line-strong'] }} />
-                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" />
+                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" itemSorter={seriesOrder(curveTemps.map((t) => `t${t}`))} />
                 {curveTemps.map((t, k) => (
                   <Line key={t} dataKey={`t${t}`} name={`${t} °C`} stroke={ord[k]} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
                 ))}
@@ -356,7 +387,10 @@ export function PhysicsPage() {
         <section className="panel stack">
           <div>
             <h2>Onboard power vs. air temperature</h2>
-            <p className="muted">Base loads + cabin heating/AC at 100 % + battery heating/cooling (your Facts tab).</p>
+            <p className="muted">
+              Electronics + cabin heating/AC running all the time (100 %), at the current sunshine ({num(cond.solarWm2, 0)} W/m²) and humidity (
+              {num(cond.humidityPct, 0)} %). Battery heating/cooling depends on the trip and is added in each stress test.
+            </p>
           </div>
           <div className="chart-box">
             <ResponsiveContainer>
@@ -365,12 +399,113 @@ export function PhysicsPage() {
                 <XAxis dataKey="air" {...axisProps(c)} unit=" °C" />
                 <YAxis {...axisProps(c)} width={48} ticks={powerTicks} domain={[0, powerTicks[powerTicks.length - 1]]} unit=" kW" />
                 <Tooltip content={PowerTip} cursor={{ stroke: c['--line-strong'] }} />
-                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" />
-                <Line dataKey="regular" name="Regular car" stroke={series[0]} strokeWidth={2} dot={false} isAnimationActive={false} />
-                <Line dataKey="premium" name="Large / premium car" stroke={series[1]} strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" itemSorter={seriesOrder(['regular', 'regularHp', 'premium', 'facts'])} />
+                <Line dataKey="regular" name="Regular car, resistive heater" stroke={series[0]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+                <Line dataKey="regularHp" name="Regular car, heat pump" stroke={series[1]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+                <Line dataKey="premium" name="Large / premium car, heat pump" stroke={series[2]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+                <Line
+                  dataKey="facts"
+                  name="Your Facts tab (old model, regular car)"
+                  stroke={c['--ink-2']}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Air</th>
+                  <th className="r">Regular, resistive</th>
+                  <th className="r">Regular, heat pump</th>
+                  <th className="r">Premium, heat pump</th>
+                  <th className="r">Facts tab</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tempData
+                  .filter((r) => [-20, -10, 0, 10, 20, 25, 30, 35, 40].includes(r.air))
+                  .map((r) => (
+                    <tr key={r.air}>
+                      <td className="nowrap">{r.air} °C</td>
+                      <td className="r">{fixed(r.regular, 2)} kW</td>
+                      <td className="r">{fixed(r.regularHp, 2)} kW</td>
+                      <td className="r">{fixed(r.premium, 2)} kW</td>
+                      <td className="r">{fixed(r.facts, 2)} kW</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 12.5 }}>
+            Heat balance of the cabin: walls and windows, fresh air, sunshine, body heat and moisture, divided by the COP of the AC or heat pump
+            (a share of the ideal Carnot COP). Parameters: data/onboard/classes.csv and the “Cabin climate” assumptions.
+          </p>
+        </section>
+
+        <section className="panel stack span-all">
+          <div>
+            <h2>Onboard model vs. measurements</h2>
+            <p className="muted">
+              Published measurements of parked or driving EVs, and what the model and your Facts tab give for the same car class, air temperature,
+              cabin temperature and sunshine. “Climate” = heating/AC only, “total” = incl. electronics.
+            </p>
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Measurement</th>
+                  <th>Car</th>
+                  <th className="r">Air</th>
+                  <th>What</th>
+                  <th className="r">Measured</th>
+                  <th className="r">Model</th>
+                  <th className="r">Facts tab</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checks.map((k) => (
+                  <tr key={k.m.id} title={k.m.note}>
+                    <td>
+                      {k.m.url ? (
+                        <a href={k.m.url} target="_blank" rel="noreferrer">
+                          {k.m.source}
+                        </a>
+                      ) : (
+                        k.m.source
+                      )}
+                    </td>
+                    <td>{k.m.vehicle}</td>
+                    <td className="r">
+                      {num(k.m.airC, 1)} °C{k.m.solarWm2 > 0 ? ', sun' : ''}
+                    </td>
+                    <td>{k.m.compare}</td>
+                    <td className="r">
+                      {k.m.measuredMinKw !== null && k.m.measuredMaxKw !== null
+                        ? `${fixed(k.m.measuredMinKw, 2)}–${fixed(k.m.measuredMaxKw, 2)}`
+                        : fixed(k.m.measuredKw, 2)}{' '}
+                      kW
+                    </td>
+                    <td className="r">
+                      {fixed(k.modelKw, 2)} kW{' '}
+                      <span className="faint">{k.deviation === 0 ? '(in range)' : `(${k.deviation > 0 ? '+' : '−'}${fixed(Math.abs(k.deviation) * 100, 0)} %)`}</span>
+                    </td>
+                    <td className="r">{fixed(k.factsKw, 2)} kW</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 12.5 }}>
+            Hover a row for the test conditions. Cars differ by about ±30 % (insulation, fresh-air setting, heater). The Car and Driver Model 3 most
+            likely recirculated its cabin air; the model keeps fresh air on against fogged windows. Sources and values: data/onboard/measurements.csv.
+          </p>
         </section>
 
         <section className="panel stack">

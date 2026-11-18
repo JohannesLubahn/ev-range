@@ -22,6 +22,19 @@ export interface Assumptions {
   batteryHvacMaxKw: number;
   batteryHeatExchangeWPerK: number;
   batteryPackVoltageV: number;
+  cabinSetpointC: number;
+  cabinOccupants: number;
+  occupantSensibleW: number;
+  occupantLatentW: number;
+  cabinSoakK: number;
+  acEvaporatorC: number;
+  acCondenserApproachK: number;
+  acCarnotEfficiencyPct: number;
+  hpCondenserC: number;
+  hpEvaporatorApproachK: number;
+  hpCarnotEfficiencyPct: number;
+  hpFullC: number;
+  hpOffC: number;
   taperSpeedFactorPct: number;
   chargingEfficiencyPct: number;
   rollingResistanceNPerKn: number;
@@ -43,6 +56,10 @@ export interface Assumptions {
 
 export interface Conditions {
   airTemperatureC: number;
+  /** Sunshine on the car (W/m²): 0 = night or overcast, ~500 = hazy day, ~1000 = clear sky at noon. */
+  solarWm2: number;
+  /** Relative humidity of the outside air (%): moisture the AC has to condense. */
+  humidityPct: number;
   altitudeM: number;
   payloadKg: number;
   tyrePressureBar: number;

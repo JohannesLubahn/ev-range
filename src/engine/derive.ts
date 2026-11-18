@@ -49,6 +49,8 @@ export interface DerivedCar {
   curbMassKg: Val<number>;
   /** Rolling resistance coefficient at 80 km/h and reference tyre pressure. */
   crrRef: Val<number>;
+  /** Cabin heated by a heat pump (else resistive heater). */
+  heatPump: Val<boolean>;
   powerHp: number | null;
   chemistry: string | null;
   priceDisplay: Val<number | null>;
@@ -175,6 +177,10 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     car.tyreRr !== null
       ? { value: car.tyreRr / 1000, provenance: 'data' }
       : { value: a.rollingResistanceNPerKn / 1000, provenance: 'estimated', note: 'assumption (tyre label)' };
+  const heatPump: Val<boolean> =
+    car.heatPump !== null
+      ? { value: car.heatPump, provenance: 'data' }
+      : { value: false, provenance: 'estimated', note: 'unknown: resistive heater assumed' };
   const powerHp = car.powerKw !== null ? car.powerKw * 1.341 : null;
 
   let chemistry: string | null = null;
@@ -230,6 +236,7 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     frontalAreaM2,
     curbMassKg,
     crrRef,
+    heatPump,
     powerHp,
     chemistry,
     priceDisplay,

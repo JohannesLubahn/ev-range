@@ -1,14 +1,20 @@
 import { num } from '../format';
 import { useEngine } from '../state/engine';
 import { BUILT_IN_PRESETS, useStore } from '../state/store';
-import type { Conditions, ThermalMode } from '../engine/types';
+import type { Assumptions, Conditions, ThermalMode } from '../engine/types';
 import { NumberField, SelectField } from './Fields';
 
-const THERMAL: { id: ThermalMode; label: string; description: string }[] = [
-  { id: 'managed', label: 'Managed (heated / cooled)', description: 'Kept at 10–21 °C with up to 2 kW, as in your Facts tab' },
-  { id: 'ambient', label: 'Follows the air temperature', description: 'No battery heating or cooling' },
-  { id: 'preconditioned', label: 'Preconditioned', description: 'Warmed or cooled before departure and held there' },
-];
+function thermalOptions(a: Assumptions): { id: ThermalMode; label: string; description: string }[] {
+  return [
+    {
+      id: 'managed',
+      label: 'Managed (heated / cooled)',
+      description: `Starts at air temperature; heated below ${a.batteryManagedMinC} °C and cooled above ${a.batteryManagedMaxC} °C while driving`,
+    },
+    { id: 'ambient', label: 'Not heated or cooled', description: 'Starts at air temperature and only warms from its own losses' },
+    { id: 'preconditioned', label: 'Preconditioned', description: 'Battery and cabin brought to temperature while plugged in, then managed' },
+  ];
+}
 
 /** One-line summary of the conditions under which the results hold. */
 export function ConditionsSummary() {
@@ -21,6 +27,12 @@ export function ConditionsSummary() {
     <span className="conditions">
       <span>
         Air <b>{num(c.airTemperatureC, 1)} °C</b>
+      </span>
+      <span>
+        Sun <b>{num(c.solarWm2, 0)} W/m²</b>
+      </span>
+      <span>
+        Humidity <b>{num(c.humidityPct, 0)} %</b>
       </span>
       <span>
         <b>{c.altitudeM > 0 ? `${num(c.altitudeM, 0)} m` : 'sea level'}</b>
@@ -99,7 +111,7 @@ function SaveButton({ onSave }: { onSave: (name: string) => void }) {
 
 /** Editable conditions shared by all stress tests. */
 export function ConditionsPanel() {
-  const { scenario } = useEngine();
+  const { scenario, a } = useEngine();
   const setScenario = useStore((s) => s.setScenario);
   const settings = useStore((s) => s.settings);
   const c = scenario.conditions;
@@ -110,16 +122,26 @@ export function ConditionsPanel() {
         <h3>Conditions</h3>
         <p className="muted">
           {settings.consumption === 'physics'
-            ? 'Shared by all stress tests. They act on air drag, rolling resistance, heating/AC and the battery.'
+            ? 'Shared by all stress tests. They act on air drag, rolling resistance, heating / AC (temperature, sun, humidity) and the battery.'
             : 'These only take effect with the Physics model.'}
         </p>
       </div>
       <div className="fields">
         <NumberField label="Air temperature" unit="°C" min={-30} max={50} step={1} value={c.airTemperatureC} onChange={(v) => set({ airTemperatureC: v })} />
+        <NumberField
+          label="Sunshine (0 night · 500 hazy · 1000 clear noon)"
+          unit="W/m²"
+          min={0}
+          max={1100}
+          step={50}
+          value={c.solarWm2}
+          onChange={(v) => set({ solarWm2: v })}
+        />
+        <NumberField label="Air humidity" unit="%" min={0} max={100} step={5} value={c.humidityPct} onChange={(v) => set({ humidityPct: v })} />
         <NumberField label="Altitude" unit="m" min={0} max={4500} step={50} value={c.altitudeM} onChange={(v) => set({ altitudeM: v })} />
         <NumberField label="Load (people + luggage)" unit="kg" min={0} max={800} step={10} value={c.payloadKg} onChange={(v) => set({ payloadKg: v })} />
         <NumberField label="Tyre pressure" unit="bar" min={1.5} max={3.5} step={0.1} value={c.tyrePressureBar} onChange={(v) => set({ tyrePressureBar: v })} />
-        <SelectField label="Battery temperature" value={c.thermalMode} options={THERMAL} onChange={(v) => set({ thermalMode: v })} />
+        <SelectField label="Battery temperature" value={c.thermalMode} options={thermalOptions(a)} onChange={(v) => set({ thermalMode: v })} />
         {c.thermalMode === 'preconditioned' && (
           <NumberField label="Preconditioned to" unit="°C" min={-10} max={40} step={1} value={c.preconditionedC} onChange={(v) => set({ preconditionedC: v })} />
         )}

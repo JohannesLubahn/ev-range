@@ -4,7 +4,8 @@ import fields from '../../data/fields.csv?raw';
 import assumptions from '../../data/assumptions.csv?raw';
 import bodyTypes from '../../data/body_types.csv?raw';
 import onboardClasses from '../../data/onboard/classes.csv?raw';
-import hvac from '../../data/onboard/hvac.csv?raw';
+import factsTab from '../../data/onboard/facts_tab.csv?raw';
+import onboardMeasurements from '../../data/onboard/measurements.csv?raw';
 import chemistries from '../../data/battery/chemistries.csv?raw';
 import ocv from '../../data/battery/ocv.csv?raw';
 import temperature from '../../data/battery/temperature.csv?raw';
@@ -24,7 +25,8 @@ export const bundledFiles: RawFiles = {
   assumptions,
   bodyTypes,
   onboardClasses,
-  hvac,
+  factsTab,
+  onboardMeasurements,
   chemistries,
   ocv,
   temperature,

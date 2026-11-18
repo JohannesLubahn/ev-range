@@ -44,7 +44,7 @@ function unitFor(f: FieldDef, d: DerivedCar): string {
 }
 
 function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecRow[] }[] {
-  const { ds, derivedById, out, a } = useEngine();
+  const { ds, derivedById, out, a, scenario } = useEngine();
   const settings = useStore((s) => s.settings);
   return useMemo(() => {
     const groups = new Map<string, SpecRow[]>();
@@ -62,6 +62,10 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
         if (derive) {
           const v = derive(d);
           cells[id] = { text: num(v.value, digitsFor(v.value)), value: v.value, prov: v.prov };
+          continue;
+        }
+        if (f.key === 'heat_pump') {
+          cells[id] = d.isIce ? { text: '', value: null } : { text: d.heatPump.value ? 'yes' : 'no', value: null, prov: d.heatPump.provenance };
           continue;
         }
         const raw = d.car.raw[f.key] ?? '';
@@ -105,6 +109,11 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
             return n(seg.driveKwh, 1);
           });
         }
+        calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC on`, 'kW', 'lower', (d) => {
+          const m = out.models[d.car.id];
+          if (!m || d.isIce) return { text: '', value: null };
+          return n(m.onboard(100).totalKw, 2);
+        });
       }
       calc('Performance', 'c_hp', 'Power', 'HP', 'higher', (d) => n(d.powerHp, 0));
       if (ids.some((id) => derivedById[id].car.currency !== a.displayCurrency))
@@ -114,7 +123,7 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
     return [...groups.entries()]
       .sort((x, y) => (order.indexOf(x[0]) + 99 * +(order.indexOf(x[0]) < 0)) - (order.indexOf(y[0]) + 99 * +(order.indexOf(y[0]) < 0)))
       .map(([group, rows]) => ({ group, rows }));
-  }, [ds, derivedById, out, ids, showCalc, settings.consumption, a.displayCurrency]);
+  }, [ds, derivedById, out, ids, showCalc, settings.consumption, a.displayCurrency, scenario.conditions.airTemperatureC]);
 }
 
 function download(name: string, text: string) {

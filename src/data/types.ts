@@ -33,6 +33,8 @@ export interface Car {
   heightMm: number | null;
   weightKg: number | null;
   tyreRr: number | null;
+  /** Cabin heated by a heat pump (true), a resistive heater only (false), or unknown (null). */
+  heatPump: boolean | null;
   powerKw: number | null;
   energyPrice: number | null;
   maintenancePerYear: number | null;
@@ -69,22 +71,63 @@ export interface BodyType {
   source: string;
 }
 
+/** Per car class (data/onboard/classes.csv): electronics and the cabin's thermal properties. */
 export interface OnboardClass {
   carClass: string;
   label: string;
+  /** Control units, pumps, lights, steering, brakes (kW). */
   generalKw: number;
+  /** Screens and audio (kW). Their heat stays in the cabin. */
   infotainmentKw: number;
+  /** Driver-assistance computer and sensors (kW). */
   autonomousDrivingKw: number;
+  /** Heat flow through walls and windows per °C between cabin and outside air (W/K). */
+  cabinUaWPerK: number;
+  /** Outside air blown into the cabin when heating / when cooling (m³/h). */
+  freshAirHeatingM3h: number;
+  freshAirCoolingM3h: number;
+  /** Effective area that lets sunshine into the cabin (m²): glass area × transmittance × angle. */
+  solarAreaM2: number;
+  /** Heat capacity of cabin air and interior that is heated or cooled at the start of a trip (kJ/K). */
+  cabinHeatCapacityKjPerK: number;
+  /** Blower fan while the climate control runs (kW). */
+  blowerKw: number;
   description: string;
   source: string;
 }
 
-export interface HvacRow {
+/** The spreadsheet's Facts-tab onboard curves (data/onboard/facts_tab.csv), kept for comparison only. */
+export interface FactsTabRow {
   temperatureC: number;
+  baseRegularKw: number;
+  basePremiumKw: number;
   cabinRegularKw: number;
   cabinPremiumKw: number;
   batteryKw: number;
   note: string;
+}
+
+/** A published measurement of onboard power (data/onboard/measurements.csv), used to check the model. */
+export interface OnboardMeasurement {
+  id: string;
+  source: string;
+  vehicle: string;
+  carClass: string;
+  heatPump: boolean;
+  airC: number;
+  cabinC: number;
+  solarWm2: number;
+  humidityPct: number;
+  speedKmh: number;
+  occupants: number;
+  /** A single value, or a range (min/max) when several cars were measured. */
+  measuredKw: number | null;
+  measuredMinKw: number | null;
+  measuredMaxKw: number | null;
+  /** What the value contains: climate control only, electronics only, or both. */
+  compare: 'climate' | 'electronics' | 'total';
+  note: string;
+  url: string;
 }
 
 export interface Chemistry {
@@ -95,9 +138,14 @@ export interface Chemistry {
   maxCellV: number;
   dv1c25cPct: number;
   resistanceEaKjPerMol: number;
+  /** Pack-level specific energy (Wh per kg of pack), for the pack's heat capacity. */
+  packWhPerKg: number;
+  /** Specific heat of the cells (J per kg and K). */
+  specificHeatJPerKgK: number;
   ocvSource: string;
   resistanceSource: string;
   capacitySource: string;
+  thermalSource: string;
   /** Open-circuit voltage per cell at 0..100 % SoC (index = SoC %). */
   ocv: number[];
   /** Deliverable capacity (% of rated) at the temperatures in Dataset.capacityTemps. */
@@ -121,7 +169,8 @@ export interface Dataset {
   assumptions: Record<string, AssumptionDef>;
   bodyTypes: Record<string, BodyType>;
   onboardClasses: Record<string, OnboardClass>;
-  hvac: HvacRow[];
+  factsTab: FactsTabRow[];
+  onboardMeasurements: OnboardMeasurement[];
   chemistries: Record<string, Chemistry>;
   capacityTemps: number[];
   capacityNotes: string[];

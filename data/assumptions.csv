@@ -1,10 +1,23 @@
 key,value,unit,label,group,description,source
 long_term_capacity_pct,80,%,Battery capacity left after long-term use,Battery,Used as available capacity in every stress test,Car Details row 7 (nominal × 80 %)
-battery_managed_min_c,10,°C,Battery heated below,Battery,Thermal management heats the pack below this temperature,Facts tab: battery HVAC is 0 kW from 10 °C
-battery_managed_max_c,21,°C,Battery cooled above,Battery,Thermal management cools the pack above this temperature,Facts tab: battery HVAC is 0 kW up to 21 °C
-battery_hvac_max_kw,2,kW,Max. battery heating/cooling power,Battery,Beyond this the pack temperature drifts with the ambient temperature,Facts tab: 2 kW at 0 °C and at 30 °C
-battery_heat_exchange_w_per_k,200,W/K,Battery heat exchange with ambient,Battery,Heating/cooling power needed per °C of difference,Derived from the Facts tab slope (0.2 kW per °C)
+battery_managed_min_c,10,°C,Battery heated below,Battery,"While driving, thermal management heats the pack when it is colder than this",Facts tab (battery heating 0 kW from 10 °C); below about 10 °C resistance and capacity losses of Li-ion cells grow
+battery_managed_max_c,35,°C,Battery cooled above,Battery,Thermal management cools the pack when it gets warmer than this,"Typical upper limit of the preferred pack temperature (e.g. Audi e-tron GT: 30–35 °C). The Facts tab's 21 °C would mean cooling almost all year in Thailand"
+battery_hvac_max_kw,2,kW,Max. battery heating/cooling power,Battery,Most heat put into or taken out of the pack,Facts tab: 2 kW
+battery_heat_exchange_w_per_k,15,W/K,Battery heat loss to the air,Battery,"Heat flow between pack and outside air per °C of difference. Packs are insulated and heavy (≈ 6–8 kJ/K per kWh), so they follow the air temperature only over many hours","Estimate: a parked Nissan Leaf pack (294 kg) cools with a time constant of about 9 h (owner measurement, mynissanleaf.com forum) ≈ 9 W/K; 15 W/K for larger packs and air flow while driving. Replaces the Facts-tab slope (200 W/K)"
 battery_pack_voltage_v,400,V,Nominal pack voltage,Battery,Only scales current; energy results do not depend on it,Typical 350–400 V passenger EV packs
+cabin_setpoint_c,22,°C,Cabin temperature,Cabin climate,Temperature the heating / AC holds in the cabin,Argonne's tests hold 72 °F (22.2 °C)
+cabin_occupants,1,,People in the car,Cabin climate,"Body heat helps heating and adds to the AC load",Assumption: the driver
+occupant_sensible_w,75,W,Body heat per person,Cabin climate,Dry heat given off by a seated person,"ASHRAE Handbook – Fundamentals, ch. 18: seated, light work ≈ 75 W sensible + 55 W latent"
+occupant_latent_w,55,W,Body moisture per person (as heat),Cabin climate,Moisture the AC has to condense,"ASHRAE Handbook – Fundamentals, ch. 18"
+cabin_soak_k,22,K,Cabin warming of a parked car in full sun,Cabin climate,"Temperature rise above the air of a car parked in 1000 W/m² of sun (scaled with the sunshine). Sets the cabin temperature at the start of a trip","McLaren, Null & Quinn 2005 (Pediatrics 116:e109): +40 °F (22 K) within an hour on clear days, whatever the air temperature"
+ac_evaporator_c,5,°C,AC evaporator temperature,Cabin climate,Cold side of the AC. It also dries the air: moisture condenses down to this dew point,Typical automotive evaporators run at 0–5 °C (frost limit)
+ac_condenser_approach_k,15,K,AC condenser above air temperature,Cabin climate,Hot side of the AC = air temperature + this,Typical 10–20 K
+ac_carnot_efficiency_pct,40,%,AC efficiency vs. the ideal (Carnot) cycle,Cabin climate,"COP = this × T_evap ÷ (T_cond − T_evap): 3.2 at 25 °C, 2.5 at 35 °C, 2.0 at 45 °C. Also used for battery cooling","Vapour-compression systems reach 30–50 % of the Carnot COP; checked against Argonne's 35 °C measurements (data/onboard/measurements.csv)"
+hp_condenser_c,45,°C,Heat pump condenser temperature,Cabin climate,Hot side of the heat pump (warm supply air),Assumption: supply air ≈ 40 °C
+hp_evaporator_approach_k,10,K,Heat pump evaporator below air temperature,Cabin climate,Cold side of the heat pump = air temperature − this,Typical 5–10 K
+hp_carnot_efficiency_pct,35,%,Heat pump efficiency vs. the ideal (Carnot) cycle,Cabin climate,"COP = this × T_cond ÷ (T_cond − T_evap): 2.0 at 0 °C, 1.7 at −10 °C","Tesla Model 3 heat pump on a dynamometer (TEEL): COP 1.53–3.33 at 0 °C and 0.80–1.93 at −10 °C (Humphries & Loiselle-Lapointe 2026, reported by Zhang & He 2026, arXiv 2605.05919)"
+hp_full_c,-5,°C,Heat pump covers all heating down to,Cabin climate,"Below this, a growing share comes from the resistive heater","Argonne BEV 1: 79 % of the heating power from the heat pump at −6.7 °C, 19 % at −17.8 °C (DOE Program Record, Sep 2024)"
+hp_off_c,-22,°C,Heat pump off below,Cabin climate,Below this only the resistive heater works,As above
 taper_speed_factor_pct,50,%,Charging speed outside the fast-charge window,Charging,Share of the fast charging speed below/above the fast window,Car Details comment: assumed to half the fast charging speed
 charging_efficiency_pct,90,%,Charging efficiency (grid → battery),Charging,"Test-cycle consumption is measured from the grid; this converts it to battery energy, and battery energy back to paid energy",Assumption; typical AC charging 85–95 %
 rolling_resistance_n_per_kn,8,N/kN,Tyre rolling resistance,Driving physics,"Used when a car has no tyre_rr value; 8 N/kN = EU tyre label class C, measured at 80 km/h (ISO 28580)",EU tyre label (Regulation (EU) 2020/740) class C: 7.8–9.0 N/kN

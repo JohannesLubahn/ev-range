@@ -2,8 +2,9 @@
 import type { Dataset } from '../data/types';
 import type { DataFlag, DerivedCar } from './derive';
 import { Pack } from './battery/pack';
-import { onboardPower, type OnboardPower } from './onboard/loads';
-import { batteryTemperature } from './onboard/thermal';
+import { coolingCop } from './onboard/climate';
+import { baseLoadKw, onboardClass, onboardPower, type OnboardPower } from './onboard/loads';
+import { packHeatCapacity, packThermal, type PackThermal } from './onboard/thermal';
 import { airDensity, pressureAtAltitude } from './physics/air';
 import { profileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
@@ -23,6 +24,8 @@ export interface SegmentSpec {
   usagePct: number;
   /** Simple model: use the high-speed consumption (the spreadsheet's Sprint case). */
   highSpeed?: boolean;
+  /** First segment of a trip: the parked cabin is heated or cooled to the setpoint (Physics model). */
+  tripStart?: boolean;
 }
 
 export interface SegmentEnergy {
@@ -33,7 +36,10 @@ export interface SegmentEnergy {
   /** Driving energy from the battery terminals (kWh, or litres for ICE). */
   driveKwh: number;
   onboard: OnboardPower;
+  /** Onboard energy: power × time, plus the cabin start energy on the first segment of a trip. */
   onboardKwh: number;
+  /** Part of onboardKwh for heating / cooling the parked cabin at the start. */
+  startKwh: number;
   totalKwh: number;
   /** Driving + onboard energy per km. */
   perKm: number;
@@ -60,6 +66,10 @@ export interface BatteryView {
   availableKwh: number;
   temperatureC: number;
   temperatureNote: string;
+  /** Pack temperature over the trip and the energy for heating / cooling it (chemistry model only). */
+  thermal: PackThermal | null;
+  /** Electric energy for battery heating + cooling over the trip (kWh). */
+  thermalKwh: number;
   /** Energy deliverable at the terminals between two states of charge at a mean power. */
   deliverable(startPct: number, endPct: number, meanPowerKw: number, rmsFactor: number): { kwh: number; lossKwh: number; cutoff: boolean; powerLimited: boolean };
   /** Long-term capacity (kWh) a battery of the same kind would need to deliver `energyKwh` in the window. */
@@ -90,6 +100,8 @@ export class CarModel {
   private calibrationCache: Calibration | null = null;
   private simCache = new Map<string, SimResult>();
   private pack: Pack | null = null;
+  /** Heat capacity of the battery pack (J/K). */
+  readonly packHeatCapacityJPerK: number = 0;
 
   constructor(d: DerivedCar, ctx: ModelContext) {
     this.d = d;
@@ -103,6 +115,7 @@ export class CarModel {
         sohFrac: d.longTermPct.value / 100,
         packVoltageV: ctx.a.batteryPackVoltageV,
       });
+      this.packHeatCapacityJPerK = packHeatCapacity(d.batteryKwh, chem);
     }
   }
 
@@ -118,14 +131,15 @@ export class CarModel {
   onboard(usagePct: number): OnboardPower {
     if (!this.physics) {
       const kw = ((this.d.car.onboardKw ?? 0) * usagePct) / 100;
-      return { totalKw: kw, baseKw: 0, cabinKw: kw, batteryHvacKw: 0, cabinFullKw: this.d.car.onboardKw ?? 0 };
+      return { totalKw: kw, baseKw: 0, cabinKw: kw, cabinFullKw: this.d.car.onboardKw ?? 0, startKwh: 0, climate: null };
     }
-    const c = this.ctx.conditions;
-    const p = onboardPower(this.ctx.ds, this.d.car.carClass, c.airTemperatureC, usagePct, c.thermalMode);
+    const { ds, a, conditions } = this.ctx;
+    const p = onboardPower(ds, a, conditions, this.d.car.carClass, this.d.heatPump.value, usagePct, this.d.isIce);
     if (this.d.isIce) {
       // Petrol car: onboard power is produced by the engine; convert kW into litres/hour with the calibrated factor.
+      // Heating uses the engine's waste heat (only the blower costs fuel).
       const f = 1 / this.calibration().etaDrive;
-      return { totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, batteryHvacKw: 0, cabinFullKw: p.cabinFullKw * f };
+      return { ...p, totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, cabinFullKw: p.cabinFullKw * f, startKwh: p.startKwh * f };
     }
     return p;
   }
@@ -166,8 +180,8 @@ export class CarModel {
     if (rated === null) {
       return (this.calibrationCache = { etaDrive: fallback, cycle: '-', clamped: false, ratedBatteryPerKm: 0, note: 'no consumption: default efficiency' });
     }
-    const cls = ds.onboardClasses[d.car.carClass] ?? ds.onboardClasses.regular;
-    const auxKw = d.isIce ? 0 : (cls?.generalKw ?? 0.4);
+    // The electronics run during the official tests too (climate control off).
+    const auxKw = d.isIce ? 0 : baseLoadKw(onboardClass(ds, d.car.carClass));
     // Rated (test) consumption is measured from the grid. A value calculated as battery ÷ range is already
     // at the battery, so no charging losses are removed from it.
     const fromRange = d.consumption.provenance === 'calculated';
@@ -245,13 +259,14 @@ export class CarModel {
     const timeH = spec.timeH ?? (spec.avgSpeedKmh ? distanceKm / spec.avgSpeedKmh : 0);
     const avgSpeedKmh = timeH > 0 ? distanceKm / timeH : 0;
     const onboard = this.onboard(spec.usagePct);
-    const onboardKwh = onboard.totalKw * timeH;
+    const startKwh = spec.tripStart ? onboard.startKwh : 0;
+    const onboardKwh = onboard.totalKw * timeH + startKwh;
     if (!this.physics) {
       const cons = (spec.highSpeed ? this.d.highSpeedConsumption : this.d.consumption.value) ?? 0;
       const driveKwh = cons * distanceKm;
       const totalKwh = driveKwh + onboardKwh;
       return {
-        spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, totalKwh,
+        spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, startKwh, totalKwh,
         perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
         meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
         rmsFactor: 1,
@@ -272,7 +287,7 @@ export class CarModel {
     const f = wheelForces(movingKmh / 3.6, 0, veh, env);
     const per = (x: number) => (sim.distanceKm > 0 ? x / sim.distanceKm : 0);
     return {
-      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, totalKwh,
+      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, startKwh, totalKwh,
       perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
       meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
       rmsFactor,
@@ -292,8 +307,11 @@ export class CarModel {
   }
 
   // ------------------------------------------------------------------------------------------ battery
-  /** Battery view for a load with the given mean power (the pack temperature depends on its losses). */
-  battery(meanPowerKw: number, rmsFactor = 1): BatteryView {
+  /**
+   * Battery view for a trip with the given mean power and duration. The pack temperature follows from its heat
+   * capacity, its own losses, the air temperature and the thermal management (onboard/thermal.ts).
+   */
+  battery(meanPowerKw: number, rmsFactor = 1, durationH = 1): BatteryView {
     const d = this.d;
     const available = d.longTermKwh ?? 0;
     const c = this.ctx.conditions;
@@ -303,6 +321,8 @@ export class CarModel {
         availableKwh: available,
         temperatureC: c.airTemperatureC,
         temperatureNote: d.isIce ? 'fuel tank' : 'ideal battery (no temperature or load effects)',
+        thermal: null,
+        thermalKwh: 0,
         deliverable: (s, e) => ({ kwh: (available * (s - e)) / 100, lossKwh: 0, cutoff: false, powerLimited: false }),
         requiredKwh: (energy, s, e) => (s - e > 0 ? energy / ((s - e) / 100) : Infinity),
         lossFor: () => 0,
@@ -310,12 +330,24 @@ export class CarModel {
     }
     const pack = this.pack;
     const a = this.ctx.a;
+    const cop = coolingCop(c.airTemperatureC, a);
+    const thermalWith = (lossKw: number) =>
+      packThermal({
+        airC: c.airTemperatureC,
+        durationH,
+        lossKw,
+        heatCapacityJPerK: this.packHeatCapacityJPerK,
+        mode: c.thermalMode,
+        preconditionedC: c.preconditionedC,
+        coolingCop: cop,
+        a,
+      });
     // Two passes: temperature without losses, then with the losses at that temperature.
-    let temp = batteryTemperature(c.airTemperatureC, 0, c.thermalMode, c.preconditionedC, a);
-    const r0 = pack.discharge(90, 10, meanPowerKw, rmsFactor, temp.temperatureC);
+    let th = thermalWith(0);
+    const r0 = pack.discharge(90, 10, meanPowerKw, rmsFactor, th.meanC);
     const lossKw = r0.terminalKwh > 0 ? (meanPowerKw * r0.lossKwh) / r0.terminalKwh : 0;
-    temp = batteryTemperature(c.airTemperatureC, lossKw, c.thermalMode, c.preconditionedC, a);
-    const t = temp.temperatureC;
+    th = thermalWith(lossKw);
+    const t = th.meanC;
     const deliverable = (s: number, e: number, p: number, rho: number) => {
       const r = pack.discharge(s, e, p, rho, t);
       return { kwh: r.terminalKwh, lossKwh: r.lossKwh, cutoff: r.cutoff, powerLimited: r.powerLimited };
@@ -324,7 +356,9 @@ export class CarModel {
       model: 'chemistry',
       availableKwh: available,
       temperatureC: t,
-      temperatureNote: temp.description,
+      temperatureNote: th.description,
+      thermal: th,
+      thermalKwh: th.heatingKwh + th.coolingKwh,
       deliverable,
       requiredKwh: (energy, s, e, p, rho) => {
         // Scale the pack until the window delivers the energy (the C-rate changes with the size).

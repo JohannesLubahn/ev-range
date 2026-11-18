@@ -1,33 +1,82 @@
-// Onboard power vs. air temperature, from the spreadsheet's Facts tab (data/onboard/*.csv).
-import type { Dataset } from '../../data/types';
+// Onboard power: electronics (per car class) + cabin heating/AC from the cabin heat balance (climate.ts).
+// Battery heating/cooling is not part of it: it depends on the trip and is calculated with the battery (thermal.ts).
+import type { Dataset, FactsTabRow, OnboardClass } from '../../data/types';
+import type { Assumptions, Conditions } from '../types';
 import { interp } from '../util';
-import type { ThermalMode } from '../types';
+import { cabinClimate, type CabinClimate } from './climate';
 
 export interface OnboardPower {
   totalKw: number;
-  /** Lights, brakes & suspension, idling + infotainment + autonomous driving. */
+  /** Electronics: control units, pumps, lights, screens, driver assistance. */
   baseKw: number;
-  /** Cabin heating or air conditioning at the given usage. */
+  /** Cabin heating / AC incl. blower, at the given usage. */
   cabinKw: number;
-  /** Battery heating or cooling (thermal management). */
-  batteryHvacKw: number;
-  /** Cabin heating/AC at 100 % usage. */
+  /** Cabin heating / AC with the climate control on all the time. */
   cabinFullKw: number;
+  /** One-time energy to heat or cool the parked cabin to the setpoint at the start of a trip, at the given usage. */
+  startKwh: number;
+  climate: CabinClimate | null;
+}
+
+export function onboardClass(ds: Dataset, carClass: string): OnboardClass | undefined {
+  return ds.onboardClasses[carClass] ?? ds.onboardClasses.regular ?? Object.values(ds.onboardClasses)[0];
+}
+
+/** Electronics of a car class (kW): always on while the car is on, also in the official tests. */
+export function baseLoadKw(cls: OnboardClass | undefined): number {
+  return cls ? cls.generalKw + cls.infotainmentKw + cls.autonomousDrivingKw : 0;
 }
 
 export function onboardPower(
   ds: Dataset,
+  a: Assumptions,
+  c: Conditions,
   carClass: string,
-  airTemperatureC: number,
+  heatPump: boolean,
   cabinUsagePct: number,
-  thermalMode: ThermalMode,
+  engineHeat = false,
 ): OnboardPower {
-  const cls = ds.onboardClasses[carClass] ?? ds.onboardClasses.regular ?? Object.values(ds.onboardClasses)[0];
-  const baseKw = cls ? cls.generalKw + cls.infotainmentKw + cls.autonomousDrivingKw : 0;
-  const temps = ds.hvac.map((h) => h.temperatureC);
+  const cls = onboardClass(ds, carClass);
+  const baseKw = baseLoadKw(cls);
+  if (!cls) return { totalKw: 0, baseKw: 0, cabinKw: 0, cabinFullKw: 0, startKwh: 0, climate: null };
+  const climate = cabinClimate({
+    cls,
+    a,
+    airC: c.airTemperatureC,
+    humidityPct: c.humidityPct,
+    solarWm2: c.solarWm2,
+    altitudeM: c.altitudeM,
+    heatPump,
+    engineHeat,
+  });
+  const u = Math.max(0, cabinUsagePct) / 100;
+  const preconditioned = c.thermalMode === 'preconditioned';
+  const cabinKw = climate.totalKw * u;
+  return {
+    totalKw: baseKw + cabinKw,
+    baseKw,
+    cabinKw,
+    cabinFullKw: climate.totalKw,
+    // A preconditioned car starts with the cabin at the setpoint (warmed or cooled while plugged in).
+    startKwh: preconditioned ? 0 : climate.startKwh * u,
+    climate,
+  };
+}
+
+/** The Facts tab's onboard power (base, cabin at the usage, battery), for comparison only. */
+export function factsTabPower(
+  ds: Dataset,
+  carClass: string,
+  airC: number,
+  cabinUsagePct: number,
+): { baseKw: number; cabinKw: number; batteryKw: number; totalKw: number } | null {
+  const rows = ds.factsTab;
+  if (!rows.length) return null;
   const premium = carClass === 'premium';
-  const cabinFullKw = interp(temps, ds.hvac.map((h) => (premium ? h.cabinPremiumKw : h.cabinRegularKw)), airTemperatureC);
-  const cabinKw = (cabinFullKw * cabinUsagePct) / 100;
-  const batteryHvacKw = thermalMode === 'ambient' ? 0 : interp(temps, ds.hvac.map((h) => h.batteryKw), airTemperatureC);
-  return { totalKw: baseKw + cabinKw + batteryHvacKw, baseKw, cabinKw, batteryHvacKw, cabinFullKw };
+  const xs = rows.map((r) => r.temperatureC);
+  const at = (f: (r: FactsTabRow) => number) => interp(xs, rows.map(f), airC);
+  const baseKw = at((r) => (premium ? r.basePremiumKw : r.baseRegularKw));
+  const cabinKw = (at((r) => (premium ? r.cabinPremiumKw : r.cabinRegularKw)) * cabinUsagePct) / 100;
+  const batteryKw = at((r) => r.batteryKw);
+  return { baseKw, cabinKw, batteryKw, totalKw: baseKw + cabinKw + batteryKw };
 }

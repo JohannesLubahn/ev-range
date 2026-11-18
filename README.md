@@ -2,8 +2,8 @@
 
 A website that compares electric cars in the stress tests of `EV Calculations.ods`: traffic jam, no charger,
 sprint, battery life, long trip and cost of ownership. Consumption is calculated from first principles (air drag,
-rolling resistance, slope, acceleration, onboard loads, battery chemistry vs. temperature) and calibrated per car
-to its rated consumption. Your spreadsheet's own model is still available as the **Simple** model.
+rolling resistance, slope, acceleration, heating and AC from a heat balance of the cabin, battery chemistry and
+temperature) and calibrated per car to its rated consumption. Your spreadsheet's own model is still available as the **Simple** model.
 
 ## Run it
 
@@ -26,7 +26,9 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/assumptions.csv` | Every constant the model uses, with description and source. |
 | `data/body_types.csv` | Default drag coefficient and frontal area per body type (only used when a car lacks them). |
-| `data/onboard/*.csv` | Onboard base loads per car class and heating/cooling power vs. temperature (your Facts tab). |
+| `data/onboard/classes.csv` | Electronics and cabin properties per car class (walls, fresh air, sun area, heat capacity), with sources. |
+| `data/onboard/measurements.csv` | Published onboard-power measurements (Argonne, ADAC, …) the model is checked against. |
+| `data/onboard/facts_tab.csv` | Your Facts-tab onboard curves, kept for comparison only. |
 | `data/battery/*.csv` | Voltage curves, resistance and capacity vs. temperature per chemistry (LFP, NMC). |
 | `data/cycles/*.csv` | Official test-cycle speed traces (WLTP, NEDC, EPA) used for the calibration. |
 
@@ -35,6 +37,8 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 - **Consumption standard:** a car's consumption comes from the same source as its rated range, so the filled
   range column (`range_nedc_km`, `range_wltp_km`, `range_epa_km`, `range_cltc_km`) tells the model which test
   cycle to calibrate on. Only when a car has several ranges, set `consumption_basis`.
+- **Heat pump:** set `heat_pump` to `yes` or `no` per car (blank = resistive heater, the conservative case). It only
+  matters below about 15 °C.
 - The **Cars → Data check** list shows missing, estimated or suspicious values per car.
 - CLTC: the CLTC-P speed trace (GB/T 38146.1-2019) is not openly available. Save it as `data/cycles/cltc_p.csv`
   (`time_s,speed_kmh`) and add a `CLTC` row to `data/cycles/index.csv` to enable it; until then CLTC cars are

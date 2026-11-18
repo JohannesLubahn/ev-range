@@ -69,9 +69,10 @@ export function AssumptionsPage() {
           </div>
         </div>
         <p className="faint">
-          Physics: air drag, rolling resistance, slope and acceleration on real speed profiles, calibrated per car; onboard loads and battery
-          temperature follow the air temperature. Chemistry curves: open-circuit voltage, internal resistance and capacity per battery type and
-          temperature. Simple + Ideal reproduce your spreadsheet (with its formula issues fixed).
+          Physics: air drag, rolling resistance, slope and acceleration on real speed profiles, calibrated per car; heating and AC from a heat
+          balance of the cabin (air temperature, sun, humidity); battery temperature from the pack’s heat capacity, its losses and the thermal
+          management. Chemistry curves: open-circuit voltage, internal resistance and capacity per battery type and temperature. Simple + Ideal
+          reproduce your spreadsheet (with its formula issues fixed).
         </p>
       </section>
 
@@ -150,8 +151,16 @@ export function AssumptionsPage() {
             <span className="mono">data/body_types.csv</span> <span className="muted">default drag coefficient and frontal area per body type</span>
           </li>
           <li>
-            <span className="mono">data/onboard/classes.csv</span>, <span className="mono">hvac.csv</span>{' '}
-            <span className="muted">onboard base loads and heating/cooling vs. temperature (your Facts tab)</span>
+            <span className="mono">data/onboard/classes.csv</span>{' '}
+            <span className="muted">electronics and cabin properties (walls, fresh air, sun area, heat capacity) per car class, with sources</span>
+          </li>
+          <li>
+            <span className="mono">data/onboard/measurements.csv</span>{' '}
+            <span className="muted">published onboard-power measurements the model is checked against (Physics page)</span>
+          </li>
+          <li>
+            <span className="mono">data/onboard/facts_tab.csv</span>{' '}
+            <span className="muted">your Facts-tab onboard curves, kept for comparison only</span>
           </li>
           <li>
             <span className="mono">data/battery/*.csv</span> <span className="muted">voltage curves, resistance and capacity vs. temperature per chemistry</span>

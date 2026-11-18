@@ -7,9 +7,10 @@ import type {
   Chemistry,
   Cycle,
   Dataset,
+  FactsTabRow,
   FieldDef,
-  HvacRow,
   OnboardClass,
+  OnboardMeasurement,
 } from './types';
 import { BASES } from './types';
 
@@ -20,7 +21,8 @@ export interface RawFiles {
   assumptions: string;
   bodyTypes: string;
   onboardClasses: string;
-  hvac: string;
+  factsTab: string;
+  onboardMeasurements: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -57,6 +59,16 @@ export function parseNumber(value: string | undefined, warnings?: string[], wher
 
 function num(row: Row, key: string, warnings: string[], where: string): number | null {
   return parseNumber(row[key], warnings, `${where}, column ${key}`);
+}
+
+/** yes/no (also true/false, 1/0, ja/nein) → boolean; blank → null. */
+export function parseYesNo(value: string | undefined, warnings?: string[], where?: string): boolean | null {
+  const s = (value ?? '').trim().toLowerCase();
+  if (s === '') return null;
+  if (['yes', 'y', 'true', '1', 'ja', 'x'].includes(s)) return true;
+  if (['no', 'n', 'false', '0', 'nein'].includes(s)) return false;
+  warnings?.push(`${where ?? 'value'}: "${value}" is not yes or no and was ignored`);
+  return null;
 }
 
 function req(row: Row, key: string, warnings: string[], where: string, fallback = 0): number {
@@ -119,6 +131,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       heightMm: num(row, 'height_mm', warnings, where),
       weightKg: num(row, 'weight_kg', warnings, where),
       tyreRr: num(row, 'tyre_rr', warnings, where),
+      heatPump: parseYesNo(row.heat_pump, warnings, `${where}, column heat_pump`),
       powerKw: num(row, 'power_kw', warnings, where),
       energyPrice: num(row, 'energy_price', warnings, where),
       maintenancePerYear: num(row, 'maintenance_per_year', warnings, where),
@@ -177,16 +190,24 @@ export function parseDataset(files: RawFiles): Dataset {
       generalKw: req(r, 'general_kw', warnings, where),
       infotainmentKw: req(r, 'infotainment_kw', warnings, where),
       autonomousDrivingKw: req(r, 'autonomous_driving_kw', warnings, where),
+      cabinUaWPerK: req(r, 'cabin_ua_w_per_k', warnings, where, 45),
+      freshAirHeatingM3h: req(r, 'fresh_air_heating_m3_h', warnings, where, 100),
+      freshAirCoolingM3h: req(r, 'fresh_air_cooling_m3_h', warnings, where, 45),
+      solarAreaM2: req(r, 'solar_area_m2', warnings, where, 1),
+      cabinHeatCapacityKjPerK: req(r, 'cabin_heat_capacity_kj_per_k', warnings, where, 200),
+      blowerKw: req(r, 'blower_kw', warnings, where, 0.1),
       description: r.description ?? '',
       source: r.source ?? '',
     };
   }
 
-  const hvac: HvacRow[] = parseCsv(files.hvac)
+  const factsTab: FactsTabRow[] = parseCsv(files.factsTab)
     .rows.map((r) => {
-      const where = `onboard/hvac.csv, ${r.temperature_c} °C`;
+      const where = `onboard/facts_tab.csv, ${r.temperature_c} °C`;
       return {
         temperatureC: req(r, 'temperature_c', warnings, where),
+        baseRegularKw: req(r, 'base_regular_kw', warnings, where),
+        basePremiumKw: req(r, 'base_premium_kw', warnings, where),
         cabinRegularKw: req(r, 'cabin_regular_kw', warnings, where),
         cabinPremiumKw: req(r, 'cabin_premium_kw', warnings, where),
         batteryKw: req(r, 'battery_kw', warnings, where),
@@ -194,6 +215,30 @@ export function parseDataset(files: RawFiles): Dataset {
       };
     })
     .sort((a, b) => a.temperatureC - b.temperatureC);
+
+  const onboardMeasurements: OnboardMeasurement[] = parseCsv(files.onboardMeasurements).rows.map((r) => {
+    const where = `onboard/measurements.csv, ${r.id}`;
+    const compare = r.compare === 'electronics' || r.compare === 'total' ? r.compare : 'climate';
+    return {
+      id: r.id,
+      source: r.source ?? '',
+      vehicle: r.vehicle ?? '',
+      carClass: (r.car_class || 'regular').toLowerCase(),
+      heatPump: parseYesNo(r.heat_pump, warnings, where) ?? false,
+      airC: req(r, 'air_c', warnings, where),
+      cabinC: req(r, 'cabin_c', warnings, where, 22),
+      solarWm2: num(r, 'solar_w_m2', warnings, where) ?? 0,
+      humidityPct: num(r, 'humidity_pct', warnings, where) ?? 50,
+      speedKmh: num(r, 'speed_kmh', warnings, where) ?? 0,
+      occupants: num(r, 'occupants', warnings, where) ?? 0,
+      measuredKw: num(r, 'measured_kw', warnings, where),
+      measuredMinKw: num(r, 'measured_min_kw', warnings, where),
+      measuredMaxKw: num(r, 'measured_max_kw', warnings, where),
+      compare,
+      note: r.note ?? '',
+      url: r.url ?? '',
+    };
+  });
 
   // Battery chemistry tables: one column per chemistry in ocv.csv and temperature.csv.
   const ocvTable = parseCsv(files.ocv);
@@ -220,9 +265,12 @@ export function parseDataset(files: RawFiles): Dataset {
       maxCellV: req(r, 'max_cell_v', warnings, where, 4.2),
       dv1c25cPct: req(r, 'dv_1c_25c_pct', warnings, where, 3),
       resistanceEaKjPerMol: req(r, 'resistance_ea_kj_per_mol', warnings, where, 28),
+      packWhPerKg: req(r, 'pack_wh_per_kg', warnings, where, 150),
+      specificHeatJPerKgK: req(r, 'specific_heat_j_per_kgk', warnings, where, 1000),
       ocvSource: r.ocv_source ?? '',
       resistanceSource: r.resistance_source ?? '',
       capacitySource: r.capacity_source ?? '',
+      thermalSource: r.thermal_source ?? '',
       ocv,
       capacityPct: tempTable.rows.map((t) => parseNumber(t[code]) ?? 100),
     };
@@ -253,7 +301,8 @@ export function parseDataset(files: RawFiles): Dataset {
     assumptions,
     bodyTypes,
     onboardClasses,
-    hvac,
+    factsTab,
+    onboardMeasurements,
     chemistries,
     capacityTemps,
     capacityNotes,

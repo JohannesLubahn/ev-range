@@ -5,7 +5,7 @@ import type { Dataset } from '../data/types';
 import { assumptionsFromDataset } from '../engine/assumptions';
 import type { DataFlag, DerivedCar } from '../engine/derive';
 import { runEngine, type EngineOutput } from '../engine/run';
-import { spreadsheetDefaults } from '../engine/scenario';
+import { spreadsheetDefaults, withDefaults } from '../engine/scenario';
 import type { Assumptions, Scenario } from '../engine/types';
 import { useStore, type AssumptionOverrides } from './store';
 
@@ -49,7 +49,8 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const ds = useMemo(() => parseDataset(carsCsv ? { ...bundledFiles, cars: carsCsv } : bundledFiles), [carsCsv]);
   const baseAssumptions = useMemo(() => assumptionsFromDataset(ds), [ds]);
   const a = useMemo(() => applyOverrides(baseAssumptions, overrides, fx), [baseAssumptions, overrides, fx]);
-  const scenario = useMemo(() => scenarioState ?? spreadsheetDefaults(a), [scenarioState, a]);
+  // Scenarios saved by an older version may lack newer fields (e.g. sunshine): fill them with defaults.
+  const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState) : spreadsheetDefaults(a)), [scenarioState, a]);
 
   const dScenario = useDeferredValue(scenario);
   const dSettings = useDeferredValue(settings);

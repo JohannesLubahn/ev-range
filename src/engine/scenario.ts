@@ -2,12 +2,19 @@ import type { Assumptions, Conditions, Scenario } from './types';
 
 export const DEFAULT_CONDITIONS: Conditions = {
   airTemperatureC: 25,
+  solarWm2: 400,
+  humidityPct: 60,
   altitudeM: 0,
   payloadKg: 100,
   tyrePressureBar: 2.5,
   thermalMode: 'managed',
   preconditionedC: 20,
 };
+
+/** Fills in fields that scenarios saved by an older version of the app do not have yet. */
+export function withDefaults(s: Scenario): Scenario {
+  return { ...s, conditions: { ...DEFAULT_CONDITIONS, ...s.conditions } };
+}
 
 /** The inputs of the spreadsheet's Battery Sizing tab (column D), as one scenario for all cars. */
 export function spreadsheetDefaults(a: Assumptions): Scenario {

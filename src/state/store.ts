@@ -33,8 +33,18 @@ export interface BuiltInPreset {
 
 export const BUILT_IN_PRESETS: BuiltInPreset[] = [
   { id: 'spreadsheet', label: 'Spreadsheet defaults', description: 'The inputs of your Battery Sizing tab, at 25 °C', conditions: {} },
-  { id: 'thai-hot', label: 'Hot day (35 °C)', description: 'Spreadsheet inputs on a hot day: more AC and battery cooling', conditions: { airTemperatureC: 35 } },
-  { id: 'cold', label: 'Cold day (−10 °C)', description: 'Spreadsheet inputs in winter: heating, cold battery, denser air', conditions: { airTemperatureC: -10 } },
+  {
+    id: 'thai-hot',
+    label: 'Hot sunny day (35 °C)',
+    description: 'Spreadsheet inputs on a hot, sunny, humid day: more AC and battery cooling',
+    conditions: { airTemperatureC: 35, solarWm2: 800, humidityPct: 60 },
+  },
+  {
+    id: 'cold',
+    label: 'Cold day (−10 °C)',
+    description: 'Spreadsheet inputs in winter: heating, cold battery, denser air',
+    conditions: { airTemperatureC: -10, solarWm2: 100, humidityPct: 80 },
+  },
 ];
 
 interface SharedState {
