@@ -113,8 +113,11 @@ function SaveButton({ onSave }: { onSave: (name: string) => void }) {
   );
 }
 
-/** Editable conditions shared by all stress tests. */
-export function ConditionsPanel() {
+/**
+ * Editable conditions shared by all stress tests. `showBatteryKm = false` leaves out the km driven where it has no
+ * effect (battery life and cost of ownership start from a new battery).
+ */
+export function ConditionsPanel({ showBatteryKm = true }: { showBatteryKm?: boolean }) {
   const { scenario, a } = useEngine();
   const setScenario = useStore((s) => s.setScenario);
   const c = scenario.conditions;
@@ -125,8 +128,9 @@ export function ConditionsPanel() {
         <h3>Conditions</h3>
         <p className="muted">
           Shared by all stress tests and the cost of ownership. They act on air drag, rolling resistance, heating / AC (temperature, sun,
-          humidity) and the battery. The km driven sets the battery's wear in the stress tests, with the driving and battery care of the
-          battery-life test (battery life and cost start from a new battery).
+          humidity) and the battery.
+          {showBatteryKm &&
+            " The km driven sets the battery's wear in the stress tests, with the driving and battery care of the battery-life test (battery life and cost start from a new battery)."}
         </p>
       </div>
       <div className="fields">
@@ -152,16 +156,22 @@ export function ConditionsPanel() {
           value={c.tyrePressurePct}
           onChange={(v) => set({ tyrePressurePct: v })}
         />
-        <NumberField
-          label="Km driven (battery wear from charge cycles and age)"
-          unit="km"
-          min={0}
-          max={1000000}
-          step={10000}
-          sliderMax={300000}
-          value={c.batteryKm}
-          onChange={(v) => set({ batteryKm: v })}
-        />
+        {showBatteryKm ? (
+          <NumberField
+            label="Km driven (battery wear from charge cycles and age)"
+            unit="km"
+            min={0}
+            max={1000000}
+            step={10000}
+            sliderMax={300000}
+            value={c.batteryKm}
+            onChange={(v) => set({ batteryKm: v })}
+          />
+        ) : (
+          <p className="faint battery-km-note">
+            Battery life and cost start from a new battery; the km driven (battery wear) applies to the other stress tests.
+          </p>
+        )}
         <SelectField label="Battery temperature" value={c.thermalMode} options={thermalOptions(a)} onChange={(v) => set({ thermalMode: v })} />
         {c.thermalMode === 'preconditioned' && (
           <NumberField label="Preconditioned to" unit="°C" min={-10} max={40} step={1} value={c.preconditionedC} onChange={(v) => set({ preconditionedC: v })} />

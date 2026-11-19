@@ -380,7 +380,7 @@ export function StressTestsPage() {
             </div>
             <Inputs tab={tab} scenario={scenario} set={setScenario} />
           </div>
-          <ConditionsPanel />
+          <ConditionsPanel showBatteryKm={tab !== 'batteryLife'} />
         </div>
         <div className={`panel stack ${stale ? 'stale' : ''}`} style={{ minWidth: 0 }}>
           {ids.length === 0 ? (

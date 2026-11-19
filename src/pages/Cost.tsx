@@ -99,7 +99,7 @@ export function CostPage() {
               </p>
             </div>
           </div>
-          <ConditionsPanel />
+          <ConditionsPanel showBatteryKm={false} />
         </div>
         <div className={`panel stack ${stale ? 'stale' : ''}`} style={{ minWidth: 0 }}>
           {ids.length === 0 ? (
