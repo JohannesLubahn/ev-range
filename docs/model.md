@@ -10,7 +10,7 @@ The stress tests are traffic jam, no charger, sprint, long trip and battery life
 page. Each stress test shows, per car:
 
 - the battery needed vs. available (traffic jam, no charger, sprint), the trip time with charging (long trip) or the
-  capacity left at the end of the life vs. the end-of-life capacity (battery life);
+  capacity left after the years of use vs. 80 % (battery life);
 - the **average consumption**: the energy taken from the battery over the test ÷ its distance, in kWh/100 km, split
   into driving, onboard systems (electronics, heating/AC, bringing the parked cabin to temperature) and battery
   heating/cooling. In a traffic jam it is far above the rated value because the onboard systems run for hours
@@ -157,7 +157,7 @@ spreadsheet's fixed 80 % "long-term capacity". The battery-life test and the cos
 battery. Code: `src/engine/battery/ageing.ts`.
 
     capacity left = 100 % − cycle wear − calendar ageing
-    cycle wear       = (100 % − EoL) × (full cycles ÷ rated cycles)^z
+    cycle wear       = (100 % − 80 %) × (full cycles ÷ rated cycles)^z
     calendar ageing  = k₂₅ × exp(−Ea/R × (1/T − 1/298 K)) × years^n
 
 - **Driving and age** come from the battery-life inputs: the energy per km is the battery-life test's (its speed,
@@ -168,7 +168,7 @@ battery. Code: `src/engine/battery/ageing.ts`.
   km), the way rated cycles are measured. The battery-life test counts its cycles the same way, so it needs fewer
   cycles than with the old division by 80 % of nominal (BYD Atto 3: 872 → 798; the Hyundai Inster, which was at
   100 %, now needs more), and it also shows the capacity left at the end.
-- **Cycle wear** reaches the end-of-life capacity EoL (assumption `rated_cycles_end_capacity_pct`, 80 %, or the
+- **Cycle wear** reaches 80 % capacity (assumption `rated_cycles_end_capacity_pct`, 80 %, or the
   car's `end_of_life_capacity_pct`) at the car's **rated cycles** (`battery_cycles`), so the car data sets its size.
   The chemistry sets its shape: z = 0.83 (LFP) and 1.11 (NMC), from NREL's BLAST-Lite models of a 250 Ah prismatic
   LFP cell and a 75 Ah automotive NMC pouch cell (NREL 2023, J. Energy Storage 73, 109042).
@@ -218,7 +218,7 @@ there. The km-driven wear of the stress tests uses the same habits.
   85–90 / 82–87 %.
 
 **Battery-life verdict.** The battery passes when the capacity left after the chosen years (cycle wear + calendar
-ageing + care) is at least the end-of-life capacity (80 %, or the car's `end_of_life_capacity_pct`); "years until
+ageing + care) is at least 80 % (or the car's `end_of_life_capacity_pct`); "years until
 80 %" is found by bisection over km (up to 60 years). Until 19 Nov 2026 it passed when the full cycles needed fitted
 within the rated cycles, so heat, age and care did not count. At the defaults (20 years × 15,000 km, 25 °C) only
 the Neta S keeps 80 % with typical care (Gentle: also the Atto 3, Nio ET7, Neta X and Aion Hyptec HT); most cars

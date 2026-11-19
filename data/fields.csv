@@ -9,7 +9,7 @@ powertrain,Powertrain,,Identity,enum:BEV|ICE,,"BEV = battery electric. ICE cars 
 body_type,Body type,,Identity,enum:hatchback|sedan|SUV|MPV,,Selects default drag coefficient and frontal area when those are missing (see body_types.csv)
 car_class,Car class,,Identity,enum:regular|premium,,"Onboard electronics (incl. driver-assistance computer) and cabin size for heating/AC, see data/onboard/classes.csv"
 battery_kwh,Nominal battery capacity,kWh,Battery & charging,number,higher,
-end_of_life_capacity_pct,Capacity at the rated cycles,%,Battery & charging,number,higher,Capacity left when the rated cycles are used up (% of nominal; the end of life of the cycle rating). Blank = assumption (80 %)
+end_of_life_capacity_pct,Capacity at the rated cycles,%,Battery & charging,number,higher,Capacity left when the rated cycles are used up (% of nominal); battery life must keep at least this much. Blank = assumption (80 %)
 battery_type,Battery type,,Battery & charging,enum:LFP|NMC,,Cell chemistry; selects the temperature-dependent discharge curves
 battery_cycles,Battery cycles,full cycles,Battery & charging,number,higher,Rated full charge cycles
 consumption_kwh_per_km,Consumption of motors,kWh/km,Consumption & range,number,lower,From the same source and standard as the rated range. Blank = battery ÷ rated range

@@ -225,7 +225,7 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
 }
 
 export function StressTestsPage() {
-  const { scenario, out, selectedIds, derivedById, stale } = useEngine();
+  const { scenario, out, selectedIds, derivedById, stale, a } = useEngine();
   const tab = useStore((s) => s.stressTab);
   const setTab = useStore((s) => s.setStressTab);
   const setScenario = useStore((s) => s.setScenario);
@@ -278,7 +278,7 @@ export function StressTestsPage() {
               title={names[id]}
               lines={[
                 { color: 'var(--series-1)', value: `${fixed(cap, 1)} %`, label: `capacity left after ${num(life.years, 0)} years` },
-                { color: 'var(--ink)', value: `${fixed(b.eolPct, 0)} %`, label: 'end of life (must stay at or above)' },
+                { color: 'var(--ink)', value: `${fixed(b.eolPct, 0)} %`, label: 'must stay at or above' },
                 { value: lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX), label: `until ${fixed(b.eolPct, 0)} % is reached` },
                 { value: `${num(b.cyclesRequired, 0)} of ${num(b.cyclesAvailable, 0)}`, label: 'full cycles used of the rated cycles' },
               ]}
@@ -290,13 +290,13 @@ export function StressTestsPage() {
     const unjudged = ids.filter((id) => out.results[id].batteryLife.pass === null && !derivedById[id].isIce);
     chart = (
       <div className="stack">
-        <BulletRows rows={rows} valueName={`Capacity left after ${num(life.years, 0)} years (%)`} targetName="End of life" side={side} />
+        <BulletRows rows={rows} valueName={`Capacity left after ${num(life.years, 0)} years (%)`} targetName={`${num(a.ratedCyclesEndCapacityPct, 0)} % (must stay at or above)`} side={side} />
         {unjudged.length > 0 && <p className="faint">No rated cycles or chemistry in cars.csv: {unjudged.map((id) => names[id]).join(', ')}</p>}
       </div>
     );
     howFar = (
       <div className="stack" style={{ gap: 8 }}>
-        <h3>Years until the battery reaches its end-of-life capacity</h3>
+        <h3>Years until {num(a.ratedCyclesEndCapacityPct, 0)} % capacity is left</h3>
         <HowFar
           items={rows
             .map((r) => r.id)
