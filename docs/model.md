@@ -36,7 +36,8 @@ battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhi
   cycle already contains the tyres at their recommended pressure, so only the deviation matters. The formula is
   evaluated around a typical recommended pressure (`tyre_pressure_ref_bar`, 2.5 bar): 80 % pressure (where UN R141
   tyre-pressure warnings come on) gives +14 % rolling resistance at 80 km/h, about 1.5 % per psi, close to the
-  1.4 % per psi measured for passenger tyres (National Academies SR 286). Before 19 Nov 2026 the input was in bar;
+  1.4 % per psi measured for passenger tyres (National Academies SR 286). For scale: the US DOE assumes real
+  cars run about 10 % low on average, and NHTSA (2012) found 12 % of cars with a tyre at least 25 % low. Before 19 Nov 2026 the input was in bar;
   saved scenarios are converted (bar ÷ 2.5).
 - `m` = curb weight + payload. Missing Cd / frontal area come from `body_types.csv`; frontal area can also be
   0.85 × width × height. Missing weights are estimated from battery size (a fit over the cars that have both).
@@ -161,7 +162,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Driver-assistance computers | Tesla FSD computer (HW3) 72 W (ComputerBase 2019; TechCrunch: about 100 W); NVIDIA Orin modules 15–60 W (NVIDIA); robotaxi-class Drive AGX Pegasus 500 W (ComputerBase); Gawron et al. 2018, Environ. Sci. Technol. 52:3249 (200 W modelled) |
 | Pack heat capacity and heat loss | Cell specific heat: measured LFP 1.0–1.15, NMC 0.96–1.04 J/(g·K) (batterydesign.net); pack specific energy: vendor figures; heat loss: Nissan Leaf owner measurement (~9 h time constant) |
 | Your Facts-tab onboard curves | Kept in `data/onboard/facts_tab.csv` for comparison only |
-| Rolling resistance | EU tyre label (Regulation (EU) 2020/740), class C = 8 N/kN; speed/pressure shape: empirical car-tyre formula, checked against National Academies Special Report 286 (2006, ≈1.4 % per psi); under-inflated case: UN R141 TPMS warning at 20 % loss |
+| Rolling resistance | EU tyre label (Regulation (EU) 2020/740), class C = 8 N/kN; speed/pressure shape: empirical car-tyre formula, checked against National Academies Special Report 286 (2006, ≈1.4 % per psi); under-inflated case: UN R141 TPMS warning at 20 % loss; real-world under-inflation: FuelEconomy.gov (US DOE), NHTSA DOT HS 811 681 (2012) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 
 ## 6. Spreadsheet issues fixed
