@@ -663,7 +663,8 @@ export function PhysicsPage() {
           <div>
             <h2>Calibration</h2>
             <p className="muted">
-              Each car’s drivetrain efficiency is solved so that its test cycle (the standard of its rated range) gives its rated consumption.
+              Each ticked car’s drivetrain efficiency is solved so that its test cycle (the standard of its rated range) gives its rated
+              consumption.
             </p>
           </div>
           <div className="table-scroll">
@@ -678,8 +679,9 @@ export function PhysicsPage() {
                 </tr>
               </thead>
               <tbody>
-                {out.derived.map((d) => {
-                  const m = out.models[d.car.id];
+                {selectedIds.map((id) => {
+                  const d = derivedById[id];
+                  const m = out.models[id];
                   const cal = d.consumption.value !== null ? m.calibration() : null;
                   return (
                     <tr key={d.car.id}>

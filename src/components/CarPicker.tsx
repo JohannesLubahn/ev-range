@@ -102,7 +102,7 @@ function ToggleChips({ options, value, onChange, label }: { options: string[]; v
 
 /** The car list: market, search, sort, group, filters and the cars to tick. In the rail on Compare, in a drawer elsewhere. */
 export function CarPickerContent() {
-  const { out, ds, a, marketId, shownIds, selectedIds, hiddenSelectedCount, assumptionsFor } = useEngine();
+  const { out, ds, a, marketId, shownIds, tickedIds: selectedIds, hiddenSelectedCount, assumptionsFor } = useEngine();
   const filters = useStore((s) => s.filters);
   const setFilters = useStore((s) => s.setFilters);
   const listSort = useStore((s) => s.listSort);
@@ -308,7 +308,7 @@ export function CarPicker() {
 
 /** "Cars · 8 · Thailand": opens the car list in a drawer (pages other than Compare). */
 export function CarsButton() {
-  const { selectedIds, market } = useEngine();
+  const { tickedIds: selectedIds, market } = useEngine();
   const setOpen = useStore((s) => s.setPickerOpen);
   return (
     <button type="button" className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">

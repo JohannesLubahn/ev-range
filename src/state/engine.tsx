@@ -1,10 +1,10 @@
-import { createContext, useContext, useDeferredValue, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useDeferredValue, useMemo, useRef, type ReactNode } from 'react';
 import { bundledFiles } from '../data/bundled';
 import { parseDataset } from '../data/parse';
 import type { Dataset, Market } from '../data/types';
 import { applyMarket, assumptionsFromDataset } from '../engine/assumptions';
-import type { DataFlag, DerivedCar } from '../engine/derive';
-import { runEngine, type EngineOutput } from '../engine/run';
+import { deriveAll, type DataFlag, type DerivedCar } from '../engine/derive';
+import { runEngine, type EngineCache, type EngineOutput } from '../engine/run';
 import { spreadsheetDefaults, withDefaults } from '../engine/scenario';
 import type { Assumptions, Scenario } from '../engine/types';
 import { ALL_MARKETS, inMarket, shownIds as computeShownIds } from './carList';
@@ -22,6 +22,7 @@ export interface EngineState {
   /** Assumptions as they would be in another market (for its cost defaults when switching). */
   assumptionsFor: (marketId: string) => Assumptions;
   scenario: Scenario;
+  /** Results and models of the selected cars only (every car is in `out.derived`). */
   out: EngineOutput;
   derivedById: Record<string, DerivedCar>;
   flagsById: Record<string, DataFlag[]>;
@@ -29,7 +30,9 @@ export interface EngineState {
   allIds: string[];
   /** Cars in the market that pass the car-list filters, in data order. */
   shownIds: string[];
-  /** Cars in the comparison: ticked and shown, in data order. Every page uses these. */
+  /** Ticked cars the market and filters show, in data order (the car list's checkboxes). */
+  tickedIds: string[];
+  /** Cars in the comparison: ticked, shown and calculated, in data order. Every page uses these. */
   selectedIds: string[];
   /** Ticked cars of the market that the filters hide. */
   hiddenSelectedCount: number;
@@ -72,7 +75,23 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const dSettings = useDeferredValue(settings);
   const dA = useDeferredValue(a);
 
-  const out = useMemo(() => runEngine(ds, dA, dScenario, dSettings), [ds, dA, dScenario, dSettings]);
+  // The car list needs every car's specs and price (cheap); the calculation runs only for the cars selected.
+  const derived = useMemo(() => deriveAll(ds, a), [ds, a]);
+  const list = useMemo(() => {
+    const shownIds = computeShownIds(derived, marketId, filters);
+    const ticked = (id: string) => selected === null || selected.includes(id);
+    const selectedIds = shownIds.filter(ticked);
+    const hiddenSelectedCount = derived.filter((d) => inMarket(d, marketId) && ticked(d.car.id)).length - selectedIds.length;
+    return { shownIds, selectedIds, hiddenSelectedCount };
+  }, [derived, marketId, filters, selected]);
+  const dSelectedIds = useDeferredValue(list.selectedIds);
+
+  const cache = useRef<EngineCache | null>(null);
+  const out = useMemo(() => {
+    const r = runEngine(ds, dA, dScenario, dSettings, dSelectedIds, cache.current);
+    cache.current = r.cache;
+    return { derived: r.derived, models: r.models, results: r.results };
+  }, [ds, dA, dScenario, dSettings, dSelectedIds]);
 
   const value = useMemo<EngineState>(() => {
     const derivedById = Object.fromEntries(out.derived.map((d) => [d.car.id, d]));
@@ -82,10 +101,10 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       flagsById[d.car.id] = [...d.flags, ...(m ? m.calibrationFlags() : [])];
     }
     const allIds = out.derived.map((d) => d.car.id);
-    const shownIds = computeShownIds(out.derived, marketId, filters);
-    const ticked = (id: string) => selected === null || selected.includes(id);
-    const selectedIds = shownIds.filter(ticked);
-    const hiddenSelectedCount = out.derived.filter((d) => inMarket(d, marketId) && ticked(d.car.id)).length - selectedIds.length;
+    const { shownIds, hiddenSelectedCount } = list;
+    const tickedIds = list.selectedIds;
+    // A car ticked a moment ago joins once its calculation is done (deferred), so pages never see a car without results.
+    const selectedIds = tickedIds.filter((id) => out.models[id]);
     return {
       ds,
       baseAssumptions,
@@ -99,11 +118,12 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       flagsById,
       allIds,
       shownIds,
+      tickedIds,
       selectedIds,
       hiddenSelectedCount,
-      stale: dScenario !== scenario || dSettings !== settings || dA !== a,
+      stale: dScenario !== scenario || dSettings !== settings || dA !== a || dSelectedIds !== list.selectedIds,
     };
-  }, [ds, baseAssumptions, a, userA, marketId, market, filters, scenario, out, selected, dScenario, dSettings, dA, settings]);
+  }, [ds, baseAssumptions, a, userA, marketId, market, list, scenario, out, dScenario, dSettings, dA, dSelectedIds, settings]);
 
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
 }

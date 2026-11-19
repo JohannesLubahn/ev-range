@@ -29,18 +29,45 @@ export function evaluateCar(m: CarModel, scenario: Scenario): CarResults {
   };
 }
 
-/** Runs every stress case for the given cars (default: all cars). */
-export function runEngine(ds: Dataset, a: Assumptions, scenario: Scenario, settings: ModelSettings, carIds?: string[]): EngineOutput {
-  const derived = deriveAll(ds, a);
+/**
+ * Models and earlier results that may be reused: valid only for the same data, assumptions, scenario and settings
+ * (see `runEngine`'s `cache`).
+ */
+export interface EngineCache {
+  key: [Dataset, Assumptions, Scenario, ModelSettings];
+  derived: DerivedCar[];
+  models: Record<string, CarModel>;
+  results: Record<string, CarResults>;
+}
+
+/**
+ * Runs every stress case for the given cars (default: all cars). Only those cars get a model and results; every
+ * car is still derived (specs, price, flags) for the car list. With a cache from the previous run on the same
+ * inputs, cars already calculated are reused, so ticking one more car calculates only that car.
+ */
+export function runEngine(
+  ds: Dataset,
+  a: Assumptions,
+  scenario: Scenario,
+  settings: ModelSettings,
+  carIds?: string[],
+  cache?: EngineCache | null,
+): EngineOutput & { cache: EngineCache } {
+  const key: EngineCache['key'] = [ds, a, scenario, settings];
+  const reuse = cache && cache.key.every((k, i) => k === key[i]) ? cache : null;
+  const derived = reuse ? reuse.derived : deriveAll(ds, a);
   const wanted = carIds ? new Set(carIds) : null;
+  const allModels: Record<string, CarModel> = reuse ? reuse.models : {};
+  const allResults: Record<string, CarResults> = reuse ? reuse.results : {};
   const models: Record<string, CarModel> = {};
   const results: Record<string, CarResults> = {};
   for (const d of derived) {
-    const m = new CarModel(d, { ds, a, conditions: scenario.conditions, settings, life: scenario.batteryLife });
-    models[d.car.id] = m;
-    if (wanted && !wanted.has(d.car.id)) continue;
+    const id = d.car.id;
+    if (wanted && !wanted.has(id)) continue;
+    const m = (allModels[id] ??= new CarModel(d, { ds, a, conditions: scenario.conditions, settings, life: scenario.batteryLife }));
+    models[id] = m;
     if (d.consumption.value === null || d.batteryKwh === null) continue;
-    results[d.car.id] = evaluateCar(m, scenario);
+    results[id] = allResults[id] ??= evaluateCar(m, scenario);
   }
-  return { derived, models, results };
+  return { derived, models, results, cache: { key, derived, models: allModels, results: allResults } };
 }

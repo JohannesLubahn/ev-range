@@ -4,6 +4,7 @@ import { bundledFiles, loadBundledDataset } from '../src/data/bundled';
 import { parseDataset, parseMarkets } from '../src/data/parse';
 import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { deriveAll, type DerivedCar } from '../src/engine/derive';
+import { runEngine } from '../src/engine/run';
 import { spreadsheetDefaults } from '../src/engine/scenario';
 import {
   ALL_MARKETS,
@@ -158,5 +159,27 @@ describe('sorting and grouping', () => {
     const g = listCars(thCars, { key: 'price', dir: 1 }, 'priceBand', 'THB');
     expect(g[0].label).toBe(`Under 1 M THB`);
     expect(g[g.length - 1].label).toBe('No price');
+  });
+});
+
+describe('calculation only for the ticked cars', () => {
+  const at = applyMarket(a, th);
+  const sc = spreadsheetDefaults(at);
+  const settings = { battery: 'chemistry' as const };
+  it('builds models and results only for the cars asked for; every car is still derived', () => {
+    const r = runEngine(ds, at, sc, settings, ['byd-atto-3', 'neta-v']);
+    expect(Object.keys(r.models).sort()).toEqual(['byd-atto-3', 'neta-v']);
+    expect(Object.keys(r.results).sort()).toEqual(['byd-atto-3', 'neta-v']);
+    expect(r.derived).toHaveLength(ds.cars.length);
+  });
+  it('reuses earlier results on the same inputs and recalculates when an input changes', () => {
+    const r1 = runEngine(ds, at, sc, settings, ['byd-atto-3']);
+    const r2 = runEngine(ds, at, sc, settings, ['byd-atto-3', 'neta-v'], r1.cache);
+    expect(r2.results['byd-atto-3']).toBe(r1.results['byd-atto-3']);
+    expect(Object.keys(r2.results).sort()).toEqual(['byd-atto-3', 'neta-v']);
+    const sc2 = { ...sc, conditions: { ...sc.conditions, airTemperatureC: 0 } };
+    const r3 = runEngine(ds, at, sc2, settings, ['byd-atto-3'], r2.cache);
+    expect(r3.results['byd-atto-3']).not.toBe(r1.results['byd-atto-3']);
+    expect(Object.keys(r3.results)).toEqual(['byd-atto-3']);
   });
 });

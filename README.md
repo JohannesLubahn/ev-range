@@ -63,7 +63,7 @@ On Compare the car list is the left column; on the other pages the **Cars** butt
   price.
 - **Variants** of one model always stay together, with one checkbox for all of them.
 - **Filters:** body type, battery (LFP / NMC / ICE), seats, price from–to, and search. Every page compares the
-  ticked cars the market and filters show.
+  ticked cars the market and filters show. Only the ticked cars are calculated, so a long list stays fast.
 - CLTC: the CLTC-P speed trace (GB/T 38146.1-2019) is not openly available. Save it as `data/cycles/cltc_p.csv`
   (`time_s,speed_kmh`) and add a `CLTC` row to `data/cycles/index.csv` to enable it; until then CLTC cars are
   calibrated on NEDC.
