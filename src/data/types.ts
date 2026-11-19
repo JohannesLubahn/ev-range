@@ -8,6 +8,11 @@ export interface Car {
   id: string;
   name: string;
   brand: string;
+  /** Model without brand and variant; null = the name is the model. */
+  model: string | null;
+  /** Version of the model (e.g. "low"); null = the base version. */
+  variant: string | null;
+  /** Code of the market the price applies to (data/markets.csv); blank = none. */
   market: string;
   currency: string;
   price: number | null;
@@ -59,6 +64,19 @@ export interface AssumptionDef {
   unit: string;
   label: string;
   group: string;
+  description: string;
+  source: string;
+}
+
+/** A market (data/markets.csv): the currency and running costs that apply there. Prices in the market's currency. */
+export interface Market {
+  id: string;
+  name: string;
+  currency: string;
+  /** Per kWh from the grid; null = the assumption, converted. */
+  electricityPrice: number | null;
+  /** Per year; null = the assumption, converted. */
+  maintenancePerYear: number | null;
   description: string;
   source: string;
 }
@@ -211,6 +229,7 @@ export interface Dataset {
   carColumns: string[];
   fields: FieldDef[];
   assumptions: Record<string, AssumptionDef>;
+  markets: Market[];
   bodyTypes: Record<string, BodyType>;
   onboardClasses: Record<string, OnboardClass>;
   factsTab: FactsTabRow[];

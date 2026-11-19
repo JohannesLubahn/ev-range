@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { STRESS_TESTS } from '../caseMeta';
 import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type SideColumn, type StackSeries, type StackedRow } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
+import { CarsButton } from '../components/CarPicker';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
@@ -362,7 +363,10 @@ export function StressTestsPage() {
           <h1>Stress tests</h1>
           <p className="muted">Change the inputs on the left; every selected car is recalculated. Select a bar for the full calculation.</p>
         </div>
-        <PresetPicker />
+        <div className="row">
+          <CarsButton />
+          <PresetPicker />
+        </div>
       </div>
       <div className="tabs" role="tablist" aria-label="Stress test">
         {STRESS_TESTS.map((c) => (

@@ -3,6 +3,7 @@ import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import type { Assumptions } from '../engine/types';
 import { num } from '../format';
+import { ALL_MARKETS } from '../state/carList';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
 
@@ -47,7 +48,9 @@ function SourceList({ sources }: { sources: Source[] }) {
 }
 
 export function AssumptionsPage() {
-  const { ds, a, baseAssumptions } = useEngine();
+  const { ds, baseAssumptions, assumptionsFor } = useEngine();
+  // The assumptions as set here, before the market's currency and prices (data/markets.csv) replace some of them.
+  const a = assumptionsFor(ALL_MARKETS);
   const overrides = useStore((s) => s.assumptionOverrides);
   const fxOverrides = useStore((s) => s.fxOverrides);
   const setAssumption = useStore((s) => s.setAssumption);
@@ -167,6 +170,43 @@ export function AssumptionsPage() {
           </section>
         ))}
       </div>
+
+      <section className="panel stack" id="markets">
+        <div>
+          <h2>Markets</h2>
+          <p className="muted">
+            The market picked in the car list sets the cars listed, the currency and these running costs (in the market&rsquo;s currency). A
+            blank value uses the assumption above, converted. All markets uses the assumptions as they are. Kept in{' '}
+            <span className="mono">data/markets.csv</span>; the <span className="mono">market</span> column of cars.csv refers to its ids.
+          </p>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th>Currency</th>
+                <th className="r">Electricity (per kWh)</th>
+                <th className="r">Maintenance (per year)</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ds.markets.map((m) => (
+                <tr key={m.id}>
+                  <td>
+                    {m.name} <span className="faint mono">{m.id}</span>
+                  </td>
+                  <td>{m.currency}</td>
+                  <td className="r num">{m.electricityPrice === null ? 'assumption' : num(m.electricityPrice, 2)}</td>
+                  <td className="r num">{m.maintenancePerYear === null ? 'assumption' : num(m.maintenancePerYear, 0)}</td>
+                  <td className="muted">{m.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="panel stack" id="sources">
         <div>

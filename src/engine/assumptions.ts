@@ -1,4 +1,4 @@
-import type { Dataset } from '../data/types';
+import type { Dataset, Market } from '../data/types';
 import { parseNumber } from '../data/parse';
 import type { Assumptions } from './types';
 
@@ -120,4 +120,18 @@ export function toDisplayCurrency(amount: number, currency: string, a: Assumptio
   const fxTo = to === 'THB' ? 1 : a.fx[to];
   if (!fxFrom || !fxTo) return null;
   return (amount * fxFrom) / fxTo;
+}
+
+/**
+ * The assumptions for one market (data/markets.csv): its currency becomes the display currency, and its electricity
+ * price and maintenance replace the assumptions. A blank market value keeps the assumption, converted to the market's
+ * currency. No market (All markets) leaves the assumptions as they are.
+ */
+export function applyMarket(a: Assumptions, market: Market | null | undefined): Assumptions {
+  if (!market) return a;
+  const out: Assumptions = { ...a, displayCurrency: market.currency };
+  const convert = (v: number) => toDisplayCurrency(v, a.displayCurrency, out) ?? v;
+  out.electricityPrice = market.electricityPrice ?? convert(a.electricityPrice);
+  out.maintenancePerYear = market.maintenancePerYear ?? convert(a.maintenancePerYear);
+  return out;
 }

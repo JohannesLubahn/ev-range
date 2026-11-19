@@ -1,8 +1,10 @@
 key,label,unit,group,type,better,description
 id,ID,,Identity,text,,"Unique short name (lowercase, no spaces); used in share links"
-name,Name,,Identity,text,,Model name as shown in the app
+name,Name,,Identity,text,,"Full name as shown in the app (brand, model and variant)"
 brand,Brand,,Identity,text,,
-market,Market,,Identity,text,,Country the price applies to (e.g. TH)
+model,Model,,Identity,text,,"Model without brand and variant (e.g. Seal); variants of one model sit together in the car list. Blank = the name"
+variant,Variant,,Identity,text,,"Version of the model (e.g. low, high, ER); blank = the base version"
+market,Market,,Identity,text,,"Code of the market the price applies to, from data/markets.csv (e.g. TH). One row per car per market; blank = listed only under All markets"
 currency,Currency,,Costs,text,,"Currency of price, energy price and maintenance (THB, EUR, …)"
 price,Price,currency,Costs,number,lower,Purchase price in the car's currency
 powertrain,Powertrain,,Identity,enum:BEV|ICE,,"BEV = battery electric. ICE cars are modelled like an EV (approximation, as in the spreadsheet)"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CalcDrawer } from './components/CalcDrawer';
+import { CarPickerDrawer } from './components/CarPicker';
 import { IconBolt, IconMonitor, IconMoon, IconSun } from './components/Icons';
 import { AssumptionsPage } from './pages/Assumptions';
 import { CarsPage } from './pages/Cars';
@@ -96,6 +97,7 @@ export function App() {
         {view === 'assumptions' && <AssumptionsPage />}
       </main>
       <CalcDrawer />
+      <CarPickerDrawer />
     </>
   );
 }

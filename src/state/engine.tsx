@@ -1,26 +1,38 @@
 import { createContext, useContext, useDeferredValue, useMemo, type ReactNode } from 'react';
 import { bundledFiles } from '../data/bundled';
 import { parseDataset } from '../data/parse';
-import type { Dataset } from '../data/types';
-import { assumptionsFromDataset } from '../engine/assumptions';
+import type { Dataset, Market } from '../data/types';
+import { applyMarket, assumptionsFromDataset } from '../engine/assumptions';
 import type { DataFlag, DerivedCar } from '../engine/derive';
 import { runEngine, type EngineOutput } from '../engine/run';
 import { spreadsheetDefaults, withDefaults } from '../engine/scenario';
 import type { Assumptions, Scenario } from '../engine/types';
+import { ALL_MARKETS, inMarket, shownIds as computeShownIds } from './carList';
 import { useStore, type AssumptionOverrides } from './store';
 
 export interface EngineState {
   ds: Dataset;
   /** Assumptions from data/assumptions.csv, before the user's changes. */
   baseAssumptions: Assumptions;
+  /** Assumptions with the user's changes and the market's currency and prices. */
   a: Assumptions;
+  /** The market's id ('all' = every car) and its row of data/markets.csv (null for All markets). */
+  marketId: string;
+  market: Market | null;
+  /** Assumptions as they would be in another market (for its cost defaults when switching). */
+  assumptionsFor: (marketId: string) => Assumptions;
   scenario: Scenario;
   out: EngineOutput;
   derivedById: Record<string, DerivedCar>;
   flagsById: Record<string, DataFlag[]>;
+  /** Every car of every market, in data order. */
   allIds: string[];
-  /** Cars in the comparison (selection), in data order. */
+  /** Cars in the market that pass the car-list filters, in data order. */
+  shownIds: string[];
+  /** Cars in the comparison: ticked and shown, in data order. Every page uses these. */
   selectedIds: string[];
+  /** Ticked cars of the market that the filters hide. */
+  hiddenSelectedCount: number;
   /** Inputs changed and results are being recalculated. */
   stale: boolean;
 }
@@ -43,10 +55,16 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const scenarioState = useStore((s) => s.scenario);
   const settings = useStore((s) => s.settings);
   const selected = useStore((s) => s.selectedIds);
+  const marketState = useStore((s) => s.market);
+  const filters = useStore((s) => s.filters);
 
   const ds = useMemo(() => parseDataset(carsCsv ? { ...bundledFiles, cars: carsCsv } : bundledFiles), [carsCsv]);
   const baseAssumptions = useMemo(() => assumptionsFromDataset(ds), [ds]);
-  const a = useMemo(() => applyOverrides(baseAssumptions, overrides, fx), [baseAssumptions, overrides, fx]);
+  const userA = useMemo(() => applyOverrides(baseAssumptions, overrides, fx), [baseAssumptions, overrides, fx]);
+  const marketId =
+    marketState === ALL_MARKETS || (marketState && ds.markets.some((m) => m.id === marketState)) ? marketState : (ds.markets[0]?.id ?? ALL_MARKETS);
+  const market = ds.markets.find((m) => m.id === marketId) ?? null;
+  const a = useMemo(() => applyMarket(userA, market), [userA, market]);
   // Scenarios saved by an older version may lack newer fields (e.g. sunshine): fill them with defaults.
   const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState, a) : spreadsheetDefaults(a)), [scenarioState, a]);
 
@@ -64,20 +82,28 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       flagsById[d.car.id] = [...d.flags, ...(m ? m.calibrationFlags() : [])];
     }
     const allIds = out.derived.map((d) => d.car.id);
-    const selectedIds = selected ? allIds.filter((id) => selected.includes(id)) : allIds;
+    const shownIds = computeShownIds(out.derived, marketId, filters);
+    const ticked = (id: string) => selected === null || selected.includes(id);
+    const selectedIds = shownIds.filter(ticked);
+    const hiddenSelectedCount = out.derived.filter((d) => inMarket(d, marketId) && ticked(d.car.id)).length - selectedIds.length;
     return {
       ds,
       baseAssumptions,
       a,
+      marketId,
+      market,
+      assumptionsFor: (id: string) => applyMarket(userA, ds.markets.find((m) => m.id === id) ?? null),
       scenario,
       out,
       derivedById,
       flagsById,
       allIds,
+      shownIds,
       selectedIds,
+      hiddenSelectedCount,
       stale: dScenario !== scenario || dSettings !== settings || dA !== a,
     };
-  }, [ds, baseAssumptions, a, scenario, out, selected, dScenario, dSettings, dA, settings]);
+  }, [ds, baseAssumptions, a, userA, marketId, market, filters, scenario, out, selected, dScenario, dSettings, dA, settings]);
 
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
 }

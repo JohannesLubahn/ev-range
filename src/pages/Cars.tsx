@@ -1,4 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
+import { CarsButton } from '../components/CarPicker';
 import { bundledFiles } from '../data/bundled';
 import { parseCars } from '../data/parse';
 import type { FieldDef } from '../data/types';
@@ -178,11 +179,12 @@ export function CarsPage() {
         <div className="stack" style={{ gap: 4 }}>
           <h1>Cars</h1>
           <p className="muted">
-            {allIds.length} models from <span className="mono">{carsCsvName ?? 'data/cars.csv'}</span>. Showing the {ids.length} selected cars.
-            Edit the CSV (one row per car) to add cars or specs; new columns appear here automatically.
+            {allIds.length} cars from <span className="mono">{carsCsvName ?? 'data/cars.csv'}</span>. Showing the {ids.length} ticked cars of
+            the market. Edit the CSV (one row per car and market) to add cars or specs; new columns appear here automatically.
           </p>
         </div>
         <div className="row">
+          <CarsButton />
           <label className="btn" htmlFor="csv-file" style={{ cursor: 'pointer' }}>
             <IconUpload /> Load CSV…
           </label>

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import { spreadsheetDefaults } from '../engine/scenario';
 import type { Assumptions, Conditions, ModelSettings, Scenario } from '../engine/types';
+import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from './carList';
 import { load, save } from './storage';
 
 export type View = 'compare' | 'stress-tests' | 'cost' | 'cars' | 'physics' | 'assumptions';
@@ -21,11 +22,7 @@ const STRESS_KEYS: StressKey[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip
 export type SortKey = 'overall' | 'name' | CaseKey;
 export type Theme = 'system' | 'light' | 'dark';
 
-export interface Filters {
-  search: string;
-  maxPriceM: number | null;
-  chemistries: string[];
-}
+export type { Filters } from './carList';
 
 export type AssumptionOverrides = Partial<Record<Exclude<keyof Assumptions, 'fx'>, number | string>>;
 
@@ -58,6 +55,8 @@ interface SharedState {
   selectedIds: string[] | null;
   assumptionOverrides: AssumptionOverrides;
   fxOverrides: Record<string, number>;
+  /** Market id from data/markets.csv, 'all' for every car; null = the first market of markets.csv. */
+  market?: string | null;
 }
 
 export interface AppState extends SharedState {
@@ -66,6 +65,10 @@ export interface AppState extends SharedState {
   presetId: string;
   savedPresets: Record<string, Scenario>;
   filters: Filters;
+  listSort: ListSort;
+  listGroup: ListGroupKey;
+  /** The car list opened as a drawer (pages other than Compare). */
+  pickerOpen: boolean;
   layout: 'table' | 'cards';
   sort: { key: SortKey; dir: 1 | -1 };
   theme: Theme;
@@ -82,6 +85,11 @@ export interface AppState extends SharedState {
   setSelected: (ids: string[] | null) => void;
   toggleCar: (id: string, allIds: string[]) => void;
   setFilters: (p: Partial<Filters>) => void;
+  /** Switches the market. The cost inputs are in the market's currency, so they go back to its defaults. */
+  setMarket: (id: string, costDefaults: Scenario['cost']) => void;
+  setListSort: (s: ListSort) => void;
+  setListGroup: (g: ListGroupKey) => void;
+  setPickerOpen: (open: boolean) => void;
   setSort: (key: SortKey) => void;
   setLayout: (l: 'table' | 'cards') => void;
   setTheme: (t: Theme) => void;
@@ -128,7 +136,11 @@ export const useStore = create<AppState>((set, get) => ({
   carsCsvName: load<string | null>('carsCsvName', null),
   presetId: load<string>('preset', 'spreadsheet'),
   savedPresets: load<Record<string, Scenario>>('presets', {}),
-  filters: { search: '', maxPriceM: null, chemistries: [], ...load<Partial<Filters>>('filters', {}) },
+  market: load<string | null>('market', null),
+  filters: migrateFilters(load<unknown>('filters', {})),
+  listSort: load<ListSort>('listSort', { key: 'model', dir: 1 }),
+  listGroup: load<ListGroupKey>('listGroup', 'none'),
+  pickerOpen: false,
   layout: load<'table' | 'cards'>('layout', 'table'),
   sort: load<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'overall', dir: 1 }),
   theme: load<Theme>('theme', 'system'),
@@ -165,6 +177,18 @@ export const useStore = create<AppState>((set, get) => ({
     set({ selectedIds: next.length === allIds.length && allIds.every((x) => next.includes(x)) ? null : next });
   },
   setFilters: (p) => set({ filters: { ...get().filters, ...p } }),
+  setMarket: (id, costDefaults) => {
+    const { scenario, filters } = get();
+    set({
+      market: id,
+      // Price filters are in the old market's currency.
+      filters: { ...filters, priceMin: null, priceMax: null },
+      ...(scenario ? { scenario: { ...scenario, cost: { ...costDefaults } } } : {}),
+    });
+  },
+  setListSort: (s) => set({ listSort: s }),
+  setListGroup: (g) => set({ listGroup: g }),
+  setPickerOpen: (open) => set({ pickerOpen: open }),
   setSort: (key) => {
     const cur = get().sort;
     set({ sort: cur.key === key ? { key, dir: cur.dir === 1 ? -1 : 1 } : { key, dir: 1 } });
@@ -204,7 +228,7 @@ useStore.subscribe((s, prev) => {
   const pairs: [keyof AppState, string][] = [
     ['scenario', 'scenario'], ['settings', 'settings'], ['selectedIds', 'selected'], ['assumptionOverrides', 'assumptions'],
     ['fxOverrides', 'fx'], ['carsCsv', 'carsCsv'], ['carsCsvName', 'carsCsvName'], ['presetId', 'preset'],
-    ['savedPresets', 'presets'], ['filters', 'filters'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'],
+    ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'],
     ['stressTab', 'stressTab'], ['physicsCars', 'physicsCars'],
   ];
   for (const [k, storageKey] of pairs) if (s[k] !== prev[k]) save(storageKey, s[k]);
@@ -231,6 +255,7 @@ export function shareLink(): string {
     selectedIds: s.selectedIds,
     assumptionOverrides: s.assumptionOverrides,
     fxOverrides: s.fxOverrides,
+    market: s.market,
   };
   const url = new URL(window.location.href);
   url.search = `?s=${toBase64Url(JSON.stringify(shared))}`;

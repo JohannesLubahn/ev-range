@@ -189,6 +189,8 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
   }
 
   // --- costs
+  if (!car.market) flag('info', 'market', 'No market set - listed only under All markets');
+  else if (!ds.markets.some((m) => m.id === car.market)) flag('info', 'market', `Market "${car.market}" is not in markets.csv - listed only under All markets`);
   let priceDisplay: Val<number | null>;
   if (car.price === null) {
     priceDisplay = { value: null, provenance: 'missing' };

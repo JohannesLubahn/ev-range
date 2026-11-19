@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CarPicker, useFilteredIds } from '../components/CarPicker';
+import { CarPicker } from '../components/CarPicker';
 import { ConditionsPanel, ConditionsSummary, PresetPicker } from '../components/Conditions';
 import { IconLink } from '../components/Icons';
 import { ScoreCards, ScoreTable, sortIds } from '../components/ScoreTable';
@@ -51,7 +51,6 @@ export function ShareButton() {
 
 export function ComparePage() {
   const { selectedIds, out, derivedById } = useEngine();
-  const filtered = useFilteredIds();
   const sort = useStore((s) => s.sort);
   const layout = useStore((s) => s.layout);
   const setLayout = useStore((s) => s.setLayout);
@@ -59,7 +58,7 @@ export function ComparePage() {
   const [editing, setEditing] = useState(false);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = sortIds(
-    selectedIds.filter((id) => filtered.includes(id)),
+    selectedIds,
     out.results,
     names,
     sort.key,

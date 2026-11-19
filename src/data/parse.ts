@@ -10,6 +10,7 @@ import type {
   DegradationMeasurement,
   FactsTabRow,
   FieldDef,
+  Market,
   OnboardClass,
   OnboardMeasurement,
   Source,
@@ -27,6 +28,8 @@ export interface RawFiles {
   onboardMeasurements: string;
   degradationMeasurements: string;
   sources: string;
+  /** data/markets.csv; optional so a cars file loaded on its own still works. */
+  markets?: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -111,7 +114,9 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       id,
       name: name || id,
       brand: row.brand ?? '',
-      market: row.market ?? '',
+      model: row.model || null,
+      variant: row.variant || null,
+      market: (row.market ?? '').toUpperCase(),
       currency: (row.currency || 'THB').toUpperCase(),
       price: num(row, 'price', warnings, where),
       powertrain: (row.powertrain ?? '').toUpperCase() === 'ICE' ? 'ICE' : 'BEV',
@@ -146,6 +151,32 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
   return { cars, columns };
 }
 
+/** data/markets.csv: one row per market (currency, electricity price, maintenance). */
+export function parseMarkets(text: string, warnings: string[]): Market[] {
+  const seen = new Set<string>();
+  const out: Market[] = [];
+  for (const r of parseCsv(text).rows) {
+    const id = (r.id ?? '').trim().toUpperCase();
+    if (!id) continue;
+    if (seen.has(id)) {
+      warnings.push(`markets.csv: market "${id}" is listed twice; the second row is ignored`);
+      continue;
+    }
+    seen.add(id);
+    const where = `markets.csv, ${id}`;
+    out.push({
+      id,
+      name: r.name || id,
+      currency: (r.currency || 'THB').toUpperCase(),
+      electricityPrice: num(r, 'electricity_price', warnings, where),
+      maintenancePerYear: num(r, 'maintenance_per_year', warnings, where),
+      description: r.description ?? '',
+      source: r.source ?? '',
+    });
+  }
+  return out;
+}
+
 export function parseDataset(files: RawFiles): Dataset {
   const warnings: string[] = [];
   const { cars, columns } = parseCars(files.cars, warnings);
@@ -171,6 +202,12 @@ export function parseDataset(files: RawFiles): Dataset {
       description: r.description ?? '',
       source: r.source ?? '',
     };
+  }
+
+  const markets = parseMarkets(files.markets ?? '', warnings);
+  const marketIds = new Set(markets.map((m) => m.id));
+  for (const c of cars) {
+    if (c.market && !marketIds.has(c.market)) warnings.push(`cars.csv, ${c.name}: market "${c.market}" is not in markets.csv (listed only under All markets)`);
   }
 
   const bodyTypes: Record<string, BodyType> = {};
@@ -359,6 +396,7 @@ export function parseDataset(files: RawFiles): Dataset {
     carColumns: columns,
     fields,
     assumptions,
+    markets,
     bodyTypes,
     onboardClasses,
     factsTab,

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { CarsButton } from '../components/CarPicker';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { StackedRows, TipLines, type StackedRow } from '../components/Bars';
 import { niceTicks } from '../components/ticks';
@@ -217,6 +218,7 @@ export function PhysicsPage() {
             +{scenario.conditions.payloadKg} kg). Each car is calibrated so that its own test cycle reproduces its rated consumption.
           </p>
         </div>
+        <CarsButton />
       </div>
 
       <div className="grid-2">

@@ -39,9 +39,9 @@ drivetrain_efficiency_default_pct,88,%,Default drivetrain efficiency,Driving phy
 test_payload_kg,100,kg,Payload during the official test,Test conditions,Driver and test equipment on top of the curb weight,Assumption (WLTP test mass ≈ curb + 100 kg)
 test_temperature_c,23,°C,Test temperature,Test conditions,Ambient temperature of the official tests,WLTP and CLTC: 23 °C; NEDC: 20–30 °C
 default_basis,WLTP,,Standard assumed when a car has no rated range,Test conditions,Used to calibrate cars without any rated range,Assumption
-electricity_price,7.5,THB/kWh,Electricity price,Costs,Price paid per kWh from the grid,Battery Sizing row 73
-maintenance_per_year,8000,THB/year,Maintenance per year,Costs,,Battery Sizing row 74
-display_currency,THB,,Currency for comparisons,Costs,All costs are converted to this currency,
+electricity_price,7.5,THB/kWh,Electricity price,Costs,"Price paid per kWh from the grid; for All markets and markets without their own price (data/markets.csv)",Battery Sizing row 73
+maintenance_per_year,8000,THB/year,Maintenance per year,Costs,"For All markets and markets without their own value (data/markets.csv)",Battery Sizing row 74
+display_currency,THB,,Currency for comparisons,Costs,"Currency for All markets; a market uses its own currency (data/markets.csv)",
 fx_EUR,38.2248,THB per EUR,Exchange rate EUR → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_USD,33.3550,THB per USD,Exchange rate USD → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_CNY,4.9801,THB per CNY,Exchange rate CNY → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)

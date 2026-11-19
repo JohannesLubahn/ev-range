@@ -249,6 +249,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Battery ageing | Shape: NREL BLAST-Lite models (250 Ah LFP, 75 Ah NMC automotive cells; NREL 2023, J. Energy Storage 73, 109042). Size and temperature: fleet data from Carla / AVILOO (Electrek, Jul 2026), Tesla (Impact Report 2023, as quoted there) and Geotab (Jan 2026) |
 | Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
+| Markets (electricity price, maintenance) | `data/markets.csv`; Thailand: your spreadsheet, Battery Sizing rows 73–74 |
 
 ## 6. Spreadsheet issues fixed
 
@@ -261,6 +262,9 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 4. Total cost used motor consumption only; it now includes the onboard systems like every other case.
 5. Aion Y Plus horsepower was calculated from torque; horsepower is now always kW × 1.341.
 6. Mixed currencies: each car has a currency; prices and cost overrides are converted with the exchange rates.
+   The market picked in the car list (`data/markets.csv`) sets the currency shown and replaces the electricity
+   price and maintenance assumptions with its own (blank = the assumption, converted). All markets keeps the
+   assumptions and `display_currency`.
 
 Until the Simple model was removed, a parity test showed that it reproduced the Battery Sizing and Summary tabs
 for all 21 cars before these fixes.

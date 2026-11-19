@@ -1,6 +1,7 @@
 import { COST_CASE } from '../caseMeta';
 import { StackedRows, TipLines, type StackedRow } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
+import { CarsButton } from '../components/CarPicker';
 import { NumberField } from '../components/Fields';
 import type { BatteryLifeInputs, CostInputs } from '../engine/types';
 import { compact, fixed, money, num } from '../format';
@@ -61,7 +62,10 @@ export function CostPage() {
             Purchase, energy and maintenance over the years you keep the car, in {cur}. Select a bar or a row for the full calculation.
           </p>
         </div>
-        <PresetPicker />
+        <div className="row">
+          <CarsButton />
+          <PresetPicker />
+        </div>
       </div>
       <div className="case-grid">
         <div className="stack">
