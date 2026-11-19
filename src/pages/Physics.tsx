@@ -95,7 +95,7 @@ export function PhysicsPage() {
     [chosenKey, out],
   );
   const wearNow = chosen.map((id) => ({ id, g: out.models[id]?.ageing() ?? null }));
-  const fleetChecks = useMemo(() => ds.degradationMeasurements.map((m) => checkDegradation(ds, a.ratedCyclesEndCapacityPct, m)), [ds, a]);
+  const fleetChecks = useMemo(() => ds.degradationMeasurements.map((m) => checkDegradation(ds, a, m)), [ds, a]);
   const sourceById = Object.fromEntries(ds.sources.map((s) => [s.id, s]));
 
   const first = chosen[0];
@@ -408,7 +408,9 @@ export function PhysicsPage() {
             <h2>Battery wear vs. km driven</h2>
             <p className="muted">
               Capacity left from charge cycles and age, at {num(cond.airTemperatureC, 0)} °C and the battery-life driving ({num(scenario.batteryLife.kmPerYear, 0)}{' '}
-              km a year, {num(scenario.batteryLife.speedKmh, 0)} km/h). The stress tests use the value at {num(cond.batteryKm, 0)} km (Conditions).
+              km a year, {num(scenario.batteryLife.speedKmh, 0)} km/h) and battery care ({num(scenario.batteryLife.dcSharePct, 0)} % fast charging,{' '}
+              {num(scenario.batteryLife.highSocTimePct, 0)} % of the time parked above 80 %). The stress tests use the value at {num(cond.batteryKm, 0)} km
+              (Conditions).
             </p>
           </div>
           <div className="chart-box">
@@ -453,8 +455,12 @@ export function PhysicsPage() {
                     </td>
                     <td className="r">{g ? `${fixed(g.years, 1)} y` : ''}</td>
                     <td className="r">{g ? `${num(g.efc, 0)} of ${num(derivedById[id].car.batteryCycles, 0)}` : ''}</td>
-                    <td className="r">{g ? `${fixed(g.cycleFadePct, 1)} %` : ''}</td>
-                    <td className="r">{g ? `${fixed(g.calendarFadePct, 1)} %` : ''}</td>
+                    <td className="r">
+                      {g ? `${fixed(g.cycleFadePct, 1)} %` : ''} {g && <span className="faint">×{fixed(g.cycleWearFactor, 2)}</span>}
+                    </td>
+                    <td className="r">
+                      {g ? `${fixed(g.calendarFadePct, 1)} %` : ''} {g && <span className="faint">×{fixed(g.calendarFactor, 2)}</span>}
+                    </td>
                     <td className="r">
                       <b>{g ? `${fixed(g.sohPct, 1)} %` : ''}</b>
                     </td>
@@ -466,8 +472,10 @@ export function PhysicsPage() {
           <p className="faint" style={{ fontSize: 12.5 }}>
             At {num(cond.batteryKm, 0)} km. Cycle wear reaches {num(a.ratedCyclesEndCapacityPct, 0)} % capacity at the car's rated cycles, shaped
             per chemistry; calendar ageing grows with the square root of time (roughly) and doubles about every 17 °C warmer. Shapes from NREL's
-            BLAST-Lite models of automotive cells, size fitted to fleet data (below). Cold-weather lithium plating and fast-charging wear are not
-            modelled.
+            BLAST-Lite models of automotive cells, size fitted to fleet data (below) with typical habits. Battery care (×, vs. typical habits): fast
+            charging adds wear per cycle in proportion to the share of fast charging and the car's charging rate (fitted to INL's DC vs. AC Nissan
+            Leaf test); a battery parked full ages faster with time, much more for NMC than LFP (BLAST-Lite's charge-level term). Cold-weather
+            lithium plating and the rise in internal resistance are not modelled.
           </p>
           <div className="table-scroll">
             <table className="data-table">
@@ -475,6 +483,7 @@ export function PhysicsPage() {
                 <tr>
                   <th>Fleet data</th>
                   <th>Cars</th>
+                  <th>Charging habits</th>
                   <th className="r">Km</th>
                   <th className="r">Measured</th>
                   <th className="r">Model</th>
@@ -496,6 +505,16 @@ export function PhysicsPage() {
                       </td>
                       <td>
                         {k.m.vehicle} <span className="faint">{k.m.chemistry}</span>
+                      </td>
+                      <td className="faint">
+                        {k.m.dcSharePct === null && k.m.highSocTimePct === null
+                          ? 'typical'
+                          : [
+                              k.m.dcSharePct !== null ? `${num(k.m.dcSharePct, 0)} % DC${k.m.fastChargeCRate !== null ? ` at ${fixed(k.m.fastChargeCRate, 1)} C` : ''}` : null,
+                              k.m.highSocTimePct !== null ? `${num(k.m.highSocTimePct, 0)} % of the time full` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                       </td>
                       <td className="r">{num(k.m.km, 0)}</td>
                       <td className="r">{fixed(k.m.measuredSohPct, 1)} %</td>

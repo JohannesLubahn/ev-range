@@ -17,6 +17,20 @@ export const PROFILES: { id: Profile; label: string; description: string }[] = [
 export interface Assumptions {
   /** Capacity at the end of the rated cycles (% of nominal), unless the car says otherwise. */
   ratedCyclesEndCapacityPct: number;
+  /** Extra cycle wear of a fast-charged cycle per C of charging rate (battery care). */
+  fastChargeWearPerC: number;
+  /** Charging rate of the typical fleet car the ageing is fitted to (C). */
+  fastChargeReferenceCRate: number;
+  /** State of charge while parked full / otherwise (%), for the calendar ageing. */
+  careHighSocPct: number;
+  careNormalSocPct: number;
+  /** Battery-care presets (% of charging at DC fast chargers, % of the time parked above 80 %). Typical = fleet average. */
+  careTypicalDcSharePct: number;
+  careTypicalHighSocTimePct: number;
+  careGentleDcSharePct: number;
+  careGentleHighSocTimePct: number;
+  careHardDcSharePct: number;
+  careHardHighSocTimePct: number;
   batteryManagedMinC: number;
   batteryManagedMaxC: number;
   batteryHvacMaxKw: number;
@@ -122,6 +136,10 @@ export interface BatteryLifeInputs {
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
   profile: Profile;
+  /** Battery care: share of the charging done at DC fast chargers (%). */
+  dcSharePct: number;
+  /** Battery care: share of the time parked above 80 % charge (%). */
+  highSocTimePct: number;
 }
 
 export interface SprintInputs {
@@ -226,8 +244,10 @@ export interface BatteryLifeResult {
   cyclesAvailable: number | null;
   margin: number | null;
   pass: boolean | null;
-  /** Years until the rated cycles are used up at this yearly distance. */
-  yearsUntilRated: number | null;
+  /** Capacity at the end of life (% of nominal) the battery must keep to pass. */
+  eolPct: number;
+  /** Years until the capacity falls to the end-of-life capacity at this yearly distance (capped at YEARS_UNTIL_EOL_MAX). */
+  yearsUntilEol: number | null;
   /** Capacity left at the end of the life (% of nominal: cycle wear + calendar ageing); null without ageing data. */
   capacityEndPct: number | null;
   average: AverageConsumption;

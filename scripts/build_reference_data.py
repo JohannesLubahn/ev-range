@@ -13,6 +13,7 @@ Downloads (or reads from --cache) the official speed traces and writes:
     data/battery/chemistries.csv   per chemistry: voltages, resistance, temperature sensitivity, sources
     data/battery/ocv.csv           open-circuit voltage vs. state of charge per chemistry (cell level)
     data/battery/temperature.csv   deliverable capacity vs. temperature per chemistry (indicative, see notes)
+    data/battery/calendar_soc.csv  calendar-ageing rate vs. state of charge per chemistry (1 at 50 %)
 
 The CLTC-P trace (GB/T 38146.1-2019) is not openly available; save it yourself as
 data/cycles/cltc_p.csv (columns time_s,speed_kmh) and add a row to index.csv to enable it.
@@ -154,6 +155,34 @@ AGEING_SOURCE = {
             "miles, Geotab 2026 average 2.3 %/year); see degradation_measurements.csv"),
 }
 
+_SOC_NOTE = (". Calendar ageing vs. state of charge (calendar_soc.csv, used for the time parked above 80 %): the anode-"
+             "potential term of the same BLAST-Lite model, graphite potential vs. charge from Safari & Delacourt 2011 "
+             "(J. Electrochem. Soc. 158(5), A562), at 25 °C")
+AGEING_SOURCE = {k: v + _SOC_NOTE for k, v in AGEING_SOURCE.items()}
+
+
+def graphite_potential_safari2011(soc):
+    """Graphite anode potential vs. Li (V) at a cell state of charge 0..1, as used by NREL BLAST-Lite."""
+    x = 8.5e-3 + soc * (0.78 - 8.5e-3)
+    return (0.6379 + 0.5416 * math.exp(-305.5309 * x) + 0.044 * math.tanh(-(x - 0.1958) / 0.1088)
+            - 0.1978 * math.tanh((x - 1.0571) / 0.0854) - 0.6875 * math.tanh((x + 0.0117) / 0.0529)
+            - 0.0175 * math.tanh((x - 0.5692) / 0.0875))
+
+
+def calendar_soc_rows(t_k=298.15):
+    """Calendar-ageing rate vs. state of charge, relative to 50 %, from the BLAST-Lite anode-potential terms.
+
+    LFP (250 Ah prismatic): k_cal ∝ exp(p3·Ua/T), p3 = -3.56e3 K/V.
+    NMC (75 Ah pouch):      k_cal ∝ exp(p2·(T/308.15)^3 / (Ua/0.123)^(1/3)), p2 = 10.
+    """
+    def lfp(s):
+        return math.exp(-3.56e3 * graphite_potential_safari2011(s) / t_k)
+
+    def nmc(s):
+        return math.exp(10 * (t_k / 308.15) ** 3 / (graphite_potential_safari2011(s) / 0.123) ** (1 / 3))
+
+    return [(soc, f"{lfp(soc / 100) / lfp(0.5):.4f}", f"{nmc(soc / 100) / nmc(0.5):.4f}") for soc in range(101)]
+
 
 def battery_tables():
     nmc, nmc_ah = full_cell_ocv(u_nmc811_chen2020, u_graphite_chen2020, 0.75, 8.52e-5, 33133, 0.665, 7.56e-5, 63104,
@@ -247,6 +276,7 @@ def main(argv):
     write_rows(bat / "ocv.csv", [("soc_pct", "LFP", "NMC"), *ocv_rows])
     write_rows(bat / "chemistries.csv", chem)
     write_rows(bat / "temperature.csv", temp)
+    write_rows(bat / "calendar_soc.csv", [("soc_pct", "LFP", "NMC"), *calendar_soc_rows()])
 
 
 if __name__ == "__main__":

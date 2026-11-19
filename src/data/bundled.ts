@@ -11,6 +11,7 @@ import sources from '../../data/sources.csv?raw';
 import chemistries from '../../data/battery/chemistries.csv?raw';
 import ocv from '../../data/battery/ocv.csv?raw';
 import temperature from '../../data/battery/temperature.csv?raw';
+import calendarSoc from '../../data/battery/calendar_soc.csv?raw';
 import cyclesIndex from '../../data/cycles/index.csv?raw';
 import { parseDataset, type RawFiles } from './parse';
 import type { Dataset } from './types';
@@ -34,6 +35,7 @@ export const bundledFiles: RawFiles = {
   chemistries,
   ocv,
   temperature,
+  calendarSoc,
   cyclesIndex,
   cycles: Object.fromEntries(Object.entries(cycleFiles).map(([path, text]) => [path.split('/').pop() as string, text])),
 };

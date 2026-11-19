@@ -1,5 +1,6 @@
 import type { CarResults } from '../engine/types';
-import { compact, fixed, hours, num, plural } from '../format';
+import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
+import { capacityLeft, compact, fixed, hours, lifeYears, plural } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore, type CaseKey, type SortKey } from '../state/store';
 import { PassFail } from './Status';
@@ -55,9 +56,9 @@ function LifeCell({ id, r }: { id: string; r: CarResults }) {
   const b = r.batteryLife;
   return (
     <button type="button" className={`cell-btn ${b.pass === null ? '' : b.pass ? 'good' : 'bad'}`} onClick={() => open(id, 'batteryLife')}>
-      <PassFail pass={b.pass} margin={b.margin} />
+      <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(b.capacityEndPct)} />
       <span className="detail">
-        {num(b.cyclesRequired, 0)} / {num(b.cyclesAvailable, 0)} cycles
+        {fixed(b.eolPct, 0)} % reached in {lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX)}
       </span>
     </button>
   );

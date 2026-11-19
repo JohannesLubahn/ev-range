@@ -30,6 +30,7 @@ export interface RawFiles {
   chemistries: string;
   ocv: string;
   temperature: string;
+  calendarSoc: string;
   cyclesIndex: string;
   /** Cycle trace files by file name (e.g. "wltc3b.csv"). */
   cycles: Record<string, string>;
@@ -231,6 +232,9 @@ export function parseDataset(files: RawFiles): Dataset {
       km: req(r, 'km', warnings, where),
       years: req(r, 'years', warnings, where, 1),
       temperatureC: req(r, 'temperature_c', warnings, where, 20),
+      dcSharePct: num(r, 'dc_share_pct', warnings, where),
+      highSocTimePct: num(r, 'high_soc_time_pct', warnings, where),
+      fastChargeCRate: num(r, 'fast_charge_c_rate', warnings, where),
       measuredSohPct: req(r, 'measured_soh_pct', warnings, where, 100),
       sourceId: r.source_id ?? '',
       notes: r.notes ?? '',
@@ -281,6 +285,7 @@ export function parseDataset(files: RawFiles): Dataset {
   // Battery chemistry tables: one column per chemistry in ocv.csv and temperature.csv.
   const ocvTable = parseCsv(files.ocv);
   const tempTable = parseCsv(files.temperature);
+  const calSocTable = parseCsv(files.calendarSoc ?? '');
   const capacityTemps = tempTable.rows.map((r) => req(r, 'temperature_c', warnings, 'battery/temperature.csv'));
   const capacityNotes = tempTable.rows.map((r) => r.note ?? '');
   const chemistries: Record<string, Chemistry> = {};
@@ -294,6 +299,17 @@ export function parseDataset(files: RawFiles): Dataset {
       if (soc !== null && v !== null && soc >= 0 && soc <= 100) ocv[Math.round(soc)] = v;
     }
     fillGaps(ocv);
+    const calendarSocFactor: number[] = new Array(101).fill(NaN);
+    for (const o of calSocTable.rows) {
+      const soc = parseNumber(o.soc_pct);
+      const v = parseNumber(o[code]);
+      if (soc !== null && v !== null && soc >= 0 && soc <= 100) calendarSocFactor[Math.round(soc)] = v;
+    }
+    fillGaps(calendarSocFactor);
+    if (calendarSocFactor.some((v) => !Number.isFinite(v))) {
+      warnings.push(`battery/calendar_soc.csv has no column for ${code}: charge level does not change the calendar ageing`);
+      calendarSocFactor.fill(1);
+    }
     if (ocv.some((v) => !Number.isFinite(v))) warnings.push(`battery/ocv.csv has no column for ${code}`);
     chemistries[code] = {
       chemistry: code,
@@ -315,6 +331,7 @@ export function parseDataset(files: RawFiles): Dataset {
       cycleFadeExponent: req(r, 'cycle_fade_exponent', warnings, where, 1),
       ageingSource: r.ageing_source ?? '',
       ocv,
+      calendarSocFactor,
       capacityPct: tempTable.rows.map((t) => parseNumber(t[code]) ?? 100),
     };
   }

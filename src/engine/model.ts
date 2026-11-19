@@ -1,7 +1,7 @@
 // The energy model of one car: segment energies from the physics and the battery view (chemistry or ideal).
 import type { Dataset } from '../data/types';
 import type { DataFlag, DerivedCar } from './derive';
-import { ageBattery, type AgeingResult } from './battery/ageing';
+import { ageBattery, calendarCareFactor, careParams, cycleWearFactor, type AgeingInput, type AgeingResult } from './battery/ageing';
 import { Pack } from './battery/pack';
 import { coolingCop } from './onboard/climate';
 import { baseLoadKw, onboardClass, onboardPower, type OnboardPower } from './onboard/loads';
@@ -342,32 +342,47 @@ export class CarModel {
   ageing(km?: number, lifeInputs?: BatteryLifeInputs): AgeingResult | null {
     const own = km === undefined && lifeInputs === undefined;
     if (own && this.ageingCache !== undefined) return this.ageingCache;
-    const life = lifeInputs ?? this.life;
-    const d = this.d;
-    const chem = d.chemistry ? this.ctx.ds.chemistries[d.chemistry] : undefined;
-    let r: AgeingResult | null = null;
-    if (!d.isIce && chem && d.batteryKwh) {
-      // Energy per km of the battery-life driving (the same for any number of years).
-      const key = JSON.stringify({ ...life, years: 1 });
-      let perKm = this.lifePerKmCache.get(key);
-      if (perKm === undefined) {
-        const perYear = this.lifeEnergy({ ...life, years: 1 });
-        perKm = perYear.totalKm > 0 ? perYear.energy / perYear.totalKm : 0;
-        this.lifePerKmCache.set(key, perKm);
-      }
-      r = ageBattery({
-        chem,
-        nominalKwh: d.batteryKwh,
-        ratedCycles: d.car.batteryCycles,
-        eolPct: d.eolPct.value,
-        kwhPerKm: perKm,
-        km: km ?? this.ctx.conditions.batteryKm ?? 0,
-        kmPerYear: life.kmPerYear,
-        temperatureC: this.ctx.conditions.airTemperatureC,
-      });
-    }
+    const input = this.ageingInput(km ?? this.ctx.conditions.batteryKm ?? 0, lifeInputs ?? this.life);
+    const r = input ? ageBattery(input) : null;
     if (own) this.ageingCache = r;
     return r;
+  }
+
+  /** The car's fast-charging rate in capacities per hour, from its charging test (null if unknown). */
+  fastChargeCRate(): number | null {
+    return this.d.fastPctPerH !== null ? this.d.fastPctPerH / 100 : null;
+  }
+
+  /**
+   * Inputs of the ageing model after `km` with the battery-life driving and care habits. Null for petrol cars and
+   * cars without battery data.
+   */
+  ageingInput(km: number, life: BatteryLifeInputs): AgeingInput | null {
+    const d = this.d;
+    const chem = d.chemistry ? this.ctx.ds.chemistries[d.chemistry] : undefined;
+    if (d.isIce || !chem || !d.batteryKwh) return null;
+    // Energy per km of the battery-life driving (the same for any number of years).
+    const { years: _y, dcSharePct, highSocTimePct, ...driving } = life;
+    const key = JSON.stringify(driving);
+    let perKm = this.lifePerKmCache.get(key);
+    if (perKm === undefined) {
+      const perYear = this.lifeEnergy({ ...life, years: 1 });
+      perKm = perYear.totalKm > 0 ? perYear.energy / perYear.totalKm : 0;
+      this.lifePerKmCache.set(key, perKm);
+    }
+    const p = careParams(this.ctx.a);
+    return {
+      chem,
+      nominalKwh: d.batteryKwh,
+      ratedCycles: d.car.batteryCycles,
+      eolPct: d.eolPct.value,
+      kwhPerKm: perKm,
+      km,
+      kmPerYear: life.kmPerYear,
+      temperatureC: this.ctx.conditions.airTemperatureC,
+      cycleWearFactor: cycleWearFactor(p, dcSharePct ?? p.typical.dcSharePct, this.fastChargeCRate()),
+      calendarFactor: calendarCareFactor(chem, p, highSocTimePct ?? p.typical.highSocTimePct),
+    };
   }
 
   /** Battery capacity after the km driven (kWh); nominal for petrol cars (tank) and cars without ageing data. */

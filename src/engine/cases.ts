@@ -1,6 +1,6 @@
 // The stress cases of the spreadsheet (Battery Sizing tab) and the cost of ownership, on top of the physics car model.
 import { toDisplayCurrency } from './assumptions';
-import type { AgeingResult } from './battery/ageing';
+import { kmUntilSoh, type AgeingResult } from './battery/ageing';
 import type { BatteryView, CarModel, SegmentEnergy, SegmentSpec } from './model';
 import type { CabinClimate } from './onboard/climate';
 import type {
@@ -22,6 +22,9 @@ import type {
 
 const fx = (v: number, digits = 2) => (Number.isFinite(v) ? v.toFixed(digits) : '∞');
 const pct = (v: number) => `${fx(v, 0)} %`;
+
+/** Years the "years until end of life" search looks ahead. */
+export const YEARS_UNTIL_EOL_MAX = 60;
 
 /** Combines segments into one load: total energy, time, mean power and RMS factor. */
 function combine(segs: SegmentEnergy[]) {
@@ -153,7 +156,7 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
 const km = (v: number) => Math.round(v).toLocaleString('en-US');
 
 /** Explanation of the battery ageing: age, full cycles, cycle and calendar fade. */
-function ageingSteps(m: CarModel, g: AgeingResult): Step[] {
+function ageingSteps(m: CarModel, g: AgeingResult, care?: BatteryLifeInputs): Step[] {
   const chem = m.d.chemistry ? m.ctx.ds.chemistries[m.d.chemistry] : undefined;
   const steps: Step[] = [
     { label: 'Battery age', formula: `${km(g.km)} km ÷ ${km(g.kmPerYear)} km/year (battery-life driving)`, value: g.years, unit: 'years' },
@@ -166,17 +169,31 @@ function ageingSteps(m: CarModel, g: AgeingResult): Step[] {
   ];
   if (!chem) return steps;
   const rated = m.d.car.batteryCycles;
+  const life = care ?? m.life;
+  const c = m.fastChargeCRate();
+  steps.push({
+    label: 'Fast charging (battery care)',
+    formula: `${pct(life.dcSharePct)} of the charging at ${c !== null ? `${fx(c, 2)} C (charging test)` : `${fx(m.ctx.a.fastChargeReferenceCRate, 1)} C (typical)`}; cycle wear vs. typical habits`,
+    value: g.cycleWearFactor,
+    unit: '×',
+  });
   steps.push({
     label: 'Cycle wear',
     formula: rated
-      ? `${pct(100 - m.d.eolPct.value)} × (${fx(g.efc, 0)} ÷ ${fx(rated, 0)} rated cycles)^${fx(chem.cycleFadeExponent, 2)} (${m.d.chemistry})`
+      ? `${pct(100 - m.d.eolPct.value)} × (${fx(g.efc, 0)} × ${fx(g.cycleWearFactor, 2)} ÷ ${fx(rated, 0)} rated cycles)^${fx(chem.cycleFadeExponent, 2)} (${m.d.chemistry})`
       : 'rated cycles missing: no cycle wear counted',
     value: g.cycleFadePct,
     unit: '%',
   });
   steps.push({
+    label: 'Parked above 80 % (battery care)',
+    formula: `${pct(life.highSocTimePct)} of the time; calendar ageing vs. typical habits (${m.d.chemistry})`,
+    value: g.calendarFactor,
+    unit: '×',
+  });
+  steps.push({
     label: 'Calendar ageing',
-    formula: `${fx(chem.calendarLossPct1y25c, 2)} % × ${fx(g.years, 1)} years^${fx(chem.calendarTimeExponent, 2)} at ${fx(g.temperatureC, 0)} °C (${m.d.chemistry}, ${fx(chem.calendarEaKjPerMol, 0)} kJ/mol)`,
+    formula: `${fx(chem.calendarLossPct1y25c, 2)} % × ${fx(g.calendarFactor, 2)} × ${fx(g.years, 1)} years^${fx(chem.calendarTimeExponent, 2)} at ${fx(g.temperatureC, 0)} °C (${m.d.chemistry}, ${fx(chem.calendarEaKjPerMol, 0)} kJ/mol)`,
     value: g.calendarFadePct,
     unit: '%',
   });
@@ -422,7 +439,13 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
   const g = m.ageing(totalKm, i);
   const cyclesRequired = g ? g.efc : available > 0 ? energy / available : Infinity;
   const rated = m.d.car.batteryCycles;
-  const margin = rated ? (rated - cyclesRequired) / rated : null;
+  // Pass: the capacity left at the end of the life is at least the end-of-life capacity (needs the rated cycles).
+  const eol = m.d.eolPct.value;
+  const judged = g !== null && !!rated;
+  const margin = judged ? (g.sohPct - eol) / Math.max(1e-9, 100 - eol) : null;
+  const input = judged ? m.ageingInput(0, i) : null;
+  const eolKm = input ? kmUntilSoh(input, eol, YEARS_UNTIL_EOL_MAX * i.kmPerYear) : null;
+  const yearsUntilEol = input ? (eolKm === null ? YEARS_UNTIL_EOL_MAX : eolKm / Math.max(1, i.kmPerYear)) : null;
   const u = m.d.energyUnit;
   const avg = average(totalKm, seg.driveKwh, seg.onboardKwh + startKwh, thermalKwh, u);
   const steps: Step[] = [
@@ -444,17 +467,27 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
           kind: 'result',
         }
       : { label: 'Full cycles needed', formula: `${fx(energy, 0)} ÷ ${fx(available, 1)} ${u}`, value: cyclesRequired, unit: 'cycles', kind: 'result' },
-    { label: 'Rated cycles', formula: '', value: rated, unit: 'cycles', kind: 'result' },
+    { label: 'Rated cycles', formula: `until ${pct(eol)} capacity is left`, value: rated, unit: 'cycles' },
     ...(g
       ? [
-          ...ageingSteps(m, g).slice(2),
+          ...ageingSteps(m, g, i).slice(2),
           {
             label: `Capacity after ${fx(i.years, 0)} years`,
-            formula: `100 % − ${fx(g.cycleFadePct, 1)} % cycle wear − ${fx(g.calendarFadePct, 1)} % calendar ageing`,
+            formula: `100 % − ${fx(g.cycleFadePct, 1)} % cycle wear − ${fx(g.calendarFadePct, 1)} % calendar ageing; must stay ≥ ${pct(eol)}`,
             value: g.sohPct,
             unit: '%',
             kind: 'result',
           } as Step,
+          ...(yearsUntilEol !== null
+            ? [
+                {
+                  label: `Years until ${pct(eol)} capacity`,
+                  formula: `at ${km(i.kmPerYear)} km/year${eolKm === null ? ` (more than ${YEARS_UNTIL_EOL_MAX} years)` : ''}`,
+                  value: yearsUntilEol,
+                  unit: 'years',
+                } as Step,
+              ]
+            : []),
         ]
       : []),
   ];
@@ -465,7 +498,8 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     cyclesAvailable: rated,
     margin,
     pass: margin === null ? null : margin >= 0,
-    yearsUntilRated: rated && cyclesRequired > 0 ? (rated * i.years) / cyclesRequired : null,
+    eolPct: eol,
+    yearsUntilEol,
     capacityEndPct: g ? g.sohPct : null,
     average: avg.average,
     steps,

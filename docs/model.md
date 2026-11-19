@@ -10,7 +10,7 @@ The stress tests are traffic jam, no charger, sprint, long trip and battery life
 page. Each stress test shows, per car:
 
 - the battery needed vs. available (traffic jam, no charger, sprint), the trip time with charging (long trip) or the
-  charge cycles needed vs. rated (battery life);
+  capacity left at the end of the life vs. the end-of-life capacity (battery life);
 - the **average consumption**: the energy taken from the battery over the test ÷ its distance, in kWh/100 km, split
   into driving, onboard systems (electronics, heating/AC, bringing the parked cabin to temperature) and battery
   heating/cooling. In a traffic jam it is far above the rated value because the onboard systems run for hours
@@ -181,11 +181,49 @@ battery. Code: `src/engine/battery/ageing.ts`.
   100,000 km (Carla / AVILOO 2022–2026: LFP 93.3 %, NMC 91.5 %; model 93.3 / 93.1 %), Tesla Model 3/Y after 200,000
   miles (≈ 85 %; model 81.8 % with the placeholder 1,100 NMC cycles), Geotab 2026 (2.3 %/year over 22,700 EVs; model
   91.9 % vs. 88.5 % after 5 years). Ages, km and temperatures of these rows are assumptions (see the file).
-- **Results at the defaults** (100,000 km, 25 °C): 87–91 % left for most cars (BYD Atto 3 90.2 %, Zeekr X 87.4 %,
-  Hyundai Inster 85.5 %); at 35 °C 80–87 %. Not modelled: wear from fast charging (Geotab: up to 3 %/year), from
-  high or low states of charge, lithium plating in the cold, and resistance growth.
+- **Results at the defaults** (100,000 km, 25 °C, typical care): 87–91 % left for most cars (BYD Atto 3 90.2 %,
+  Zeekr X 87.4 %, Hyundai Inster 85.5 %); at 35 °C 80–87 %. Not modelled: lithium plating in the cold, harm from
+  sitting nearly empty, and resistance growth.
 - The spreadsheet's per-car "Long-term effective capacity" (Car Details row 7) is no longer imported; the
   Hyundai Inster's 100 % was removed with it.
+
+### Battery care (battery-life inputs)
+
+How the battery was charged, as two habits (or the presets Gentle / Typical / Hard, `care_*` in
+`data/assumptions.csv`): the **share of charging at DC fast chargers** and the **share of the time parked above
+80 % charge**. They are the two habits the largest real-world study (Geotab 2026, 22,700 EVs) found to matter:
+cars that fast-charged often lost 2.2–3.0 %/year vs. 1.5 %/year, cars parked at very high or low charge for over
+80 % of the time 2.0 vs. 1.4 %/year; charging to 100 % and then driving made no measurable difference. *Typical*
+(25 % DC, 50 % of the time full) is the fleet average the size of the fade is fitted to, so both factors are 1
+there. The km-driven wear of the stress tests uses the same habits.
+
+    cycle wear uses    full cycles × (1 + s_dc × k × C) ÷ (1 + 25 % × k × 1 C)
+    calendar ageing ×  [t × F(90 %) + (1 − t) × F(55 %)] ÷ [50 % × F(90 %) + 50 % × F(55 %)]
+
+- **Fast charging → cycle wear.** s_dc is the share of fast charging, C the car's fast-charging rate from its charging
+  test (`charge_from_pct` → `charge_to_pct` in `charge_time_min`: BYD Atto 3 1.14 C, Aion Hyptec HT 2.4 C) and
+  k = 0.07 per C (`fast_charge_wear_per_c`), fitted to INL's controlled test: four 2012 Nissan Leafs charged twice
+  a day, the 50 kW DC-only packs lost 27.4 % and the AC-only packs 24.8 % after 50,000 miles (INL/MIS-13-29877).
+  Geotab's gap between its fast-charging groups is larger, but those cars also drive more; the model reproduces
+  Geotab's groups (within ±3 points) when the fast-charging-heavy cars drive about 35,000 km a year vs. 15,000
+  (an assumption, stated in `degradation_measurements.csv`). So in this model, fast charging alone matters little.
+- **Parked full → calendar ageing.** F(SoC) is the calendar-ageing rate vs. charge level from the same NREL
+  BLAST-Lite cell models (their anode-potential term, graphite potential from Safari & Delacourt 2011;
+  `data/battery/calendar_soc.csv`, written by `scripts/build_reference_data.py`): parked at 90 % instead of 55 %
+  ages LFP 1.5× and NMC 2.8× as fast. t is the share of the time parked above 80 %; that time is taken at 90 %
+  (`care_high_soc_pct`) and the rest at 55 % (`care_normal_soc_pct`). With no extra fitting this reproduces
+  Geotab's charge-level groups within ±1.1 points. A low charge slows calendar ageing in the lab data, so "below
+  20 %" is not counted as harmful.
+- **Effect** (100,000 km, 25 °C, Gentle / Typical / Hard): LFP cars 89–92 / 88–91 / 88–90 %, NMC cars 88–92 /
+  85–90 / 82–87 %.
+
+**Battery-life verdict.** The battery passes when the capacity left after the chosen years (cycle wear + calendar
+ageing + care) is at least the end-of-life capacity (80 %, or the car's `end_of_life_capacity_pct`); "years until
+80 %" is found by bisection over km (up to 60 years). Until 19 Nov 2026 it passed when the full cycles needed fitted
+within the rated cycles, so heat, age and care did not count. At the defaults (20 years × 15,000 km, 25 °C) only
+the Neta S keeps 80 % with typical care (Gentle: also the Atto 3, Nio ET7, Neta X and Aion Hyptec HT); most cars
+reach 80 % after 14–20 years, the Zeekr X after 11 and the Hyundai Inster after 9 (NMC with the placeholder 1,100
+rated cycles).
 
 ## 5. Sources
 
@@ -209,6 +247,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Your Facts-tab onboard curves | Kept in `data/onboard/facts_tab.csv` for comparison only |
 | Rolling resistance | EU tyre label (Regulation (EU) 2020/740), class C = 8 N/kN; speed/pressure shape: empirical car-tyre formula, checked against National Academies Special Report 286 (2006, ≈1.4 % per psi); under-inflated case: UN R141 TPMS warning at 20 % loss; real-world under-inflation: FuelEconomy.gov (US DOE), NHTSA DOT HS 811 681 (2012) |
 | Battery ageing | Shape: NREL BLAST-Lite models (250 Ah LFP, 75 Ah NMC automotive cells; NREL 2023, J. Energy Storage 73, 109042). Size and temperature: fleet data from Carla / AVILOO (Electrek, Jul 2026), Tesla (Impact Report 2023, as quoted there) and Geotab (Jan 2026) |
+| Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 
 ## 6. Spreadsheet issues fixed
@@ -231,6 +270,8 @@ for all 21 cars before these fixes.
 Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) or missing (−) battery capacity. The
 spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test. The
 spreadsheet used 80 % of nominal as the battery; the Physics model uses the capacity after 100,000 km (85–91 %).
+The battery-life column shows the full cycles needed; the verdict itself is now the capacity left after 20 years
+(section 4, battery care).
 
 | Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|

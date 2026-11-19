@@ -4,14 +4,60 @@ import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type 
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
+import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
+import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
 import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
-import { fixed, hours, num, plural, signedPct } from '../format';
+import { capacityLeft, fixed, hours, lifeYears, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore, type StressKey } from '../state/store';
 
 const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
 const CABIN = 'Cabin heating / AC';
+
+/** Battery care: a preset (Gentle / Typical / Hard) or the two habits set by hand. */
+function CareFields({ value, onChange }: { value: CareHabits; onChange: (p: CareHabits) => void }) {
+  const { a } = useEngine();
+  const presets = carePresets(a);
+  const current = matchPreset(a, value) ?? 'custom';
+  const describe = (h: CareHabits) => `${num(h.dcSharePct, 0)} % fast charging, ${num(h.highSocTimePct, 0)} % of the time parked above 80 %`;
+  const options: { id: CarePreset | 'custom'; label: string; description: string }[] = [
+    { id: 'gentle', label: 'Gentle', description: `Mostly charged at home, to 80 % for daily use: ${describe(presets.gentle)}` },
+    { id: 'typical', label: 'Typical', description: `The fleet average the wear model is fitted to: ${describe(presets.typical)}` },
+    { id: 'hard', label: 'Hard', description: `Mostly fast-charged, always charged to 100 % and parked full: ${describe(presets.hard)}` },
+    { id: 'custom', label: 'Custom', description: 'Set the two habits below' },
+  ];
+  return (
+    <>
+      <SelectField
+        label="Battery care"
+        value={current}
+        options={options}
+        onChange={(v: CarePreset | 'custom') => {
+          if (v !== 'custom') onChange(presets[v]);
+        }}
+      />
+      <NumberField
+        label="Charging at DC fast chargers"
+        unit="%"
+        min={0}
+        max={100}
+        step={5}
+        value={value.dcSharePct}
+        onChange={(v) => onChange({ ...value, dcSharePct: v })}
+      />
+      <NumberField
+        label="Time parked above 80 % charge"
+        unit="%"
+        min={0}
+        max={100}
+        step={5}
+        value={value.highSocTimePct}
+        onChange={(v) => onChange({ ...value, highSocTimePct: v })}
+      />
+    </>
+  );
+}
 
 function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; set: (s: Scenario) => void }) {
   switch (tab) {
@@ -79,8 +125,10 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <NumberField label="Average speed" unit="km/h" min={10} max={120} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
           <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
           <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
+          <CareFields value={i} onChange={u} />
           <p className="faint">
-            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving.
+            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving. The battery wear in the other
+            tests (Conditions: km driven) uses the same driving and battery care.
           </p>
         </div>
       );
@@ -212,52 +260,59 @@ export function StressTestsPage() {
       </div>
     );
   } else if (tab === 'batteryLife') {
+    const life = scenario.batteryLife;
     const rows: BulletRow[] = ids
-      .filter((id) => out.results[id].batteryLife.cyclesAvailable !== null)
-      .sort((x, y) => (out.results[y].batteryLife.margin ?? -9) - (out.results[x].batteryLife.margin ?? -9))
+      .filter((id) => out.results[id].batteryLife.pass !== null && out.results[id].batteryLife.capacityEndPct !== null)
+      .sort((x, y) => (out.results[y].batteryLife.capacityEndPct ?? -9) - (out.results[x].batteryLife.capacityEndPct ?? -9))
       .map((id) => {
         const b = out.results[id].batteryLife;
+        const cap = b.capacityEndPct ?? 0;
         return {
           id,
           label: names[id],
-          value: b.cyclesRequired,
-          target: b.cyclesAvailable,
-          end: <PassFail pass={b.pass} margin={b.margin} />,
+          value: cap,
+          target: b.eolPct,
+          end: <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(cap)} />,
           tip: (
             <TipLines
               title={names[id]}
               lines={[
-                { color: 'var(--series-1)', value: num(b.cyclesRequired, 0), label: 'full cycles needed' },
-                { color: 'var(--ink)', value: num(b.cyclesAvailable, 0), label: 'rated cycles' },
-                { value: `${fixed(b.yearsUntilRated, 1)} years`, label: 'until the rated cycles are used' },
-                ...(b.capacityEndPct !== null ? [{ value: `${fixed(b.capacityEndPct, 1)} %`, label: 'capacity left at the end' }] : []),
+                { color: 'var(--series-1)', value: `${fixed(cap, 1)} %`, label: `capacity left after ${num(life.years, 0)} years` },
+                { color: 'var(--ink)', value: `${fixed(b.eolPct, 0)} %`, label: 'end of life (must stay at or above)' },
+                { value: lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX), label: `until ${fixed(b.eolPct, 0)} % is reached` },
+                { value: `${num(b.cyclesRequired, 0)} of ${num(b.cyclesAvailable, 0)}`, label: 'full cycles used of the rated cycles' },
               ]}
             />
           ),
           onClick: () => open(id),
         };
       });
-    const noCycles = ids.filter((id) => out.results[id].batteryLife.cyclesAvailable === null);
+    const unjudged = ids.filter((id) => out.results[id].batteryLife.pass === null && !derivedById[id].isIce);
     chart = (
       <div className="stack">
-        <BulletRows rows={rows} valueName="Full charge cycles needed" targetName="Rated cycles" side={side} />
-        {noCycles.length > 0 && <p className="faint">No rated cycles in cars.csv: {noCycles.map((id) => names[id]).join(', ')}</p>}
+        <BulletRows rows={rows} valueName={`Capacity left after ${num(life.years, 0)} years (%)`} targetName="End of life" side={side} />
+        {unjudged.length > 0 && <p className="faint">No rated cycles or chemistry in cars.csv: {unjudged.map((id) => names[id]).join(', ')}</p>}
       </div>
     );
     howFar = (
       <div className="stack" style={{ gap: 8 }}>
-        <h3>Years until the rated cycles are used up</h3>
+        <h3>Years until the battery reaches its end-of-life capacity</h3>
         <HowFar
-          items={[...ids]
-            .sort((x, y) => (out.results[y].batteryLife.yearsUntilRated ?? 0) - (out.results[x].batteryLife.yearsUntilRated ?? 0))
-            .map((id) => ({ id, name: names[id], value: `${fixed(out.results[id].batteryLife.yearsUntilRated, 1)} years` }))}
+          items={rows
+            .map((r) => r.id)
+            .sort((x, y) => (out.results[y].batteryLife.yearsUntilEol ?? 0) - (out.results[x].batteryLife.yearsUntilEol ?? 0))
+            .map((id) => ({ id, name: names[id], value: lifeYears(out.results[id].batteryLife.yearsUntilEol, YEARS_UNTIL_EOL_MAX) }))}
         />
-        <h3>Capacity left after {num(scenario.batteryLife.years, 0)} years (charge cycles and age)</h3>
+        <h3>Full charge cycles used of the rated cycles</h3>
         <HowFar
-          items={ids
-            .filter((id) => out.results[id].batteryLife.capacityEndPct !== null)
-            .sort((x, y) => (out.results[y].batteryLife.capacityEndPct ?? 0) - (out.results[x].batteryLife.capacityEndPct ?? 0))
-            .map((id) => ({ id, name: names[id], value: `${fixed(out.results[id].batteryLife.capacityEndPct, 0)} %` }))}
+          items={rows
+            .map((r) => r.id)
+            .sort((x, y) => out.results[x].batteryLife.cyclesRequired - out.results[y].batteryLife.cyclesRequired)
+            .map((id) => ({
+              id,
+              name: names[id],
+              value: `${num(out.results[id].batteryLife.cyclesRequired, 0)} / ${num(out.results[id].batteryLife.cyclesAvailable, 0)}`,
+            }))}
         />
       </div>
     );

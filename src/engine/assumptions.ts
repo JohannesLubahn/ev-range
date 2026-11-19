@@ -4,6 +4,16 @@ import type { Assumptions } from './types';
 
 export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
   rated_cycles_end_capacity_pct: 'ratedCyclesEndCapacityPct',
+  fast_charge_wear_per_c: 'fastChargeWearPerC',
+  fast_charge_reference_c_rate: 'fastChargeReferenceCRate',
+  care_high_soc_pct: 'careHighSocPct',
+  care_normal_soc_pct: 'careNormalSocPct',
+  care_typical_dc_share_pct: 'careTypicalDcSharePct',
+  care_typical_high_soc_time_pct: 'careTypicalHighSocTimePct',
+  care_gentle_dc_share_pct: 'careGentleDcSharePct',
+  care_gentle_high_soc_time_pct: 'careGentleHighSocTimePct',
+  care_hard_dc_share_pct: 'careHardDcSharePct',
+  care_hard_high_soc_time_pct: 'careHardHighSocTimePct',
   battery_managed_min_c: 'batteryManagedMinC',
   battery_managed_max_c: 'batteryManagedMaxC',
   battery_hvac_max_kw: 'batteryHvacMaxKw',
@@ -39,6 +49,16 @@ export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
 /** Fallbacks used only if a key is missing from assumptions.csv. */
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
   ratedCyclesEndCapacityPct: 80,
+  fastChargeWearPerC: 0.07,
+  fastChargeReferenceCRate: 1,
+  careHighSocPct: 90,
+  careNormalSocPct: 55,
+  careTypicalDcSharePct: 25,
+  careTypicalHighSocTimePct: 50,
+  careGentleDcSharePct: 5,
+  careGentleHighSocTimePct: 20,
+  careHardDcSharePct: 60,
+  careHardHighSocTimePct: 90,
   batteryManagedMinC: 10,
   batteryManagedMaxC: 35,
   batteryHvacMaxKw: 2,

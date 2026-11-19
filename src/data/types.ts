@@ -132,6 +132,12 @@ export interface DegradationMeasurement {
   km: number;
   years: number;
   temperatureC: number;
+  /** Share of charging at DC fast chargers (%); null = typical habits. */
+  dcSharePct: number | null;
+  /** Share of the time parked above 80 % charge (%); null = typical habits. */
+  highSocTimePct: number | null;
+  /** Fast-charging rate (C); null = the typical rate. */
+  fastChargeCRate: number | null;
   measuredSohPct: number;
   sourceId: string;
   notes: string;
@@ -184,6 +190,8 @@ export interface Chemistry {
   ageingSource: string;
   /** Open-circuit voltage per cell at 0..100 % SoC (index = SoC %). */
   ocv: number[];
+  /** Calendar-ageing rate vs. state of charge (index = %), 1 at 50 % (battery/calendar_soc.csv). */
+  calendarSocFactor: number[];
   /** Deliverable capacity (% of rated) at the temperatures in Dataset.capacityTemps. */
   capacityPct: number[];
 }

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { loadBundledDataset } from '../src/data/bundled';
 import { assumptionsFromDataset } from '../src/engine/assumptions';
-import { ageBattery, checkDegradation, cycleFadePct } from '../src/engine/battery/ageing';
+import { ageBattery, calendarCareFactor, careParams, carePresets, checkDegradation, cycleFadePct, cycleWearFactor, matchPreset } from '../src/engine/battery/ageing';
 import { Pack } from '../src/engine/battery/pack';
-import { batteryLife, cost, noCharger } from '../src/engine/cases';
+import { batteryLife, cost, noCharger, YEARS_UNTIL_EOL_MAX } from '../src/engine/cases';
 import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
 import { cabinClimate, coolingCop, heatPumpCop } from '../src/engine/onboard/climate';
@@ -318,7 +318,7 @@ describe('battery ageing (capacity after the km driven)', () => {
     expect(ds.loadWarnings.filter((w) => w.includes('degradation_measurements'))).toEqual([]);
     const ids = new Set(ds.sources.map((s) => s.id));
     for (const m of ds.degradationMeasurements) {
-      const k = checkDegradation(ds, a.ratedCyclesEndCapacityPct, m);
+      const k = checkDegradation(ds, a, m);
       expect(Math.abs(k.deviationPct), `${m.id}: model ${k.model?.sohPct.toFixed(1)} vs ${m.measuredSohPct}`).toBeLessThan(4);
       expect(ids.has(m.sourceId), m.id).toBe(true);
     }
@@ -351,5 +351,106 @@ describe('battery ageing (capacity after the km driven)', () => {
     const { batteryKm, ...old } = base0.conditions;
     expect(batteryKm).toBe(100000);
     expect(withDefaults({ ...base0, conditions: old as never }, a).conditions.batteryKm).toBe(100000);
+  });
+});
+
+describe('battery care (fast charging, time parked full)', () => {
+  const lfp = ds.chemistries.LFP;
+  const nmc = ds.chemistries.NMC;
+  const p = careParams(a);
+  const base = { nominalKwh: 60, ratedCycles: 2000, eolPct: 80, kwhPerKm: 0.15, km: 100000, kmPerYear: 15000, temperatureC: 25 };
+  it('typical habits at the reference charging rate change nothing (the fleet fit stays valid)', () => {
+    expect(cycleWearFactor(p, p.typical.dcSharePct, p.referenceCRate)).toBeCloseTo(1, 12);
+    expect(cycleWearFactor(p, p.typical.dcSharePct, null)).toBeCloseTo(1, 12);
+    expect(calendarCareFactor(lfp, p, p.typical.highSocTimePct)).toBeCloseTo(1, 12);
+    expect(calendarCareFactor(nmc, p, p.typical.highSocTimePct)).toBeCloseTo(1, 12);
+    expect(matchPreset(a, carePresets(a).typical)).toBe('typical');
+    expect(matchPreset(a, { dcSharePct: 33, highSocTimePct: 50 })).toBeNull();
+  });
+  it('more fast charging, or a faster charging rate, wears each cycle more', () => {
+    expect(cycleWearFactor(p, 60, 1)).toBeGreaterThan(cycleWearFactor(p, 25, 1));
+    expect(cycleWearFactor(p, 25, 2)).toBeGreaterThan(cycleWearFactor(p, 25, 1));
+    expect(cycleWearFactor(p, 5, 1)).toBeLessThan(1);
+    const g = (f: number) => ageBattery({ ...base, chem: nmc, cycleWearFactor: f });
+    expect(g(1.2).cycleFadePct).toBeGreaterThan(g(1).cycleFadePct);
+    expect(g(1.2).calendarFadePct).toBeCloseTo(g(1).calendarFadePct, 12);
+  });
+  it('calendar ageing rises with the charge level (BLAST-Lite anode potential), more for NMC than LFP', () => {
+    for (const c of [lfp, nmc]) {
+      expect(c.calendarSocFactor[50]).toBeCloseTo(1, 3);
+      expect(c.calendarSocFactor[90]).toBeGreaterThan(c.calendarSocFactor[55]);
+      expect(c.calendarSocFactor[20]).toBeLessThan(1);
+    }
+    expect(nmc.calendarSocFactor[90] / nmc.calendarSocFactor[55]).toBeGreaterThan(lfp.calendarSocFactor[90] / lfp.calendarSocFactor[55]);
+    expect(calendarCareFactor(nmc, p, 90)).toBeGreaterThan(calendarCareFactor(lfp, p, 90));
+    expect(calendarCareFactor(lfp, p, 90)).toBeGreaterThan(1);
+    expect(calendarCareFactor(nmc, p, 20)).toBeLessThan(1);
+  });
+  it('fast-charging wear matches INL’s DC vs. AC Nissan Leaf test (27.4 % vs. 24.8 % lost after 50,000 miles)', () => {
+    // 24 kWh packs, 80,467 km in about 1.5 years in Phoenix (≈ 24 °C mean air), 50 kW DC ≈ 1.5 C on average.
+    // INL's Leaf is LMO/NMC, not one of the chemistries here: the NMC shape is used and its rated cycles are fitted to
+    // the AC cars, so only the difference made by fast charging is checked.
+    const leaf = { chem: nmc, nominalKwh: 24, eolPct: 80, kwhPerKm: 0.15, km: 80467, kmPerYear: 80467 / 1.5, temperatureC: 24 };
+    const loss = (rated: number, dc: number) => 100 - ageBattery({ ...leaf, ratedCycles: rated, cycleWearFactor: cycleWearFactor(p, dc, 1.5) }).sohPct;
+    let lo = 50;
+    let hi = 5000;
+    for (let n = 0; n < 60; n++) {
+      const mid = (lo + hi) / 2;
+      if (loss(mid, 0) > 24.8) lo = mid;
+      else hi = mid;
+    }
+    expect(loss(lo, 0)).toBeCloseTo(24.8, 1);
+    expect(loss(lo, 100) - loss(lo, 0)).toBeGreaterThan(2.6 - 1);
+    expect(loss(lo, 100) - loss(lo, 0)).toBeLessThan(2.6 + 1);
+  });
+  it('the Geotab groups keep their order (more fast charging / more time full: less capacity)', () => {
+    const soh = (id: string) => checkDegradation(ds, a, ds.degradationMeasurements.find((m) => m.id === id)!).model!.sohPct;
+    expect(soh('geotab-dc-low')).toBeGreaterThan(soh('geotab-dc-often-lowpower'));
+    expect(soh('geotab-dc-often-lowpower')).toBeGreaterThan(soh('geotab-dc-often-highpower'));
+    expect(soh('geotab-soc-low')).toBeGreaterThan(soh('geotab-soc-medium'));
+    expect(soh('geotab-soc-medium')).toBeGreaterThan(soh('geotab-soc-high'));
+  });
+  it('battery life passes when the capacity at the end stays at or above the end-of-life capacity', () => {
+    const sc = spreadsheetDefaults(a);
+    let passes = 0;
+    let fails = 0;
+    for (const d of derived) {
+      const m = new CarModel(d, { ds, a, conditions: sc.conditions, settings: { battery: 'chemistry' }, life: sc.batteryLife });
+      const b = batteryLife(m, sc.batteryLife);
+      if (b.pass === null) continue;
+      expect(b.pass).toBe((b.capacityEndPct as number) >= b.eolPct);
+      if (b.pass) passes++;
+      else fails++;
+      // The years until the end of life land on the end-of-life capacity.
+      if (b.yearsUntilEol !== null && b.yearsUntilEol < YEARS_UNTIL_EOL_MAX) {
+        const input = m.ageingInput(b.yearsUntilEol * sc.batteryLife.kmPerYear, sc.batteryLife)!;
+        expect(ageBattery(input).sohPct, d.car.id).toBeCloseTo(b.eolPct, 1);
+        expect(b.yearsUntilEol >= sc.batteryLife.years, d.car.id).toBe(b.pass);
+      }
+    }
+    expect(passes + fails).toBeGreaterThan(10);
+  });
+  it('care changes the km-driven wear of the stress tests and the battery-life verdict, not the cost', () => {
+    const d = derived.find((x) => x.car.id === 'zeekr-x')!;
+    const sc = spreadsheetDefaults(a);
+    const presets = carePresets(a);
+    const at = (h: { dcSharePct: number; highSocTimePct: number }) => {
+      const life = { ...sc.batteryLife, ...h };
+      return { life, m: new CarModel(d, { ds, a, conditions: sc.conditions, settings: { battery: 'chemistry' }, life }) };
+    };
+    const gentle = at(presets.gentle);
+    const hard = at(presets.hard);
+    expect(hard.m.ageing()!.sohPct).toBeLessThan(gentle.m.ageing()!.sohPct);
+    expect(hard.m.capacityKwh()).toBeLessThan(gentle.m.capacityKwh());
+    expect(batteryLife(hard.m, hard.life).capacityEndPct as number).toBeLessThan(batteryLife(gentle.m, gentle.life).capacityEndPct as number);
+    expect(cost(hard.m, hard.life, sc.cost).costPerKm).toBeCloseTo(cost(gentle.m, gentle.life, sc.cost).costPerKm as number, 9);
+  });
+  it('old saved scenarios get the typical habits', () => {
+    const base0 = spreadsheetDefaults(a);
+    const { dcSharePct, highSocTimePct, ...old } = base0.batteryLife;
+    expect([dcSharePct, highSocTimePct]).toEqual([a.careTypicalDcSharePct, a.careTypicalHighSocTimePct]);
+    const s = withDefaults({ ...base0, batteryLife: old as never }, a);
+    expect(s.batteryLife.dcSharePct).toBe(a.careTypicalDcSharePct);
+    expect(s.batteryLife.highSocTimePct).toBe(a.careTypicalHighSocTimePct);
   });
 });

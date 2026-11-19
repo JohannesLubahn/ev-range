@@ -125,8 +125,8 @@ export function ConditionsPanel() {
         <h3>Conditions</h3>
         <p className="muted">
           Shared by all stress tests and the cost of ownership. They act on air drag, rolling resistance, heating / AC (temperature, sun,
-          humidity) and the battery. The km driven sets the battery's wear in the stress tests (battery life and cost start from a new
-          battery).
+          humidity) and the battery. The km driven sets the battery's wear in the stress tests, with the driving and battery care of the
+          battery-life test (battery life and cost start from a new battery).
         </p>
       </div>
       <div className="fields">

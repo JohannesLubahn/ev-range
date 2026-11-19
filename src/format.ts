@@ -54,3 +54,16 @@ export function hours(h: number | null | undefined): string {
   if (h === null || h === undefined || !Number.isFinite(h)) return '–';
   return `${fixed(h, 1)} h`;
 }
+
+/** Battery life: years until the end-of-life capacity ("> 60 years" when it lasts beyond the search). */
+export function lifeYears(years: number | null | undefined, max: number): string {
+  if (years === null || years === undefined || !Number.isFinite(years)) return '–';
+  return years >= max ? `> ${max} years` : `${fixed(years, 1)} years`;
+}
+
+/** Battery life: capacity left at the end of the life. */
+export function capacityLeft(pct: number | null | undefined): string {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) return '–';
+  // One decimal: a battery at 79.96 % must not read "80 % left" next to "not enough".
+  return `${fixed(Math.floor(pct * 10) / 10, 1)} % left`;
+}
