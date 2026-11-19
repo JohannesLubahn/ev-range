@@ -10,6 +10,7 @@ import { airDensity, pressureAtAltitude } from './physics/air';
 import { profileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
 import { simulate, type SimResult } from './physics/simulate';
+import type { TraceDynamics } from './physics/style';
 import { spreadsheetDefaults } from './scenario';
 import type { Assumptions, BatteryLifeInputs, Conditions, ModelSettings, Profile } from './types';
 import { clamp } from './util';
@@ -55,7 +56,11 @@ export interface SegmentEnergy {
     gradePerKm: number;
     accelPerKm: number;
     regenPerKm: number;
+    /** Braking work at the wheels taken by the friction brakes (beyond the regeneration limits), kWh/km. */
+    frictionPerKm: number;
     drivePerKm: number;
+    /** Dynamics of the speed trace as driven (EU RDE metrics); null for a constant speed. */
+    dynamics: TraceDynamics | null;
     /** Steady-speed force breakdown at the average moving speed (N). */
     forcesAtSpeed: { speedKmh: number; aero: number; rolling: number; grade: number; crr: number };
   };
@@ -174,6 +179,8 @@ export class CarModel {
       rotatingMassFactor: a.rotatingMassFactor,
       etaDrive,
       etaRegen: this.d.isIce ? 0 : a.regenEfficiencyPct / 100,
+      regenMaxDecelMs2: a.regenMaxDecelMs2,
+      regenMinKmh: a.regenMinKmh,
     };
   }
 
@@ -187,7 +194,8 @@ export class CarModel {
 
   /**
    * Effective drivetrain efficiency (battery → wheels), solved so that the car's own test cycle reproduces
-   * its rated consumption exactly:  rated × η_charge × D = E_wheel⁺/η − η_regen·E_wheel⁻ + aux·t + losses.
+   * its rated consumption exactly:  rated × η_charge × D = E_wheel⁺/η − E_regen + aux·t + losses, where E_regen is
+   * the braking energy within the regeneration limits × η_regen. The test cycle is driven as is (no driving style).
    */
   calibration(): Calibration {
     if (this.calibrationCache) return this.calibrationCache;
@@ -223,7 +231,7 @@ export class CarModel {
       if (!cyc) continue;
       const sim = simulate(cyc.speedsKmh, veh, env, auxKw);
       posPerKm += (weight * sim.wheelPosKwh) / sim.distanceKm;
-      rest += (weight * (auxKw * (sim.timeS / 3600) - veh.etaRegen * sim.wheelNegKwh)) / sim.distanceKm;
+      rest += (weight * (auxKw * (sim.timeS / 3600) - sim.regenKwh)) / sim.distanceKm;
       avgSpeedKmh += weight * (sim.distanceKm / (sim.timeS / 3600));
     }
     if (posPerKm <= 0) {
@@ -260,15 +268,20 @@ export class CarModel {
     return cal.clamped ? [{ carId: this.d.car.id, severity: 'warning', field: 'consumption_kwh_per_km', message: cal.note }] : [];
   }
 
-  private simulateProfile(profile: Profile, avgKmh: number, grade: number): { sim: SimResult; trace: string; movingKmh: number } {
-    const tr = profileTrace(this.ctx.ds, profile, avgKmh);
+  /** Driving style of the Conditions as a factor on the trace dynamics (1 = the WLTP's own). */
+  get styleFactor(): number {
+    return (this.ctx.conditions.drivingStylePct ?? 100) / 100;
+  }
+
+  private simulateProfile(profile: Profile, avgKmh: number, grade: number): { sim: SimResult; trace: string; movingKmh: number; dynamics: TraceDynamics | null } {
+    const tr = profileTrace(this.ctx.ds, profile, avgKmh, this.styleFactor, this.ctx.a.drivingStyleWindowS);
     const key = `${profile}|${avgKmh}|${grade}`;
     let sim = this.simCache.get(key);
     if (!sim) {
       sim = simulate(tr.speedsKmh, this.vehicle(this.calibration().etaDrive), this.environment(grade));
       this.simCache.set(key, sim);
     }
-    return { sim, trace: tr.description, movingKmh: tr.movingAvgKmh };
+    return { sim, trace: tr.description, movingKmh: tr.movingAvgKmh, dynamics: tr.dynamics };
   }
 
   // ------------------------------------------------------------------------------------------ segments
@@ -280,7 +293,7 @@ export class CarModel {
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
     const onboardKwh = onboard.totalKw * timeH + startKwh;
     const grade = distanceKm > 0 ? (spec.climbM ?? 0) / (distanceKm * 1000) : 0;
-    const { sim, trace, movingKmh } = this.simulateProfile(spec.profile, avgSpeedKmh, grade);
+    const { sim, trace, movingKmh, dynamics } = this.simulateProfile(spec.profile, avgSpeedKmh, grade);
     const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;
     const driveKwh = perKmDrive * distanceKm;
     const totalKwh = driveKwh + onboardKwh;
@@ -307,7 +320,9 @@ export class CarModel {
         gradePerKm: per(sim.gradeKwh),
         accelPerKm: per(sim.accelKwh),
         regenPerKm: per(sim.regenKwh),
+        frictionPerKm: per(sim.frictionKwh),
         drivePerKm: perKmDrive,
+        dynamics,
         forcesAtSpeed: { speedKmh: movingKmh, aero: f.aero, rolling: f.rolling, grade: f.grade, crr: f.crr },
       },
     };

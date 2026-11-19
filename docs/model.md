@@ -30,8 +30,13 @@ F = ½·ρ·Cd·A·v²            air drag        ρ = p / (287.05 · T): air te
   + Crr(v, p_tyre)·m·g      rolling         Crr ∝ 0.005 + (0.01 + 0.0095·(v/100)²)/p, scaled to the tyre value at 80 km/h
   + m·g·slope               hills           net climb or descent of the segment, spread evenly
   + 1.05·m·a                acceleration    1.05 = rotating parts
-battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhill)
+battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhill, within the regeneration limits)
 ```
+
+- **Regeneration limits:** the motor brakes with at most the force that decelerates the car at
+  `regen_max_decel_ms2` (1.96 m/s² = 0.2 g, the usual series-braking threshold), and not below `regen_min_kmh`
+  (10 km/h). Braking beyond that goes to the friction brakes and is lost as heat (shown in the calculation as
+  "lost to the friction brakes").
 
 - Tyre pressure is set as **% of each car's recommended pressure** (default 100 %). The calibration on the test
   cycle already contains the tyres at their recommended pressure, so only the deviation matters. The formula is
@@ -45,6 +50,19 @@ battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhi
 - Profiles: *steady*; *motorway*, *rural*, *city* and *mixed* use the WLTP class 3b phases (extra-high, high,
   low + medium, all); *traffic jam* is the low phase slowed down to crawl speed. If the requested average speed is
   above the profile's moving average, its speeds are scaled up; a lower average only adds standing time.
+- **Driving style** (Conditions, user request 19 Nov 2026): accelerations and braking in % of the WLTP's
+  (Gentle 65 % · Normal 100 % · Sporty 170 %, or any value 40–200 %). Each speed's deviation from its 30-second
+  local mean is scaled: `v' = max(0, v̄ + k·(v − v̄))`, then the trace is rescaled to its original distance, so
+  time and average speed stay the same. Sporty reaches higher peaks and brakes harder (more kinetic energy braked
+  away, more of it beyond the regeneration limit, more drag at the peaks, more battery I²R losses from the power
+  swings); Gentle stays close to the mean and rolls towards stops. The presets are the edges of what the EU
+  real-driving test accepts (Regulation (EU) 2017/1151, Annex IIIA, Appendix 7a): Gentle puts the relative
+  positive acceleration (RPA) of the WLTP low phase at its lower bound, Sporty the 95th percentile of v·a⁺ of the
+  city phases at its upper bound. Normal → Sporty adds about 27–34 % driving energy in the city (EVs), close to the
+  ~30 % Bingham et al. (2012) measured between moderate and aggressive driving. The style applies to every speed
+  profile except Steady (constant speed; the user chose no special treatment for the sprint), and through the
+  battery-life driving also to the battery ageing and the cost. The test-cycle calibration always replays the
+  cycle as is.
 
 ## 2. Calibration: each car keeps its own consumption
 
@@ -54,7 +72,7 @@ conditions (23 °C, sea level, curb + 100 kg, the car class's electronics on, no
 unknown, the **drivetrain efficiency η_drive**:
 
 ```
-rated × η_charge × distance = Σ(F·v)⁺ / η_drive − η_regen · Σ|F·v|⁻ + electronics · time + battery losses
+rated × η_charge × distance = Σ(F·v)⁺ / η_drive − η_regen · Σ|F·v|⁻ (within the regeneration limits) + electronics · time + battery losses
 ```
 
 - Test values are measured from the grid, so the charging efficiency (90 %) is removed; a consumption calculated
@@ -249,6 +267,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Battery ageing | Shape: NREL BLAST-Lite models (250 Ah LFP, 75 Ah NMC automotive cells; NREL 2023, J. Energy Storage 73, 109042). Size and temperature: fleet data from Carla / AVILOO (Electrek, Jul 2026), Tesla (Impact Report 2023, as quoted there) and Geotab (Jan 2026) |
 | Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
+| Driving style, regeneration limits | RDE trip-dynamics bounds: Regulation (EU) 2017/1151, Annex IIIA, Appendix 7a (as amended by 2017/1154); regeneration alone below 0.2 g: NPTEL lecture on EV brake systems (series braking strategy); regeneration above 10 km/h: Kia owner's manual, Mazda; plausibility: Bingham, Walsh & Carroll 2012, IET Intell. Transp. Syst. 6(1) 29 (~30 % more energy for aggressive driving) |
 | Markets (electricity price, maintenance) | `data/markets.csv`; Thailand: your spreadsheet, Battery Sizing rows 73–74 |
 
 ## 6. Spreadsheet issues fixed

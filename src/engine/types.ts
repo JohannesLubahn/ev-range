@@ -54,6 +54,15 @@ export interface Assumptions {
   rollingResistanceNPerKn: number;
   tyrePressureRefBar: number;
   regenEfficiencyPct: number;
+  /** Deceleration up to which regeneration alone brakes (m/s²); harder braking adds the friction brakes. */
+  regenMaxDecelMs2: number;
+  /** Below this speed (km/h) the friction brakes do the braking. */
+  regenMinKmh: number;
+  /** Window of the local mean speed the driving style scales the deviations from (s). */
+  drivingStyleWindowS: number;
+  /** Driving-style presets (% of the WLTP's accelerations and braking; Normal = 100). */
+  drivingStyleGentlePct: number;
+  drivingStyleSportyPct: number;
   rotatingMassFactor: number;
   frontalAreaFactor: number;
   drivetrainEfficiencyDefaultPct: number;
@@ -84,6 +93,11 @@ export interface Conditions {
    * tests. The years and the energy per km come from the battery-life inputs. Battery life and cost start from new.
    */
   batteryKm: number;
+  /**
+   * Driving style: how hard the car accelerates and brakes, in % of the WLTP's dynamics (100 = as in the WLTP).
+   * Applies to every speed profile except Steady (constant speed).
+   */
+  drivingStylePct: number;
 }
 
 export interface ModelSettings {

@@ -84,6 +84,10 @@ On Compare the car list is the left column; on the other pages the **Cars** butt
 See [docs/model.md](docs/model.md): the physics, the calibration, the battery model, the sources, and how the
 results compare with the spreadsheet.
 
+The driving style (Conditions: Gentle / Normal / Sporty, or accelerations and braking in % of the WLTP's) reshapes
+every speed trace except Steady; braking beyond the regeneration limits (`regen_max_decel_ms2`, `regen_min_kmh`
+in `data/assumptions.csv`) is lost to the friction brakes. The Physics page compares the styles per car.
+
 ## Project layout
 
 ```

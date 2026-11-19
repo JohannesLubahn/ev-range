@@ -10,6 +10,7 @@ export const DEFAULT_CONDITIONS: Conditions = {
   thermalMode: 'managed',
   preconditionedC: 20,
   batteryKm: 100000,
+  drivingStylePct: 100,
 };
 
 /** Tyre pressure in bar that older versions of the app treated as "as recommended" for every car. */

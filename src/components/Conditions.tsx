@@ -16,9 +16,62 @@ function thermalOptions(a: Assumptions): { id: ThermalMode; label: string; descr
   ];
 }
 
+type StylePreset = 'gentle' | 'normal' | 'sporty';
+
+function stylePresets(a: Assumptions): Record<StylePreset, number> {
+  return { gentle: a.drivingStyleGentlePct, normal: 100, sporty: a.drivingStyleSportyPct };
+}
+
+/** Name of the driving style: a preset, or null for a value set by hand. */
+export function drivingStyleName(a: Assumptions, pct: number): StylePreset | null {
+  const p = stylePresets(a);
+  return (Object.keys(p) as StylePreset[]).find((k) => p[k] === pct) ?? null;
+}
+
+/** Driving style: a preset (Gentle / Normal / Sporty) or the accelerations and braking in % of the WLTP's. */
+function DrivingStyleFields({ value, onChange }: { value: number; onChange: (pct: number) => void }) {
+  const { a } = useEngine();
+  const presets = stylePresets(a);
+  const options: { id: StylePreset | 'custom'; label: string; description: string }[] = [
+    {
+      id: 'gentle',
+      label: 'Gentle',
+      description: `Soft launches, slowing early instead of braking late (${presets.gentle} % of the WLTP's accelerations): the smoothest driving the EU real-driving test (RDE) accepts`,
+    },
+    { id: 'normal', label: 'Normal', description: "The accelerations and braking of the WLTP test cycle (100 %)" },
+    {
+      id: 'sporty',
+      label: 'Sporty',
+      description: `Hard launches, higher peaks, late hard braking (${presets.sporty} %): the most dynamic driving the EU real-driving test (RDE) accepts`,
+    },
+    { id: 'custom', label: 'Custom', description: 'Set the accelerations and braking below' },
+  ];
+  return (
+    <>
+      <SelectField
+        label="Driving style (not on Steady: cruise control)"
+        value={drivingStyleName(a, value) ?? 'custom'}
+        options={options}
+        onChange={(v: StylePreset | 'custom') => {
+          if (v !== 'custom') onChange(presets[v]);
+        }}
+      />
+      <NumberField
+        label="Accelerations and braking, % of the WLTP's"
+        unit="%"
+        min={40}
+        max={200}
+        step={5}
+        value={value}
+        onChange={onChange}
+      />
+    </>
+  );
+}
+
 /** One-line summary of the conditions under which the results hold. */
 export function ConditionsSummary() {
-  const { scenario, out, selectedIds } = useEngine();
+  const { scenario, out, selectedIds, a } = useEngine();
   const c = scenario.conditions;
   const soh = selectedIds.map((id) => out.models[id]?.ageing()?.sohPct).filter((v): v is number => v !== undefined);
   const sohText =
@@ -43,6 +96,14 @@ export function ConditionsSummary() {
       <span>
         Tyres <b>{c.tyrePressurePct === 100 ? 'as recommended' : `${num(c.tyrePressurePct, 0)} % of recommended`}</b>
       </span>
+      {c.drivingStylePct !== 100 && (
+        <span>
+          Driving{' '}
+          <b>
+            {drivingStyleName(a, c.drivingStylePct) ?? 'custom'} ({num(c.drivingStylePct, 0)} %)
+          </b>
+        </span>
+      )}
       <span>
         Driven <b>{num(c.batteryKm, 0)} km</b>
         {sohText}
@@ -128,7 +189,9 @@ export function ConditionsPanel({ showBatteryKm = true }: { showBatteryKm?: bool
         <h3>Conditions</h3>
         <p className="muted">
           Shared by all stress tests and the cost of ownership. They act on air drag, rolling resistance, heating / AC (temperature, sun,
-          humidity) and the battery.
+          humidity) and the battery. The driving style sets how hard the car accelerates and brakes on every speed profile except Steady:
+          more kinetic energy is braked away, and braking harder than {num(a.regenMaxDecelMs2, 1)} m/s² or below {num(a.regenMinKmh, 0)} km/h
+          goes to the friction brakes instead of the regeneration.
           {showBatteryKm &&
             " The km driven sets the battery's wear in the stress tests, with the driving and battery care of the battery-life test (battery life and cost start from a new battery)."}
         </p>
@@ -156,6 +219,7 @@ export function ConditionsPanel({ showBatteryKm = true }: { showBatteryKm?: bool
           value={c.tyrePressurePct}
           onChange={(v) => set({ tyrePressurePct: v })}
         />
+        <DrivingStyleFields value={c.drivingStylePct} onChange={(v) => set({ drivingStylePct: v })} />
         {showBatteryKm ? (
           <NumberField
             label="Km driven (battery wear from charge cycles and age)"

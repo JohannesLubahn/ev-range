@@ -12,6 +12,10 @@ export interface VehiclePhysics {
   etaDrive: number;
   /** Wheel → battery efficiency while braking (0 for cars without regeneration). */
   etaRegen: number;
+  /** Deceleration up to which regeneration alone brakes (m/s²); harder braking adds the friction brakes. */
+  regenMaxDecelMs2?: number;
+  /** Below this speed (km/h) the friction brakes do the braking. */
+  regenMinKmh?: number;
 }
 
 export interface Environment {

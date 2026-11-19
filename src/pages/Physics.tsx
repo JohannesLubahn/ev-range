@@ -9,7 +9,9 @@ import { Pack } from '../engine/battery/pack';
 import { coolingCop } from '../engine/onboard/climate';
 import { factsTabPower, onboardPower } from '../engine/onboard/loads';
 import { packHeatCapacity, packThermal } from '../engine/onboard/thermal';
+import { CarModel } from '../engine/model';
 import { checkMeasurement } from '../engine/onboard/validation';
+import type { Profile } from '../engine/types';
 import { fixed, num } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
@@ -52,6 +54,8 @@ function LegendText({ value }: { value: string }) {
 function seriesOrder(keys: string[]) {
   return (item: { dataKey?: unknown }) => keys.indexOf(String(item.dataKey));
 }
+
+const signed = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(0)}`;
 
 const SPEEDS = Array.from({ length: 15 }, (_, i) => 20 + i * 10);
 const TEMPS = Array.from({ length: 13 }, (_, i) => -20 + i * 5);
@@ -98,6 +102,33 @@ export function PhysicsPage() {
   const wearNow = chosen.map((id) => ({ id, g: out.models[id]?.ageing() ?? null }));
   const fleetChecks = useMemo(() => ds.degradationMeasurements.map((m) => checkDegradation(ds, a, m)), [ds, a]);
   const sourceById = Object.fromEntries(ds.sources.map((s) => [s.id, s]));
+
+  // Driving style: driving energy per 100 km on a speed profile for the presets (and the current style).
+  const stylePcts = [...new Set([a.drivingStyleGentlePct, 100, a.drivingStyleSportyPct, scenario.conditions.drivingStylePct])].sort((x, y) => x - y);
+  const styleRows = useMemo(() => {
+    const runs: { profile: Profile; speed: number; label: string }[] = [
+      { profile: 'city', speed: 30, label: 'City, 30 km/h' },
+      { profile: 'mixed', speed: 45, label: 'Mixed, 45 km/h' },
+    ];
+    return chosenKey
+      .split(',')
+      .filter(Boolean)
+      .flatMap((id) => {
+        const m = out.models[id];
+        if (!m) return [];
+        return runs.map((r) => ({
+          id,
+          label: r.label,
+          values: stylePcts.map((pct) => {
+            const mm = pct === scenario.conditions.drivingStylePct ? m : new CarModel(m.d, { ...m.ctx, conditions: { ...m.ctx.conditions, drivingStylePct: pct } });
+            const seg = mm.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: r.speed, profile: r.profile, cabinC: null });
+            return { kwh: seg.driveKwh, friction: seg.physics.frictionPerKm * 100 };
+          }),
+        }));
+      });
+  }, [chosenKey, out, stylePcts.join(','), scenario.conditions.drivingStylePct]);
+  const styleName = (pct: number) =>
+    pct === 100 ? 'Normal' : pct === a.drivingStyleGentlePct ? 'Gentle' : pct === a.drivingStyleSportyPct ? 'Sporty' : 'Yours';
 
   const first = chosen[0];
   const breakdown: StackedRow[] = useMemo(() => {
@@ -192,7 +223,6 @@ export function PhysicsPage() {
       });
       return row;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chem, ds, a.batteryPackVoltageV]);
 
   const speedTicks = niceTicks(0, Math.max(1, ...speedData.flatMap((r) => chosen.map((id) => r[id] ?? 0))));
@@ -306,6 +336,55 @@ export function PhysicsPage() {
             Air drag grows with the square of the speed per km, rolling resistance only slightly; onboard energy per km falls with speed because
             the trip takes less time.
           </p>
+        </section>
+
+        <section className="panel stack" id="driving-style">
+          <div>
+            <h2>Driving style</h2>
+            <p className="muted">
+              Driving energy per 100 km (no onboard systems) on the WLTP speed shapes, driven gentler or harder. Harder driving builds up more
+              speed and brakes it away again; braking above {num(a.regenMaxDecelMs2, 1)} m/s² or below {num(a.regenMinKmh, 0)} km/h is lost to the
+              friction brakes. Set the style in the Conditions; Steady (cruise control) does not change.
+            </p>
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>kWh/100 km</th>
+                  {stylePcts.map((pct) => (
+                    <th key={pct} className="r">
+                      {styleName(pct)} {num(pct, 0)} %
+                    </th>
+                  ))}
+                  <th className="r">Friction brakes ({num(stylePcts[stylePcts.length - 1], 0)} %)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {styleRows.map((r) => (
+                  <tr key={r.id + r.label}>
+                    <td>
+                      {derivedById[r.id].car.name}
+                      <div className="faint" style={{ fontSize: 12 }}>
+                        {r.label}
+                      </div>
+                    </td>
+                    {r.values.map((v, i) => (
+                      <td key={i} className="r">
+                        {fixed(v.kwh, 1)}
+                        {stylePcts[i] !== 100 && (
+                          <div className="faint" style={{ fontSize: 12 }}>
+                            {signed(((v.kwh / r.values[stylePcts.indexOf(100)].kwh) - 1) * 100)} %
+                          </div>
+                        )}
+                      </td>
+                    ))}
+                    <td className="r">{fixed(r.values[r.values.length - 1].friction, 2)} kWh</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="panel stack">

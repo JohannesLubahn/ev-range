@@ -110,6 +110,16 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     unit: '',
     kind: 'note',
   });
+  const dyn = p.dynamics;
+  if (dyn) {
+    steps.push({
+      label: `${name}: driving dynamics`,
+      formula: `hardest acceleration ${fx(dyn.maxAccel, 1)} m/s², braking ${fx(dyn.maxDecel, 1)} m/s²; RPA ${fx(dyn.rpa, 3)} m/s² (EU RDE: at least ${fx(dyn.rpaMin, 3)}), v·a⁺[95] ${fx(dyn.va95, 1)} m²/s³ (at most ${fx(dyn.va95Max, 1)})`,
+      value: null,
+      unit: '',
+      kind: 'note',
+    });
+  }
   steps.push({
     label: `Forces at ${fx(f.speedKmh, 0)} km/h`,
     formula: `air drag ${fx(f.aero, 0)} N + rolling ${fx(f.rolling, 0)} N (Crr ${fx(f.crr, 4)})${Math.abs(f.grade) > 0.5 ? ` + slope ${fx(f.grade, 0)} N` : ''}`,
@@ -127,7 +137,7 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     label: 'From the battery for driving',
     formula: m.d.isIce
       ? `÷ ${fx(cal.etaDrive, 2)} kWh per litre (calibrated)`
-      : `÷ drivetrain ${fx(cal.etaDrive * 100, 1)} % (calibrated), − regeneration ${fx(p.regenPerKm, 3)} kWh/km`,
+      : `÷ drivetrain ${fx(cal.etaDrive * 100, 1)} % (calibrated), − regeneration ${fx(p.regenPerKm, 3)} kWh/km${p.frictionPerKm > 5e-4 ? ` (braking beyond the regeneration limits lost to the friction brakes: ${fx(p.frictionPerKm, 3)} kWh/km)` : ''}`,
     value: p.drivePerKm,
     unit: `${u}/km`,
   });

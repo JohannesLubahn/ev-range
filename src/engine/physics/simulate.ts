@@ -17,6 +17,8 @@ export interface SimResult {
   batteryKwh: number;
   /** Energy recovered by regenerative braking, kWh. */
   regenKwh: number;
+  /** Braking energy at the wheels taken by the friction brakes (beyond the regeneration limits), kWh. */
+  frictionKwh: number;
   /** Mean of the squared battery power (kW²), including the constant auxiliary load. */
   meanSquareKw2: number;
 }
@@ -26,7 +28,8 @@ const J_PER_KWH = 3.6e6;
 /**
  * Simulates the trace. Each 1-second interval uses the mean speed and the constant acceleration of the
  * interval. Positive wheel power is drawn from the battery through the drivetrain (÷ η_drive); negative
- * wheel power (braking, downhill) is recovered with η_regen.
+ * wheel power (braking, downhill) is recovered with η_regen, up to the regenerative brake force (the car's
+ * effective mass × `regenMaxDecelMs2`) and above `regenMinKmh`; the friction brakes take the rest.
  */
 export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environment, auxKw = 0): SimResult {
   let dist = 0;
@@ -38,6 +41,7 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
   let accel = 0;
   let battery = 0;
   let regen = 0;
+  let friction = 0;
   let sumSq = 0;
   const n = speedsKmh.length - 1;
   for (let i = 0; i < n; i++) {
@@ -58,7 +62,14 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
       pb = p / veh.etaDrive;
     } else {
       neg += -p;
-      pb = p * veh.etaRegen;
+      // Regeneration brakes with at most the force that decelerates the car at the limit, and only above a
+      // minimum speed; the friction brakes take the rest (heat).
+      const minV = (veh.regenMinKmh ?? 0) / 3.6;
+      const maxRegenN = veh.regenMaxDecelMs2 === undefined ? Infinity : veh.rotatingMassFactor * veh.massKg * veh.regenMaxDecelMs2;
+      const regenFrac = v < minV ? 0 : Math.min(1, maxRegenN / -f.total);
+      const recoverable = p * regenFrac;
+      friction += -(p - recoverable);
+      pb = recoverable * veh.etaRegen;
       regen += -pb;
     }
     battery += pb;
@@ -76,6 +87,7 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
     accelKwh: accel / J_PER_KWH,
     batteryKwh: battery / J_PER_KWH,
     regenKwh: regen / J_PER_KWH,
+    frictionKwh: friction / J_PER_KWH,
     meanSquareKw2: n ? sumSq / n : 0,
   };
 }
