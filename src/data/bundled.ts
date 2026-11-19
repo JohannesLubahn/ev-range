@@ -6,6 +6,7 @@ import bodyTypes from '../../data/body_types.csv?raw';
 import onboardClasses from '../../data/onboard/classes.csv?raw';
 import factsTab from '../../data/onboard/facts_tab.csv?raw';
 import onboardMeasurements from '../../data/onboard/measurements.csv?raw';
+import degradationMeasurements from '../../data/battery/degradation_measurements.csv?raw';
 import sources from '../../data/sources.csv?raw';
 import chemistries from '../../data/battery/chemistries.csv?raw';
 import ocv from '../../data/battery/ocv.csv?raw';
@@ -28,6 +29,7 @@ export const bundledFiles: RawFiles = {
   onboardClasses,
   factsTab,
   onboardMeasurements,
+  degradationMeasurements,
   sources,
   chemistries,
   ocv,

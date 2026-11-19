@@ -88,7 +88,15 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
         add(group, { key, label, unit, better, calc: true, cells });
       };
       const n = (v: number | null, digits?: number, prov?: Provenance): Cell => ({ text: v === null ? '' : num(v, digits ?? digitsFor(v)), value: v, prov });
-      calc('Battery & charging', 'c_longterm', 'Long-term capacity', 'kWh', 'higher', (d) => n(d.longTermKwh, 1, d.longTermPct.provenance === 'data' ? 'data' : 'calculated'));
+      const kmText = num(scenario.conditions.batteryKm, 0);
+      calc('Battery & charging', 'c_soh', `Capacity left after ${kmText} km`, '%', 'higher', (d) => {
+        const g = out.models[d.car.id]?.ageing();
+        return g ? n(g.sohPct, 1) : { text: '', value: null };
+      });
+      calc('Battery & charging', 'c_capacity', `Capacity after ${kmText} km`, 'kWh', 'higher', (d) => {
+        const g = out.models[d.car.id]?.ageing();
+        return g ? n(g.capacityKwh, 1) : { text: '', value: null };
+      });
       calc('Battery & charging', 'c_fastkw', 'Fast charging power', 'kW', 'higher', (d) => n(d.fastKw, 1));
       calc('Battery & charging', 'c_slowkw', 'Charging outside the fast window', 'kW', 'higher', (d) => n(d.slowKw, 1));
       calc('Consumption & range', 'c_basis', 'Consumption standard', '', '', (d) => ({ text: d.basis.value, value: null, prov: d.basis.provenance }));

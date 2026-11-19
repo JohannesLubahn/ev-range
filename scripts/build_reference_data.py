@@ -138,6 +138,23 @@ def full_cell_ocv(up, un, eps_n, l_n, cmax_n, eps_p, l_p, cmax_p, area, y100, x1
     return [ocv(d0 * (1 - soc / 100)) for soc in range(101)], d0 * qn
 
 
+# Battery ageing per chemistry (src/engine/battery/ageing.ts). Exponents from NREL's BLAST-Lite fits of large-format
+# automotive cells; the size of the calendar fade is fitted to the fleet data in data/battery/degradation_measurements.csv.
+_EA_NOTE = ("Activation energy 30 kJ/mol: inside the range of the lab fits (about 16–67 kJ/mol across the NREL "
+            "BLAST-Lite cell models) and in line with Geotab 2026 (EVs in hot climates fade about 0.4 %/year faster "
+            "than in mild ones)")
+AGEING_SOURCE = {
+    "LFP": ("Shape: NREL BLAST-Lite model of a 250 Ah prismatic LFP/graphite cell (NREL 2023, J. Energy "
+            "Storage 73, 109042): calendar fade ∝ time^0.526, cycle fade ∝ cycles^0.828. "
+            + _EA_NOTE + ". Size: fitted to Tesla Model 3 LFP (CATL) packs in Sweden, 93.3 % after more than "
+            "100,000 km (Carla / AVILOO tests 2022–2026); see degradation_measurements.csv"),
+    "NMC": ("Shape: NREL BLAST-Lite model of a 75 Ah automotive NMC/graphite pouch cell (NREL 2023, J. "
+            "Energy Storage 73, 109042): calendar fade ∝ time^0.578, cycle fade ∝ cycles^1.11. "
+            + _EA_NOTE + ". Size: fitted to fleet data (Tesla Model 3 NMC in Sweden, Tesla Model 3/Y after 200,000 "
+            "miles, Geotab 2026 average 2.3 %/year); see degradation_measurements.csv"),
+}
+
+
 def battery_tables():
     nmc, nmc_ah = full_cell_ocv(u_nmc811_chen2020, u_graphite_chen2020, 0.75, 8.52e-5, 33133, 0.665, 7.56e-5, 63104,
                                 0.065 * 1.58, 29866 / 33133, 17038 / 63104, 2.5)
@@ -151,7 +168,8 @@ def battery_tables():
     chem = [
         ("chemistry", "label", "nominal_cell_v", "cutoff_cell_v", "max_cell_v", "dv_1c_25c_pct",
          "resistance_ea_kj_per_mol", "pack_wh_per_kg", "specific_heat_j_per_kgk", "ocv_source", "resistance_source",
-         "capacity_source", "thermal_source"),
+         "capacity_source", "thermal_source", "calendar_loss_pct_1y_25c", "calendar_time_exponent",
+         "calendar_ea_kj_per_mol", "cycle_fade_exponent", "ageing_source"),
         ("LFP", "Lithium iron phosphate (LiFePO4) / graphite", f"{mean(lfp):.3f}", f"{lfp[0]:.2f}", f"{lfp[100]:.2f}",
          "3.0", "27", "140", "1100",
          "Prada et al. 2013, J. Electrochem. Soc. 160(4), A616 (A123 LFP/graphite cell model); LFP OCP Afshar 2017, "
@@ -160,7 +178,8 @@ def battery_tables():
          "x2.5 at 0 °C and x5 at -15 °C vs 23 °C, both = 27 kJ/mol. Voltage drop at 1C/25 °C: assumption for a "
          "complete EV pack incl. interconnects",
          "See temperature.csv",
-         "Pack: BYD Han Blade pack ≈ 140 Wh/kg (vendor figure; Tesla's LFP Model 3 pack ≈ 125 Wh/kg). Cells: measured LFP pouch and prismatic cells 1.0–1.15 J/(g·K) (batterydesign.net summary of measurements)"),
+         "Pack: BYD Han Blade pack ≈ 140 Wh/kg (vendor figure; Tesla's LFP Model 3 pack ≈ 125 Wh/kg). Cells: measured LFP pouch and prismatic cells 1.0–1.15 J/(g·K) (batterydesign.net summary of measurements)",
+         "2.3", "0.53", "30", "0.83", AGEING_SOURCE["LFP"]),
         ("NMC", "Lithium nickel manganese cobalt oxide (NMC811) / graphite", f"{mean(nmc):.3f}", f"{nmc[0]:.2f}",
          f"{nmc[100]:.2f}", "3.0", "28", "170", "1000",
          "Chen et al. 2020, J. Electrochem. Soc. 167, 080534 (LG M50 NMC811/graphite-SiOx cell); full-cell curve "
@@ -169,7 +188,8 @@ def battery_tables():
          "impedance 27-31 kJ/mol for NMC532/622/811 full cells, -20..40 °C. Voltage drop at 1C/25 °C: assumption "
          "for a complete EV pack incl. interconnects",
          "See temperature.csv",
-         "Pack: NMC packs ≈ 160–180 Wh/kg (vendor figures). Cells: measured NMC cells 0.96–1.04 J/(g·K) (batterydesign.net summary of measurements)"),
+         "Pack: NMC packs ≈ 160–180 Wh/kg (vendor figures). Cells: measured NMC cells 0.96–1.04 J/(g·K) (batterydesign.net summary of measurements)",
+         "2.45", "0.58", "30", "1.11", AGEING_SOURCE["NMC"]),
     ]
     temp = [
         ("temperature_c", "LFP", "NMC", "note"),

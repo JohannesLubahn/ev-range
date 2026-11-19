@@ -1,6 +1,7 @@
 // The energy model of one car: segment energies from the physics and the battery view (chemistry or ideal).
 import type { Dataset } from '../data/types';
 import type { DataFlag, DerivedCar } from './derive';
+import { ageBattery, type AgeingResult } from './battery/ageing';
 import { Pack } from './battery/pack';
 import { coolingCop } from './onboard/climate';
 import { baseLoadKw, onboardClass, onboardPower, type OnboardPower } from './onboard/loads';
@@ -9,7 +10,8 @@ import { airDensity, pressureAtAltitude } from './physics/air';
 import { profileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
 import { simulate, type SimResult } from './physics/simulate';
-import type { Assumptions, Conditions, ModelSettings, Profile } from './types';
+import { spreadsheetDefaults } from './scenario';
+import type { Assumptions, BatteryLifeInputs, Conditions, ModelSettings, Profile } from './types';
 import { clamp } from './util';
 
 export interface SegmentSpec {
@@ -61,6 +63,7 @@ export interface SegmentEnergy {
 
 export interface BatteryView {
   model: 'ideal' | 'chemistry';
+  /** Capacity of the battery (kWh): aged by the km driven (Conditions), or nominal for a new battery. */
   availableKwh: number;
   temperatureC: number;
   temperatureNote: string;
@@ -70,7 +73,7 @@ export interface BatteryView {
   thermalKwh: number;
   /** Energy deliverable at the terminals between two states of charge at a mean power. */
   deliverable(startPct: number, endPct: number, meanPowerKw: number, rmsFactor: number): { kwh: number; lossKwh: number; cutoff: boolean; powerLimited: boolean };
-  /** Long-term capacity (kWh) a battery of the same kind would need to deliver `energyKwh` in the window. */
+  /** Capacity (kWh) a battery of the same kind and age would need to deliver `energyKwh` in the window. */
   requiredKwh(energyKwh: number, startPct: number, endPct: number, meanPowerKw: number, rmsFactor: number): number;
   /** Losses for drawing `energyKwh` at the terminals (kWh). */
   lossFor(energyKwh: number, meanPowerKw: number, rmsFactor: number): number;
@@ -90,6 +93,21 @@ export interface ModelContext {
   a: Assumptions;
   conditions: Conditions;
   settings: ModelSettings;
+  /** Battery-life inputs: years, km per year and the daily drive that set the battery ageing (default: spreadsheet). */
+  life?: BatteryLifeInputs;
+}
+
+/** Energy taken from the battery over the battery-life test's distance (new battery). */
+export interface LifeEnergy {
+  totalKm: number;
+  seg: SegmentEnergy;
+  bat: BatteryView;
+  losses: number;
+  days: number;
+  dayH: number;
+  startKwh: number;
+  thermalKwh: number;
+  energy: number;
 }
 
 export class CarModel {
@@ -98,7 +116,11 @@ export class CarModel {
   private calibrationCache: Calibration | null = null;
   private simCache = new Map<string, SimResult>();
   private onboardCache = new Map<string, OnboardPower>();
+  /** The pack when new (state of health 100 %). */
   private pack: Pack | null = null;
+  private agedPack: Pack | null = null;
+  private ageingCache: AgeingResult | null | undefined = undefined;
+  private lifePerKmCache = new Map<string, number>();
   /** Heat capacity of the battery pack (J/K). */
   readonly packHeatCapacityJPerK: number = 0;
 
@@ -111,7 +133,7 @@ export class CarModel {
         chemistry: chem,
         capacityTemps: ctx.ds.capacityTemps,
         nominalKwh: d.batteryKwh,
-        sohFrac: d.longTermPct.value / 100,
+        sohFrac: 1,
         packVoltageV: ctx.a.batteryPackVoltageV,
       });
       this.packHeatCapacityJPerK = packHeatCapacity(d.batteryKwh, chem);
@@ -291,14 +313,81 @@ export class CarModel {
     };
   }
 
+  // ------------------------------------------------------------------------------------------ battery ageing
+  /** Battery-life inputs that set the ageing (the scenario's, or the spreadsheet defaults). */
+  get life(): BatteryLifeInputs {
+    return this.ctx.life ?? spreadsheetDefaults(this.ctx.a).batteryLife;
+  }
+
+  /**
+   * Energy taken from the battery over `i.years × i.kmPerYear` with a new battery (incl. losses). The daily drive
+   * (km per year ÷ 365 at the average speed) is one trip: it starts with a parked cabin and battery each day.
+   */
+  lifeEnergy(i: BatteryLifeInputs): LifeEnergy {
+    const totalKm = i.years * i.kmPerYear;
+    const seg = this.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC });
+    const days = Math.max(0, i.years * 365);
+    const dayH = days > 0 ? seg.timeH / days : 0;
+    const bat = this.battery(seg.meanPowerKw, seg.rmsFactor, dayH, true);
+    const losses = bat.lossFor(seg.totalKwh, seg.meanPowerKw, seg.rmsFactor);
+    const startKwh = seg.onboard.startKwh * days;
+    const thermalKwh = bat.thermalKwh * days;
+    return { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy: seg.totalKwh + losses + startKwh + thermalKwh };
+  }
+
+  /**
+   * Battery ageing after `km` (default: the Conditions' km driven) with the battery-life driving: equivalent full
+   * cycles, cycle and calendar fade, capacity left. Null for petrol cars and cars without battery data.
+   */
+  ageing(km?: number, lifeInputs?: BatteryLifeInputs): AgeingResult | null {
+    const own = km === undefined && lifeInputs === undefined;
+    if (own && this.ageingCache !== undefined) return this.ageingCache;
+    const life = lifeInputs ?? this.life;
+    const d = this.d;
+    const chem = d.chemistry ? this.ctx.ds.chemistries[d.chemistry] : undefined;
+    let r: AgeingResult | null = null;
+    if (!d.isIce && chem && d.batteryKwh) {
+      // Energy per km of the battery-life driving (the same for any number of years).
+      const key = JSON.stringify({ ...life, years: 1 });
+      let perKm = this.lifePerKmCache.get(key);
+      if (perKm === undefined) {
+        const perYear = this.lifeEnergy({ ...life, years: 1 });
+        perKm = perYear.totalKm > 0 ? perYear.energy / perYear.totalKm : 0;
+        this.lifePerKmCache.set(key, perKm);
+      }
+      r = ageBattery({
+        chem,
+        nominalKwh: d.batteryKwh,
+        ratedCycles: d.car.batteryCycles,
+        eolPct: d.eolPct.value,
+        kwhPerKm: perKm,
+        km: km ?? this.ctx.conditions.batteryKm ?? 0,
+        kmPerYear: life.kmPerYear,
+        temperatureC: this.ctx.conditions.airTemperatureC,
+      });
+    }
+    if (own) this.ageingCache = r;
+    return r;
+  }
+
+  /** Battery capacity after the km driven (kWh); nominal for petrol cars (tank) and cars without ageing data. */
+  capacityKwh(): number {
+    return this.ageing()?.capacityKwh ?? this.d.batteryKwh ?? 0;
+  }
+
+  private agedPackOf(pack: Pack): Pack {
+    if (!this.agedPack) this.agedPack = pack.withSoh((this.ageing()?.sohPct ?? 100) / 100);
+    return this.agedPack;
+  }
+
   // ------------------------------------------------------------------------------------------ battery
   /**
    * Battery view for a trip with the given mean power and duration. The pack temperature follows from its heat
    * capacity, its own losses, the air temperature and the thermal management (onboard/thermal.ts).
    */
-  battery(meanPowerKw: number, rmsFactor = 1, durationH = 1): BatteryView {
+  battery(meanPowerKw: number, rmsFactor = 1, durationH = 1, fresh = false): BatteryView {
     const d = this.d;
-    const available = d.longTermKwh ?? 0;
+    const available = fresh ? (d.batteryKwh ?? 0) : this.capacityKwh();
     const c = this.ctx.conditions;
     if (!this.usesChemistry || !this.pack) {
       return {
@@ -313,7 +402,7 @@ export class CarModel {
         lossFor: () => 0,
       };
     }
-    const pack = this.pack;
+    const pack = fresh ? this.pack : this.agedPackOf(this.pack);
     const a = this.ctx.a;
     const cop = coolingCop(c.airTemperatureC, a);
     const thermalWith = (lossKw: number) =>

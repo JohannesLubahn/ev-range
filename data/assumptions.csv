@@ -1,5 +1,5 @@
 key,value,unit,label,group,description,source
-long_term_capacity_pct,80,%,Battery capacity left after long-term use,Battery,Used as available capacity in every stress test,Car Details row 7 (nominal × 80 %)
+rated_cycles_end_capacity_pct,80,%,Capacity at the end of the rated cycles,Battery,"A car's rated cycles count full cycles until the battery has this much capacity left (% of nominal), unless the car states its own value. Sets the size of the cycle fade in the battery ageing","Usual end-of-life definition of cycle ratings and battery warranties (70–80 %); the spreadsheet used 80 % as long-term capacity (Car Details row 7)"
 battery_managed_min_c,10,°C,Battery heated below,Battery,"While driving, thermal management heats the pack when it is colder than this","Facts tab (battery heating 0 kW from 10 °C); below that the cells' resistance rises steeply (see the battery tables)"
 battery_managed_max_c,35,°C,Battery cooled above,Battery,Thermal management cools the pack when it gets warmer than this,"Reviews quote an optimum of about 15–35 °C to 20–40 °C for Li-ion cells (e.g. Batteries 2024, 10(12):421). The Facts tab's 21 °C would mean cooling almost all year in Thailand"
 battery_hvac_max_kw,2,kW,Max. battery heating/cooling power,Battery,Most heat put into or taken out of the pack,Facts tab: 2 kW

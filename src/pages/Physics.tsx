@@ -3,6 +3,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { StackedRows, TipLines, type StackedRow } from '../components/Bars';
 import { niceTicks } from '../components/ticks';
 import { useThemeColors, type ThemeColors } from '../components/useThemeColors';
+import { checkDegradation } from '../engine/battery/ageing';
 import { Pack } from '../engine/battery/pack';
 import { coolingCop } from '../engine/onboard/climate';
 import { factsTabPower, onboardPower } from '../engine/onboard/loads';
@@ -53,6 +54,7 @@ function seriesOrder(keys: string[]) {
 
 const SPEEDS = Array.from({ length: 15 }, (_, i) => 20 + i * 10);
 const TEMPS = Array.from({ length: 13 }, (_, i) => -20 + i * 5);
+const KMS = Array.from({ length: 31 }, (_, i) => i * 10000);
 
 export function PhysicsPage() {
   const { out, selectedIds, derivedById, ds, a, scenario } = useEngine();
@@ -78,6 +80,23 @@ export function PhysicsPage() {
       }),
     [chosen, out],
   );
+
+  const chosenKey = chosen.join(',');
+  const wearData = useMemo(
+    () =>
+      KMS.map((k) => {
+        const row: Record<string, number> = { km: k };
+        for (const id of chosenKey.split(',').filter(Boolean)) {
+          const g = out.models[id]?.ageing(k);
+          if (g) row[id] = g.sohPct;
+        }
+        return row;
+      }),
+    [chosenKey, out],
+  );
+  const wearNow = chosen.map((id) => ({ id, g: out.models[id]?.ageing() ?? null }));
+  const fleetChecks = useMemo(() => ds.degradationMeasurements.map((m) => checkDegradation(ds, a.ratedCyclesEndCapacityPct, m)), [ds, a]);
+  const sourceById = Object.fromEntries(ds.sources.map((s) => [s.id, s]));
 
   const first = chosen[0];
   const breakdown: StackedRow[] = useMemo(() => {
@@ -184,6 +203,8 @@ export function PhysicsPage() {
   const SpeedTip = useMemo(() => makeTooltip((l) => `${l} km/h, steady`, 'kWh/100 km'), []);
   const TempTip = useMemo(() => makeTooltip((l) => `Air ${l} °C`, '%', 0), []);
   const PowerTip = useMemo(() => makeTooltip((l) => `Air ${l} °C`, 'kW', 2), []);
+  const wearTicks = niceTicks(Math.min(100, ...wearData.flatMap((r) => chosen.map((id) => r[id] ?? 100))), 100, 4);
+  const WearTip = useMemo(() => makeTooltip((l) => `${num(Number(l), 0)} km driven`, '% capacity left'), []);
   const CurveTip = useMemo(() => makeTooltip((l) => `${l} % of rated capacity delivered`, 'V', 3), []);
 
   return (
@@ -379,6 +400,117 @@ export function PhysicsPage() {
           </div>
           <p className="faint" style={{ fontSize: 12.5 }}>
             {ds.chemistries[chem]?.ocvSource} Resistance: {ds.chemistries[chem]?.resistanceSource}
+          </p>
+        </section>
+
+        <section className="panel stack">
+          <div>
+            <h2>Battery wear vs. km driven</h2>
+            <p className="muted">
+              Capacity left from charge cycles and age, at {num(cond.airTemperatureC, 0)} °C and the battery-life driving ({num(scenario.batteryLife.kmPerYear, 0)}{' '}
+              km a year, {num(scenario.batteryLife.speedKmh, 0)} km/h). The stress tests use the value at {num(cond.batteryKm, 0)} km (Conditions).
+            </p>
+          </div>
+          <div className="chart-box">
+            <ResponsiveContainer>
+              <LineChart data={wearData} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+                <CartesianGrid stroke={c['--line']} vertical={false} />
+                <XAxis
+                  dataKey="km"
+                  {...axisProps(c)}
+                  type="number"
+                  domain={[0, KMS[KMS.length - 1]]}
+                  ticks={[0, 50000, 100000, 150000, 200000, 250000, 300000]}
+                  tickFormatter={(v: number) => `${v / 1000}k`}
+                  unit=" km"
+                />
+                <YAxis {...axisProps(c)} width={48} ticks={wearTicks} domain={[wearTicks[0], 100]} unit=" %" />
+                <Tooltip content={WearTip} cursor={{ stroke: c['--line-strong'] }} />
+                <Legend formatter={(v) => <LegendText value={String(v)} />} iconType="plainline" itemSorter={seriesOrder(chosen)} />
+                {chosen.map((id, k) => (
+                  <Line key={id} dataKey={id} name={derivedById[id].car.name} stroke={series[k]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Car</th>
+                  <th className="r">Age</th>
+                  <th className="r">Full cycles</th>
+                  <th className="r">Cycle wear</th>
+                  <th className="r">Calendar</th>
+                  <th className="r">Left</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wearNow.map(({ id, g }) => (
+                  <tr key={id}>
+                    <td>
+                      {derivedById[id].car.name} <span className="faint">{derivedById[id].chemistry}</span>
+                    </td>
+                    <td className="r">{g ? `${fixed(g.years, 1)} y` : ''}</td>
+                    <td className="r">{g ? `${num(g.efc, 0)} of ${num(derivedById[id].car.batteryCycles, 0)}` : ''}</td>
+                    <td className="r">{g ? `${fixed(g.cycleFadePct, 1)} %` : ''}</td>
+                    <td className="r">{g ? `${fixed(g.calendarFadePct, 1)} %` : ''}</td>
+                    <td className="r">
+                      <b>{g ? `${fixed(g.sohPct, 1)} %` : ''}</b>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 12.5 }}>
+            At {num(cond.batteryKm, 0)} km. Cycle wear reaches {num(a.ratedCyclesEndCapacityPct, 0)} % capacity at the car's rated cycles, shaped
+            per chemistry; calendar ageing grows with the square root of time (roughly) and doubles about every 17 °C warmer. Shapes from NREL's
+            BLAST-Lite models of automotive cells, size fitted to fleet data (below). Cold-weather lithium plating and fast-charging wear are not
+            modelled.
+          </p>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Fleet data</th>
+                  <th>Cars</th>
+                  <th className="r">Km</th>
+                  <th className="r">Measured</th>
+                  <th className="r">Model</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fleetChecks.map((k) => {
+                  const s = sourceById[k.m.sourceId];
+                  return (
+                    <tr key={k.m.id} title={k.m.notes}>
+                      <td>
+                        {s?.url ? (
+                          <a href={s.url} target="_blank" rel="noreferrer">
+                            {s.publisher || s.title}
+                          </a>
+                        ) : (
+                          k.m.sourceId
+                        )}
+                      </td>
+                      <td>
+                        {k.m.vehicle} <span className="faint">{k.m.chemistry}</span>
+                      </td>
+                      <td className="r">{num(k.m.km, 0)}</td>
+                      <td className="r">{fixed(k.m.measuredSohPct, 1)} %</td>
+                      <td className="r">
+                        {k.model ? `${fixed(k.model.sohPct, 1)} %` : ''}{' '}
+                        <span className="faint">({k.deviationPct >= 0 ? '+' : '−'}{fixed(Math.abs(k.deviationPct), 1)})</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="faint" style={{ fontSize: 12.5 }}>
+            Hover a row for the assumed age, km and temperature. Sources and values: data/battery/degradation_measurements.csv.
           </p>
         </section>
 

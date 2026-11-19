@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { loadBundledDataset } from '../src/data/bundled';
 import { assumptionsFromDataset } from '../src/engine/assumptions';
+import { ageBattery, checkDegradation, cycleFadePct } from '../src/engine/battery/ageing';
 import { Pack } from '../src/engine/battery/pack';
+import { batteryLife, cost, noCharger } from '../src/engine/cases';
 import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
 import { cabinClimate, coolingCop, heatPumpCop } from '../src/engine/onboard/climate';
@@ -269,4 +271,85 @@ describe('calibration reproduces each car’s rated consumption on its own test 
       expect(perKm / chargeEff / lab).toBeCloseTo(d.consumption.value as number, 6);
     });
   }
+});
+
+describe('battery ageing (capacity after the km driven)', () => {
+  const lfp = ds.chemistries.LFP;
+  const nmc = ds.chemistries.NMC;
+  const base = { nominalKwh: 60, ratedCycles: 2000, eolPct: 80, kwhPerKm: 0.15, km: 100000, kmPerYear: 15000, temperatureC: 25 };
+  it('a new battery has its full capacity; capacity falls with every km', () => {
+    expect(ageBattery({ ...base, chem: lfp, km: 0 }).sohPct).toBe(100);
+    let last = 100;
+    for (const km of [20000, 50000, 100000, 200000, 300000]) {
+      const s = ageBattery({ ...base, chem: lfp, km }).sohPct;
+      expect(s).toBeLessThan(last);
+      last = s;
+    }
+  });
+  it('hotter air ages the battery faster (calendar ageing)', () => {
+    const at = (t: number) => ageBattery({ ...base, chem: lfp, temperatureC: t });
+    expect(at(35).calendarFadePct).toBeGreaterThan(at(25).calendarFadePct);
+    expect(at(25).calendarFadePct).toBeGreaterThan(at(10).calendarFadePct);
+  });
+  it('more km per year: the same km in fewer years, so less calendar ageing', () => {
+    const slow = ageBattery({ ...base, chem: nmc, kmPerYear: 10000 });
+    const fast = ageBattery({ ...base, chem: nmc, kmPerYear: 30000 });
+    expect(fast.years).toBeCloseTo(slow.years / 3, 9);
+    expect(fast.sohPct).toBeGreaterThan(slow.sohPct);
+  });
+  it('more rated cycles: less cycle wear; at the rated cycles the wear is 100 % − end-of-life capacity', () => {
+    expect(ageBattery({ ...base, chem: lfp, ratedCycles: 3000 }).cycleFadePct).toBeLessThan(ageBattery({ ...base, chem: lfp }).cycleFadePct);
+    expect(cycleFadePct(lfp, 2000, 2000, 80)).toBeCloseTo(20, 9);
+    expect(cycleFadePct(nmc, 1100, 1100, 70)).toBeCloseTo(30, 9);
+  });
+  it('full cycles count discharges of the ageing battery (more than energy ÷ nominal)', () => {
+    const g = ageBattery({ ...base, chem: lfp });
+    const nominalCycles = (base.kwhPerKm * base.km) / base.nominalKwh;
+    expect(g.efc).toBeGreaterThan(nominalCycles);
+    expect(g.efc).toBeLessThan(nominalCycles / (g.sohPct / 100));
+  });
+  it('LFP and NMC age differently', () => {
+    const l = ageBattery({ ...base, chem: lfp, ratedCycles: 1500 });
+    const n = ageBattery({ ...base, chem: nmc, ratedCycles: 1500 });
+    expect(Math.abs(l.sohPct - n.sohPct)).toBeGreaterThan(0.5);
+  });
+  it('matches every published fleet measurement within ±4 percentage points', () => {
+    expect(ds.degradationMeasurements.length).toBeGreaterThanOrEqual(4);
+    expect(ds.loadWarnings.filter((w) => w.includes('degradation_measurements'))).toEqual([]);
+    const ids = new Set(ds.sources.map((s) => s.id));
+    for (const m of ds.degradationMeasurements) {
+      const k = checkDegradation(ds, a.ratedCyclesEndCapacityPct, m);
+      expect(Math.abs(k.deviationPct), `${m.id}: model ${k.model?.sohPct.toFixed(1)} vs ${m.measuredSohPct}`).toBeLessThan(4);
+      expect(ids.has(m.sourceId), m.id).toBe(true);
+    }
+  });
+  it('the stress tests use nominal × capacity left; battery life and cost ignore the km driven', () => {
+    const d = derived.find((x) => x.car.id === 'byd-atto-3')!;
+    const sc = spreadsheetDefaults(a);
+    const at = (km: number) => new CarModel(d, { ds, a, conditions: { ...sc.conditions, batteryKm: km }, settings: { battery: 'chemistry' }, life: sc.batteryLife });
+    const m0 = at(0);
+    const m1 = at(100000);
+    const g = m1.ageing()!;
+    expect(m0.capacityKwh()).toBeCloseTo(60.5, 9);
+    expect(m1.battery(10, 1, 1).availableKwh).toBeCloseTo((60.5 * g.sohPct) / 100, 9);
+    expect(g.sohPct).toBeGreaterThan(85);
+    expect(g.sohPct).toBeLessThan(95);
+    const nc0 = noCharger(m0, sc.noCharger);
+    const nc1 = noCharger(m1, sc.noCharger);
+    expect(nc1.margin).toBeLessThan(nc0.margin);
+    expect(nc1.energyKwh).toBeCloseTo(nc0.energyKwh, 6);
+    expect(batteryLife(m1, sc.batteryLife).cyclesRequired).toBeCloseTo(batteryLife(m0, sc.batteryLife).cyclesRequired, 9);
+    expect(cost(m1, sc.batteryLife, sc.cost).costPerKm).toBeCloseTo(cost(m0, sc.batteryLife, sc.cost).costPerKm as number, 9);
+    expect(batteryLife(m1, sc.batteryLife).capacityEndPct).toBeLessThan(g.sohPct);
+  });
+  it('petrol cars do not age; old saved scenarios get the default km', () => {
+    const honda = derived.find((x) => x.car.id === 'honda-city')!;
+    const m = new CarModel(honda, { ds, a, conditions: DEFAULT_CONDITIONS, settings: { battery: 'chemistry' } });
+    expect(m.ageing()).toBeNull();
+    expect(m.capacityKwh()).toBe(honda.batteryKwh);
+    const base0 = spreadsheetDefaults(a);
+    const { batteryKm, ...old } = base0.conditions;
+    expect(batteryKm).toBe(100000);
+    expect(withDefaults({ ...base0, conditions: old as never }, a).conditions.batteryKm).toBe(100000);
+  });
 });

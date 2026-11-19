@@ -15,7 +15,8 @@ export const PROFILES: { id: Profile; label: string; description: string }[] = [
 
 /** Global assumptions (data/assumptions.csv), possibly changed by the user. */
 export interface Assumptions {
-  longTermCapacityPct: number;
+  /** Capacity at the end of the rated cycles (% of nominal), unless the car says otherwise. */
+  ratedCyclesEndCapacityPct: number;
   batteryManagedMinC: number;
   batteryManagedMaxC: number;
   batteryHvacMaxKw: number;
@@ -64,6 +65,11 @@ export interface Conditions {
   tyrePressurePct: number;
   thermalMode: ThermalMode;
   preconditionedC: number;
+  /**
+   * Distance the car has driven (km): sets the battery's wear (capacity lost to charge cycles and age) in the stress
+   * tests. The years and the energy per km come from the battery-life inputs. Battery life and cost start from new.
+   */
+  batteryKm: number;
 }
 
 export interface ModelSettings {
@@ -172,9 +178,9 @@ export interface AverageConsumption {
 }
 
 export interface CapacityCheck {
-  /** Long-term battery capacity the trip would need (kWh), comparable with availableKwh. */
+  /** Battery capacity (same kind and age) the trip would need (kWh), comparable with availableKwh. */
   requiredKwh: number;
-  /** Long-term capacity of the car (nominal × long-term %). */
+  /** Capacity of the car after the km driven (nominal × capacity left). */
   availableKwh: number;
   /** (available − required) / available. Positive = spare capacity. */
   margin: number;
@@ -222,6 +228,8 @@ export interface BatteryLifeResult {
   pass: boolean | null;
   /** Years until the rated cycles are used up at this yearly distance. */
   yearsUntilRated: number | null;
+  /** Capacity left at the end of the life (% of nominal: cycle wear + calendar ageing); null without ageing data. */
+  capacityEndPct: number | null;
   average: AverageConsumption;
   steps: Step[];
   warnings: string[];

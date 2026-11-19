@@ -78,6 +78,7 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
           <PassFail pass={b.pass} margin={b.margin} />
           <span className="muted">
             {num(b.cyclesRequired, 0)} of {num(b.cyclesAvailable, 0)} rated cycles · rated cycles last {fixed(b.yearsUntilRated, 1)} years
+            {b.capacityEndPct !== null && ` · ${fixed(b.capacityEndPct, 0)} % capacity left at the end`}
             {averageText(b.average, unit)}
           </span>
         </div>

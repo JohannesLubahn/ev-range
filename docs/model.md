@@ -2,7 +2,8 @@
 
 Consumption comes from the forces on the car, calibrated per car (sections 1–2); heating and AC from a heat
 balance of the cabin (air temperature, sun, humidity, section 3); the battery is simulated per chemistry, with its
-temperature over the trip from its heat capacity, losses and thermal management (section 4). On the Assumptions page
+temperature over the trip from its heat capacity, losses and thermal management, and its capacity after the km
+driven from charge cycles and age (section 4). On the Assumptions page
 the battery can be switched to *ideal* (every kWh of the charge window is delivered, at any temperature and load).
 
 The stress tests are traffic jam, no charger, sprint, long trip and battery life; the cost of ownership has its own
@@ -146,9 +147,45 @@ draws while holding a temperature.
 - **Discharge:** equivalent circuit per chemistry: open-circuit voltage vs. state of charge, internal resistance
   vs. temperature (Arrhenius), deliverable capacity vs. temperature. Power → current
   (`P = (V_oc − R·I)·I`) → state of charge; losses `R·I²`; voltage cut-off and power limit.
-- **"Battery needed"** is the long-term capacity a battery of the same kind would need to deliver the trip's
-  energy in the given charge window, at the conditions; it is compared with the car's long-term capacity
-  (80 % of nominal unless `long_term_capacity_pct` says otherwise).
+- **"Battery needed"** is the capacity a battery of the same kind and age would need to deliver the trip's energy
+  in the given charge window, at the conditions; it is compared with the car's capacity after the km driven (below).
+
+### Battery ageing (Conditions: km driven)
+
+The stress tests use the capacity left after the **km driven** (Conditions, default 100,000 km) instead of the
+spreadsheet's fixed 80 % "long-term capacity". The battery-life test and the cost of ownership start from a new
+battery. Code: `src/engine/battery/ageing.ts`.
+
+    capacity left = 100 % − cycle wear − calendar ageing
+    cycle wear       = (100 % − EoL) × (full cycles ÷ rated cycles)^z
+    calendar ageing  = k₂₅ × exp(−Ea/R × (1/T − 1/298 K)) × years^n
+
+- **Driving and age** come from the battery-life inputs: the energy per km is the battery-life test's (its speed,
+  profile and cabin temperature, with onboard systems, cabin start, battery heating/cooling and losses), and the
+  age is km ÷ km per year (100,000 km at 15,000 km/year = 6.7 years). T is the Conditions' air temperature: a
+  parked car spends most of its life at the air temperature.
+- **Full cycles** count full discharges of the ageing battery (dE ÷ capacity at that point, integrated over the
+  km), the way rated cycles are measured. The battery-life test counts its cycles the same way, so it needs fewer
+  cycles than with the old division by 80 % of nominal (BYD Atto 3: 872 → 798; the Hyundai Inster, which was at
+  100 %, now needs more), and it also shows the capacity left at the end.
+- **Cycle wear** reaches the end-of-life capacity EoL (assumption `rated_cycles_end_capacity_pct`, 80 %, or the
+  car's `end_of_life_capacity_pct`) at the car's **rated cycles** (`battery_cycles`), so the car data sets its size.
+  The chemistry sets its shape: z = 0.83 (LFP) and 1.11 (NMC), from NREL's BLAST-Lite models of a 250 Ah prismatic
+  LFP cell and a 75 Ah automotive NMC pouch cell (NREL 2023, J. Energy Storage 73, 109042).
+- **Calendar ageing** per chemistry (`data/battery/chemistries.csv`): time exponents n = 0.53 (LFP) and 0.58 (NMC)
+  from the same models; Ea = 30 kJ/mol (the NREL cell models span 16–67 kJ/mol; Geotab 2026 reports about
+  0.4 %/year faster ageing in hot climates, which fits 20–30 kJ/mol), so it doubles about every 17 °C. The size
+  k₂₅ (LFP 2.3 %, NMC 2.45 % after one year at 25 °C) is fitted to real-world fleet data, because lab cells
+  disagree by up to 10× (NMC: 1.8–21 % after 10 years at 25 °C).
+- **Fleet check** (`data/battery/degradation_measurements.csv`, test ±4 points): Tesla Model 3 in Sweden past
+  100,000 km (Carla / AVILOO 2022–2026: LFP 93.3 %, NMC 91.5 %; model 93.3 / 93.1 %), Tesla Model 3/Y after 200,000
+  miles (≈ 85 %; model 81.8 % with the placeholder 1,100 NMC cycles), Geotab 2026 (2.3 %/year over 22,700 EVs; model
+  91.9 % vs. 88.5 % after 5 years). Ages, km and temperatures of these rows are assumptions (see the file).
+- **Results at the defaults** (100,000 km, 25 °C): 87–91 % left for most cars (BYD Atto 3 90.2 %, Zeekr X 87.4 %,
+  Hyundai Inster 85.5 %); at 35 °C 80–87 %. Not modelled: wear from fast charging (Geotab: up to 3 %/year), from
+  high or low states of charge, lithium plating in the cold, and resistance growth.
+- The spreadsheet's per-car "Long-term effective capacity" (Car Details row 7) is no longer imported; the
+  Hyundai Inster's 100 % was removed with it.
 
 ## 5. Sources
 
@@ -171,6 +208,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Pack heat capacity and heat loss | Cell specific heat: measured LFP 1.0–1.15, NMC 0.96–1.04 J/(g·K) (batterydesign.net); pack specific energy: vendor figures; heat loss: Nissan Leaf owner measurement (~9 h time constant) |
 | Your Facts-tab onboard curves | Kept in `data/onboard/facts_tab.csv` for comparison only |
 | Rolling resistance | EU tyre label (Regulation (EU) 2020/740), class C = 8 N/kN; speed/pressure shape: empirical car-tyre formula, checked against National Academies Special Report 286 (2006, ≈1.4 % per psi); under-inflated case: UN R141 TPMS warning at 20 % loss; real-world under-inflation: FuelEconomy.gov (US DOE), NHTSA DOT HS 811 681 (2012) |
+| Battery ageing | Shape: NREL BLAST-Lite models (250 Ah LFP, 75 Ah NMC automotive cells; NREL 2023, J. Energy Storage 73, 109042). Size and temperature: fleet data from Carla / AVILOO (Electrek, Jul 2026), Tesla (Impact Report 2023, as quoted there) and Geotab (Jan 2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 
 ## 6. Spreadsheet issues fixed
@@ -191,46 +229,46 @@ for all 21 cars before these fixes.
 ## 7. How the results moved (spreadsheet defaults, 25 °C)
 
 Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) or missing (−) battery capacity. The
-spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test.
+spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test. The
+spreadsheet used 80 % of nominal as the battery; the Physics model uses the capacity after 100,000 km (85–91 %).
 
 | Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|
-| Neta V | +26 % · **+65 %** | −29 % · **−39 %** | −41 % · **+10 %** | 16.8 · **16.0** | 1308 · **1291** | 3.21 · **3.53** |
-| Ora Good Cat | −25 % · **+64 %** | −87 % · **−58 %** | −100 % · **+3 %** | 18.4 · **16.2** | 1941 · **1452** | 4.51 · **4.66** |
-| BYD Atto 3 | +12 % · **+76 %** | −4 % · **+6 %** | −8 % · **+39 %** | 15.5 · **14.5** | 1134 · **872** | 4.32 · **4.57** |
-| Tesla Model 3 2021 | −34 % · **+68 %** | −34 % · **−2 %** | −35 % · **+41 %** | 15.4 · **14.2** | 1513 · **973** | 6.93 · **7.11** |
-| Nio ET7 75kW | −13 % · **+71 %** | −29 % · **−2 %** | −34 % · **+45 %** | 15.8 · **14.5** | 1415 · **957** | 7.75 · **7.93** |
-| Neta S | +42 % · **+82 %** | +25 % · **+27 %** | +21 % · **+59 %** | 15.5 · **14.5** | 801 · **666** | 7.61 · **7.94** |
-| Neta X | +13 % · **+75 %** | −6 % · **−4 %** | −11 % · **+34 %** | 16.3 · **15.1** | 1143 · **952** | 4.17 · **4.51** |
-| Aion Y Plus | +12 % · **+74 %** | −13 % · **−12 %** | −19 % · **+30 %** | 16.8 · **15.4** | 1209 · **1023** | 4.91 · **5.27** |
-| Aion Hyptec HT | +7 % · **+76 %** | +4 % · **+15 %** | +3 % · **+51 %** | 14.3 · **13.9** | 1074 · **795** | 6.49 · **6.85** |
-| Deepal L07 | +20 % · **+76 %** | +5 % · **+10 %** | +2 % · **+47 %** | 16.4 · **15.1** | 1027 · **832** | 5.89 · **6.20** |
-| BYD Seal low | +9 % · **+71 %** | −27 % · **−23 %** | −35 % · **+34 %** | 17.0 · **15.6** | 1337 · **1137** | 5.06 · **5.42** |
-| BYD Seal high | +30 % · **+75 %** | −9 % · **−7 %** | −17 % · **+45 %** | 16.3 · **15.2** | 1124 · **980** | 5.94 · **6.33** |
-| Zeekr X | +15 % · **+72 %** | −25 % · **−26 %** | −34 % · **+25 %** | 15.4 · **14.7** | 1304 · **1145** | 5.83 · **6.24** |
-| Xpeng G6 | −20 % · **+68 %** | −38 % · **−27 %** | −42 % · **+25 %** | 15.0 · **14.3** | 1506 · **1175** | 6.65 · **7.06** |
-| Avatar 11 | +31 % · **+80 %** | +17 % · **+22 %** | +13 % · **+56 %** | 15.2 · **14.3** | 900 · **711** | 8.96 · **9.38** |
-| Ora 07 | +31 % · **+76 %** | −6 % · **−5 %** | −14 % · **+43 %** | 16.7 · **15.5** | 1096 · **957** | 6.25 · **6.64** |
+| Neta V | +26 % · **+68 %** | −29 % · **−25 %** | −41 % · **+19 %** | 16.8 · **15.6** | 1308 · **1212** | 3.21 · **3.53** |
+| Ora Good Cat | −25 % · **+67 %** | −87 % · **−43 %** | −100 % · **+12 %** | 18.4 · **15.8** | 1941 · **1375** | 4.51 · **4.66** |
+| BYD Atto 3 | +12 % · **+79 %** | −4 % · **+16 %** | −8 % · **+46 %** | 15.5 · **14.3** | 1134 · **798** | 4.32 · **4.57** |
+| Tesla Model 3 2021 | −34 % · **+71 %** | −34 % · **+9 %** | −35 % · **+48 %** | 15.4 · **14.1** | 1513 · **896** | 6.93 · **7.11** |
+| Nio ET7 75kW | −13 % · **+74 %** | −29 % · **+9 %** | −34 % · **+51 %** | 15.8 · **14.3** | 1415 · **881** | 7.75 · **7.93** |
+| Neta S | +42 % · **+84 %** | +25 % · **+36 %** | +21 % · **+64 %** | 15.5 · **14.3** | 801 · **602** | 7.61 · **7.94** |
+| Neta X | +13 % · **+78 %** | −6 % · **+7 %** | −11 % · **+41 %** | 16.3 · **14.8** | 1143 · **875** | 4.17 · **4.51** |
+| Aion Y Plus | +12 % · **+77 %** | −13 % · **−0 %** | −19 % · **+37 %** | 16.8 · **15.1** | 1209 · **945** | 4.91 · **5.27** |
+| Aion Hyptec HT | +7 % · **+79 %** | +4 % · **+25 %** | +3 % · **+57 %** | 14.3 · **13.8** | 1074 · **724** | 6.49 · **6.85** |
+| Deepal L07 | +20 % · **+78 %** | +5 % · **+19 %** | +2 % · **+53 %** | 16.4 · **14.8** | 1027 · **789** | 5.89 · **6.20** |
+| BYD Seal low | +9 % · **+73 %** | −27 % · **−11 %** | −35 % · **+40 %** | 17.0 · **15.3** | 1337 · **1057** | 5.06 · **5.42** |
+| BYD Seal high | +30 % · **+78 %** | −9 % · **+4 %** | −17 % · **+51 %** | 16.3 · **14.9** | 1124 · **903** | 5.94 · **6.33** |
+| Zeekr X | +15 % · **+74 %** | −25 % · **−16 %** | −34 % · **+31 %** | 15.4 · **14.5** | 1304 · **1130** | 5.83 · **6.24** |
+| Xpeng G6 | −20 % · **+71 %** | −38 % · **−14 %** | −42 % · **+33 %** | 15.0 · **14.2** | 1506 · **1095** | 6.65 · **7.06** |
+| Avatar 11 | +31 % · **+82 %** | +17 % · **+30 %** | +13 % · **+60 %** | 15.2 · **14.1** | 900 · **665** | 8.96 · **9.38** |
+| Ora 07 | +31 % · **+78 %** | −6 % · **+4 %** | −14 % · **+48 %** | 16.7 · **15.2** | 1096 · **922** | 6.25 · **6.64** |
 | Honda City | +35 % · **+91 %** | +56 % · **+63 %** | +60 % · **+84 %** | 13.3 · **13.3** | 550 · **337** | 4.28 · **4.90** |
-| Deepal S05 | +1 % · **+69 %** | −39 % · **−37 %** | −47 % · **+19 %** | 15.3 · **14.6** | 1457 · **1254** | 4.38 · **4.76** |
-| BYD Dolphin | +35 % · **+66 %** | −38 % · **−48 %** | −53 % · **+11 %** | 16.0 · **15.4** | 1358 · **1358** | 3.34 · **3.72** |
-| Dolphin ER | +45 % · **+71 %** | −19 % · **−28 %** | −33 % · **+24 %** | 15.3 · **14.9** | 1172 · **1171** | 3.73 · **4.11** |
-| Hyundai Inster | +32 % · **+67 %** | −43 % · **−30 %** | −59 % · **+19 %** | 15.6 · **14.8** | 1408 · **1200** | 1.76 · **4.94** |
-| MG Windsor LG | +42 % · **+72 %** | −4 % · **−10 %** | −14 % · **+29 %** | 15.7 · **15.0** | 1048 · **1017** | – · **–** |
-| MG Windsor | +22 % · **+63 %** | −40 % · **−45 %** | −53 % · **+6 %** | 16.7 · **15.8** | 1415 · **1347** | – · **–** |
+| Deepal S05 | +1 % · **+72 %** | −39 % · **−23 %** | −47 % · **+27 %** | 15.3 · **14.5** | 1457 · **1175** | 4.38 · **4.76** |
+| BYD Dolphin | +35 % · **+69 %** | −38 % · **−34 %** | −53 % · **+20 %** | 16.0 · **15.2** | 1358 · **1279** | 3.34 · **3.72** |
+| Dolphin ER | +45 % · **+74 %** | −19 % · **−15 %** | −33 % · **+32 %** | 15.3 · **14.7** | 1172 · **1091** | 3.73 · **4.11** |
+| Hyundai Inster | +32 % · **+62 %** | −43 % · **−52 %** | −59 % · **+5 %** | 15.6 · **15.1** | 1408 · **1565** | 1.76 · **4.94** |
+| MG Windsor LG | +42 % · **+75 %** | −4 % · **+2 %** | −14 % · **+37 %** | 15.7 · **14.8** | 1048 · **939** | – · **–** |
+| MG Windsor | +22 % · **+67 %** | −40 % · **−31 %** | −53 % · **+15 %** | 16.7 · **15.5** | 1415 · **1268** | – · **–** |
 
 What drives the differences:
 
 - **Onboard systems** are now about 0.6–1.0 kW at the default 25 °C (electronics + AC holding 22 °C with some sun)
   instead of 3.8–5.8 kW from the Facts-tab curves, in line with the measurements in section 3. That is why the
-  **traffic jam** now passes for every car (+63 to +91 %; with the Facts-tab loads the physics model gave −38 to
+  **traffic jam** now passes for every car (+62 to +91 %; with the Facts-tab loads the physics model gave −38 to
   +71 %), and why **no charger**, **battery life** and **long trip** improved. In the 5-hour jam the onboard systems now
   use about 3.5–5 kWh instead of 19–29 kWh.
 - **Sprint** improves for almost every car: the spreadsheet's 2.5× high-speed factor is much more pessimistic than
   air drag and rolling resistance at 120 km/h.
 - **No charger** still fails for small batteries and cars whose rated consumption is high for their size (e.g.
-  Neta V, Ora Good Cat, BYD Dolphin): 300 km at 70 km/h need more than 90 % of their long-term capacity even
-  without AC.
+  Neta V, Ora Good Cat, BYD Dolphin): 300 km at 70 km/h need more than their capacity after 100,000 km.
 - **Hot or cold days** (presets): at 35 °C with strong sun the AC needs about 1.1 kW (premium 1.3 kW) plus 0.6 kWh
   to cool the parked cabin; at −10 °C a resistive heater needs about 2.4 kW plus up to 4 kWh to warm the battery
   in a long jam, so the traffic jam fails for the smallest batteries.

@@ -192,7 +192,7 @@ export function StressTestsPage() {
   let howFar: ReactNode = null;
   if (tab === 'trafficJam' || tab === 'noCharger' || tab === 'sprint') {
     chart = (
-      <BulletRows rows={capacityRows(tab, ids, out.results, derivedById, open)} valueName="Battery needed (kWh, long-term)" targetName="Battery available" side={side} />
+      <BulletRows rows={capacityRows(tab, ids, out.results, derivedById, open)} valueName="Battery needed (kWh)" targetName="Battery available" side={side} />
     );
     const sorted = [...ids].sort((x, y) =>
       tab === 'trafficJam'
@@ -230,6 +230,7 @@ export function StressTestsPage() {
                 { color: 'var(--series-1)', value: num(b.cyclesRequired, 0), label: 'full cycles needed' },
                 { color: 'var(--ink)', value: num(b.cyclesAvailable, 0), label: 'rated cycles' },
                 { value: `${fixed(b.yearsUntilRated, 1)} years`, label: 'until the rated cycles are used' },
+                ...(b.capacityEndPct !== null ? [{ value: `${fixed(b.capacityEndPct, 1)} %`, label: 'capacity left at the end' }] : []),
               ]}
             />
           ),
@@ -250,6 +251,13 @@ export function StressTestsPage() {
           items={[...ids]
             .sort((x, y) => (out.results[y].batteryLife.yearsUntilRated ?? 0) - (out.results[x].batteryLife.yearsUntilRated ?? 0))
             .map((id) => ({ id, name: names[id], value: `${fixed(out.results[id].batteryLife.yearsUntilRated, 1)} years` }))}
+        />
+        <h3>Capacity left after {num(scenario.batteryLife.years, 0)} years (charge cycles and age)</h3>
+        <HowFar
+          items={ids
+            .filter((id) => out.results[id].batteryLife.capacityEndPct !== null)
+            .sort((x, y) => (out.results[y].batteryLife.capacityEndPct ?? 0) - (out.results[x].batteryLife.capacityEndPct ?? 0))
+            .map((id) => ({ id, name: names[id], value: `${fixed(out.results[id].batteryLife.capacityEndPct, 0)} %` }))}
         />
       </div>
     );

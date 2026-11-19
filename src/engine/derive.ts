@@ -33,8 +33,8 @@ export interface DerivedCar {
   impliedConsumption: number | null;
   ratedRangeKm: number | null;
   batteryKwh: number | null;
-  longTermPct: Val<number>;
-  longTermKwh: number | null;
+  /** Capacity at the end of the rated cycles (% of nominal): the car's value or the assumption. */
+  eolPct: Val<number>;
   fastWindow: { from: number; to: number } | null;
   /** Charging speeds in % of state of charge per hour (from the published charging test). */
   fastPctPerH: number | null;
@@ -127,11 +127,10 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
   }
 
   // --- battery and charging
-  const ltPct: Val<number> =
-    car.longTermCapacityPct !== null
-      ? { value: car.longTermCapacityPct, provenance: 'data' }
-      : { value: a.longTermCapacityPct, provenance: 'estimated', note: 'assumption' };
-  const longTermKwh = battery !== null ? (battery * ltPct.value) / 100 : null;
+  const eolPct: Val<number> =
+    car.endOfLifeCapacityPct !== null
+      ? { value: car.endOfLifeCapacityPct, provenance: 'data' }
+      : { value: a.ratedCyclesEndCapacityPct, provenance: 'estimated', note: 'assumption' };
   const from = car.fastWindowFromPct ?? car.chargeFromPct;
   const to = car.fastWindowToPct ?? car.chargeToPct;
   const fastWindow = from !== null && to !== null ? { from, to } : null;
@@ -220,8 +219,7 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     impliedConsumption: implied,
     ratedRangeKm: ratedRange,
     batteryKwh: battery,
-    longTermPct: ltPct,
-    longTermKwh,
+    eolPct,
     fastWindow,
     fastPctPerH,
     slowPctPerH: fastPctPerH !== null ? fastPctPerH * taper : null,

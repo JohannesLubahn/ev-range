@@ -15,7 +15,8 @@ export interface Car {
   bodyType: string;
   carClass: string;
   batteryKwh: number | null;
-  longTermCapacityPct: number | null;
+  /** Capacity at the end of the rated cycles (% of nominal); null = assumption. */
+  endOfLifeCapacityPct: number | null;
   batteryType: string | null;
   batteryCycles: number | null;
   consumptionKwhPerKm: number | null;
@@ -120,6 +121,22 @@ export interface FactsTabRow {
   note: string;
 }
 
+/** A published real-world battery state of health (data/battery/degradation_measurements.csv), used to check the ageing model. */
+export interface DegradationMeasurement {
+  id: string;
+  chemistry: string;
+  vehicle: string;
+  nominalKwh: number;
+  ratedCycles: number;
+  kwhPerKm: number;
+  km: number;
+  years: number;
+  temperatureC: number;
+  measuredSohPct: number;
+  sourceId: string;
+  notes: string;
+}
+
 /** A published measurement of onboard power (data/onboard/measurements.csv), used to check the model. */
 export interface OnboardMeasurement {
   id: string;
@@ -159,6 +176,12 @@ export interface Chemistry {
   resistanceSource: string;
   capacitySource: string;
   thermalSource: string;
+  /** Battery ageing (src/engine/battery/ageing.ts): calendar loss after 1 year at 25 °C (%). */
+  calendarLossPct1y25c: number;
+  calendarTimeExponent: number;
+  calendarEaKjPerMol: number;
+  cycleFadeExponent: number;
+  ageingSource: string;
   /** Open-circuit voltage per cell at 0..100 % SoC (index = SoC %). */
   ocv: number[];
   /** Deliverable capacity (% of rated) at the temperatures in Dataset.capacityTemps. */
@@ -184,6 +207,7 @@ export interface Dataset {
   onboardClasses: Record<string, OnboardClass>;
   factsTab: FactsTabRow[];
   onboardMeasurements: OnboardMeasurement[];
+  degradationMeasurements: DegradationMeasurement[];
   sources: Source[];
   chemistries: Record<string, Chemistry>;
   capacityTemps: number[];

@@ -36,7 +36,7 @@ export function runEngine(ds: Dataset, a: Assumptions, scenario: Scenario, setti
   const models: Record<string, CarModel> = {};
   const results: Record<string, CarResults> = {};
   for (const d of derived) {
-    const m = new CarModel(d, { ds, a, conditions: scenario.conditions, settings });
+    const m = new CarModel(d, { ds, a, conditions: scenario.conditions, settings, life: scenario.batteryLife });
     models[d.car.id] = m;
     if (wanted && !wanted.has(d.car.id)) continue;
     if (d.consumption.value === null || d.batteryKwh === null) continue;

@@ -7,6 +7,7 @@ import type {
   Chemistry,
   Cycle,
   Dataset,
+  DegradationMeasurement,
   FactsTabRow,
   FieldDef,
   OnboardClass,
@@ -24,6 +25,7 @@ export interface RawFiles {
   onboardClasses: string;
   factsTab: string;
   onboardMeasurements: string;
+  degradationMeasurements: string;
   sources: string;
   chemistries: string;
   ocv: string;
@@ -115,7 +117,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       bodyType: row.body_type ?? '',
       carClass: (row.car_class || 'regular').toLowerCase(),
       batteryKwh: num(row, 'battery_kwh', warnings, where),
-      longTermCapacityPct: num(row, 'long_term_capacity_pct', warnings, where),
+      endOfLifeCapacityPct: num(row, 'end_of_life_capacity_pct', warnings, where),
       batteryType: row.battery_type ? row.battery_type.toUpperCase() : null,
       batteryCycles: num(row, 'battery_cycles', warnings, where),
       consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, where),
@@ -217,6 +219,24 @@ export function parseDataset(files: RawFiles): Dataset {
     })
     .sort((a, b) => a.temperatureC - b.temperatureC);
 
+  const degradationMeasurements: DegradationMeasurement[] = parseCsv(files.degradationMeasurements).rows.map((r) => {
+    const where = `battery/degradation_measurements.csv, ${r.id}`;
+    return {
+      id: r.id,
+      chemistry: (r.chemistry ?? '').toUpperCase(),
+      vehicle: r.vehicle ?? '',
+      nominalKwh: req(r, 'nominal_kwh', warnings, where, 60),
+      ratedCycles: req(r, 'rated_cycles', warnings, where, 1000),
+      kwhPerKm: req(r, 'kwh_per_km', warnings, where, 0.16),
+      km: req(r, 'km', warnings, where),
+      years: req(r, 'years', warnings, where, 1),
+      temperatureC: req(r, 'temperature_c', warnings, where, 20),
+      measuredSohPct: req(r, 'measured_soh_pct', warnings, where, 100),
+      sourceId: r.source_id ?? '',
+      notes: r.notes ?? '',
+    };
+  });
+
   const onboardMeasurements: OnboardMeasurement[] = parseCsv(files.onboardMeasurements).rows.map((r) => {
     const where = `onboard/measurements.csv, ${r.id}`;
     const compare = r.compare === 'electronics' || r.compare === 'total' ? r.compare : 'climate';
@@ -289,6 +309,11 @@ export function parseDataset(files: RawFiles): Dataset {
       resistanceSource: r.resistance_source ?? '',
       capacitySource: r.capacity_source ?? '',
       thermalSource: r.thermal_source ?? '',
+      calendarLossPct1y25c: req(r, 'calendar_loss_pct_1y_25c', warnings, where, 2.5),
+      calendarTimeExponent: req(r, 'calendar_time_exponent', warnings, where, 0.5),
+      calendarEaKjPerMol: req(r, 'calendar_ea_kj_per_mol', warnings, where, 30),
+      cycleFadeExponent: req(r, 'cycle_fade_exponent', warnings, where, 1),
+      ageingSource: r.ageing_source ?? '',
       ocv,
       capacityPct: tempTable.rows.map((t) => parseNumber(t[code]) ?? 100),
     };
@@ -321,6 +346,7 @@ export function parseDataset(files: RawFiles): Dataset {
     onboardClasses,
     factsTab,
     onboardMeasurements,
+    degradationMeasurements,
     sources,
     chemistries,
     capacityTemps,

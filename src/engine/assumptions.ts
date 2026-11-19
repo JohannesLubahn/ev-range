@@ -3,7 +3,7 @@ import { parseNumber } from '../data/parse';
 import type { Assumptions } from './types';
 
 export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
-  long_term_capacity_pct: 'longTermCapacityPct',
+  rated_cycles_end_capacity_pct: 'ratedCyclesEndCapacityPct',
   battery_managed_min_c: 'batteryManagedMinC',
   battery_managed_max_c: 'batteryManagedMaxC',
   battery_hvac_max_kw: 'batteryHvacMaxKw',
@@ -38,7 +38,7 @@ export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
 
 /** Fallbacks used only if a key is missing from assumptions.csv. */
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
-  longTermCapacityPct: 80,
+  ratedCyclesEndCapacityPct: 80,
   batteryManagedMinC: 10,
   batteryManagedMaxC: 35,
   batteryHvacMaxKw: 2,

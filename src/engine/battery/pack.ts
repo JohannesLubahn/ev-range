@@ -30,7 +30,7 @@ export interface PackOptions {
   /** Temperatures of the capacity table (Dataset.capacityTemps). */
   capacityTemps: number[];
   nominalKwh: number;
-  /** Long-term state of health (0..1), e.g. 0.8. */
+  /** State of health (0..1): capacity left after ageing, e.g. 0.9. */
   sohFrac: number;
   packVoltageV: number;
 }
@@ -150,5 +150,10 @@ export class Pack {
 
   withNominal(nominalKwh: number): Pack {
     return new Pack({ ...this.opts, nominalKwh });
+  }
+
+  /** The same pack at another state of health (0..1). */
+  withSoh(sohFrac: number): Pack {
+    return new Pack({ ...this.opts, sohFrac });
   }
 }

@@ -18,8 +18,11 @@ function thermalOptions(a: Assumptions): { id: ThermalMode; label: string; descr
 
 /** One-line summary of the conditions under which the results hold. */
 export function ConditionsSummary() {
-  const { scenario } = useEngine();
+  const { scenario, out, selectedIds } = useEngine();
   const c = scenario.conditions;
+  const soh = selectedIds.map((id) => out.models[id]?.ageing()?.sohPct).filter((v): v is number => v !== undefined);
+  const sohText =
+    soh.length === 0 ? '' : Math.round(Math.min(...soh)) === Math.round(Math.max(...soh)) ? ` (${num(soh[0], 0)} % left)` : ` (${num(Math.min(...soh), 0)}–${num(Math.max(...soh), 0)} % left)`;
   return (
     <span className="conditions">
       <span>
@@ -39,6 +42,10 @@ export function ConditionsSummary() {
       </span>
       <span>
         Tyres <b>{c.tyrePressurePct === 100 ? 'as recommended' : `${num(c.tyrePressurePct, 0)} % of recommended`}</b>
+      </span>
+      <span>
+        Driven <b>{num(c.batteryKm, 0)} km</b>
+        {sohText}
       </span>
       <span>
         Battery <b>{c.thermalMode === 'managed' ? 'managed' : c.thermalMode === 'ambient' ? 'unmanaged' : `at ${c.preconditionedC} °C`}</b>
@@ -118,7 +125,8 @@ export function ConditionsPanel() {
         <h3>Conditions</h3>
         <p className="muted">
           Shared by all stress tests and the cost of ownership. They act on air drag, rolling resistance, heating / AC (temperature, sun,
-          humidity) and the battery.
+          humidity) and the battery. The km driven sets the battery's wear in the stress tests (battery life and cost start from a new
+          battery).
         </p>
       </div>
       <div className="fields">
@@ -143,6 +151,16 @@ export function ConditionsPanel() {
           step={5}
           value={c.tyrePressurePct}
           onChange={(v) => set({ tyrePressurePct: v })}
+        />
+        <NumberField
+          label="Km driven (battery wear from charge cycles and age)"
+          unit="km"
+          min={0}
+          max={1000000}
+          step={10000}
+          sliderMax={300000}
+          value={c.batteryKm}
+          onChange={(v) => set({ batteryKm: v })}
         />
         <SelectField label="Battery temperature" value={c.thermalMode} options={thermalOptions(a)} onChange={(v) => set({ thermalMode: v })} />
         {c.thermalMode === 'preconditioned' && (

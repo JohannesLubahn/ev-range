@@ -18,7 +18,7 @@ const model = (id: string, battery: BatteryModel = 'chemistry') => new CarModel(
 describe('1+2: charging time uses consistent units and the fast window correctly', () => {
   // Neta V charges 30 → 80 % in 30 min: 100 %/h inside that window, 50 %/h (taper) outside it.
   const m = model('neta-v');
-  const drain = (m.onboard(sc.longTrip.cabinC).totalKw / (derived['neta-v'].longTermKwh as number)) * 100; // %/h
+  const drain = (m.onboard(sc.longTrip.cabinC).totalKw / m.capacityKwh()) * 100; // %/h of the aged battery
   it('Neta V 20 → 80 %: 10 % below the window at half speed, 50 % inside, onboard drain in %/h', () => {
     expect(drain).toBeGreaterThan(0);
     expect(longTrip(m, sc.longTrip).timePerChargeH).toBeCloseTo(10 / (50 - drain) + 50 / (100 - drain), 9);

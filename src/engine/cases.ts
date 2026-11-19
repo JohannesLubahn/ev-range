@@ -1,5 +1,6 @@
 // The stress cases of the spreadsheet (Battery Sizing tab) and the cost of ownership, on top of the physics car model.
 import { toDisplayCurrency } from './assumptions';
+import type { AgeingResult } from './battery/ageing';
 import type { BatteryView, CarModel, SegmentEnergy, SegmentSpec } from './model';
 import type { CabinClimate } from './onboard/climate';
 import type {
@@ -149,6 +150,57 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   return steps;
 }
 
+const km = (v: number) => Math.round(v).toLocaleString('en-US');
+
+/** Explanation of the battery ageing: age, full cycles, cycle and calendar fade. */
+function ageingSteps(m: CarModel, g: AgeingResult): Step[] {
+  const chem = m.d.chemistry ? m.ctx.ds.chemistries[m.d.chemistry] : undefined;
+  const steps: Step[] = [
+    { label: 'Battery age', formula: `${km(g.km)} km ÷ ${km(g.kmPerYear)} km/year (battery-life driving)`, value: g.years, unit: 'years' },
+    {
+      label: 'Full cycles so far',
+      formula: `${km(g.km)} km × ${fx(g.kwhPerKm, 3)} kWh/km, each cycle a full discharge of the ageing battery`,
+      value: g.efc,
+      unit: 'cycles',
+    },
+  ];
+  if (!chem) return steps;
+  const rated = m.d.car.batteryCycles;
+  steps.push({
+    label: 'Cycle wear',
+    formula: rated
+      ? `${pct(100 - m.d.eolPct.value)} × (${fx(g.efc, 0)} ÷ ${fx(rated, 0)} rated cycles)^${fx(chem.cycleFadeExponent, 2)} (${m.d.chemistry})`
+      : 'rated cycles missing: no cycle wear counted',
+    value: g.cycleFadePct,
+    unit: '%',
+  });
+  steps.push({
+    label: 'Calendar ageing',
+    formula: `${fx(chem.calendarLossPct1y25c, 2)} % × ${fx(g.years, 1)} years^${fx(chem.calendarTimeExponent, 2)} at ${fx(g.temperatureC, 0)} °C (${m.d.chemistry}, ${fx(chem.calendarEaKjPerMol, 0)} kJ/mol)`,
+    value: g.calendarFadePct,
+    unit: '%',
+  });
+  return steps;
+}
+
+/** The battery capacity used by the stress tests: nominal × capacity left after the km driven. */
+function capacitySteps(m: CarModel): Step[] {
+  const u = m.d.energyUnit;
+  const nominal = m.d.batteryKwh ?? 0;
+  const g = m.ageing();
+  if (!g) return [{ label: 'Battery available', formula: m.d.isIce ? 'fuel tank' : `${fx(nominal, 1)} ${u} (no ageing data)`, value: m.capacityKwh(), unit: u, kind: 'result' }];
+  return [
+    ...ageingSteps(m, g),
+    {
+      label: 'Battery available',
+      formula: `${fx(nominal, 1)} ${u} × ${fx(g.sohPct, 1)} % left after ${km(g.km)} km`,
+      value: g.capacityKwh,
+      unit: u,
+      kind: 'result',
+    },
+  ];
+}
+
 function capacityCheck(m: CarModel, segs: SegmentEnergy[], startPct: number, endPct: number): CapacityCheck {
   const { energy: segEnergy, time, mean, rms } = combine(segs);
   const bat = m.battery(mean, rms, time);
@@ -183,21 +235,15 @@ function capacityCheck(m: CarModel, segs: SegmentEnergy[], startPct: number, end
     });
     steps.push({
       label: `Deliverable ${pct(startPct)} → ${pct(endPct)}`,
-      formula: `${fx(available, 1)} kWh long-term, after temperature and load losses (${fx(deliv.lossKwh, 2)} kWh)`,
+      formula: `${fx(available, 1)} kWh after the km driven, after temperature and load losses (${fx(deliv.lossKwh, 2)} kWh)`,
       value: deliv.kwh,
       unit: u,
     });
-    steps.push({ label: 'Battery needed (long-term capacity)', formula: `scaled until the window delivers ${fx(energy, 1)} ${u}`, value: required, unit: u, kind: 'result' });
+    steps.push({ label: 'Battery needed (capacity)', formula: `scaled until the window delivers ${fx(energy, 1)} ${u}`, value: required, unit: u, kind: 'result' });
   } else {
     steps.push({ label: 'Battery needed', formula: `${fx(energy, 2)} ÷ (${pct(startPct)} − ${pct(endPct)})`, value: required, unit: u, kind: 'result' });
   }
-  steps.push({
-    label: 'Battery available',
-    formula: `${fx(m.d.batteryKwh ?? 0, 1)} ${u} × ${pct(m.d.longTermPct.value)} long-term capacity`,
-    value: available,
-    unit: u,
-    kind: 'result',
-  });
+  steps.push(...capacitySteps(m));
   return {
     requiredKwh: required,
     availableKwh: available,
@@ -280,7 +326,8 @@ function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: nu
   const ws = d.fastWindow?.from ?? fromPct;
   const we = d.fastWindow?.to ?? toPct;
   const steps: Step[] = [];
-  const cap = d.longTermKwh && d.longTermKwh > 0 ? d.longTermKwh : 1;
+  const capKwh = m.capacityKwh();
+  const cap = capKwh > 0 ? capKwh : 1;
   const drain = (onboardKw / cap) * 100; // %/h used by onboard systems while plugged in
   const parts = [
     { name: 'below the fast window', a: fromPct, b: Math.min(toPct, ws), rate: rs },
@@ -368,26 +415,12 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
   };
 }
 
-/**
- * Battery-life segment and the energy taken from the battery over the whole life (incl. losses). The daily drive
- * (km per year ÷ 365 at the average speed) is one trip: it starts with a parked cabin and battery each day.
- */
-function lifeEnergy(m: CarModel, i: BatteryLifeInputs) {
-  const totalKm = i.years * i.kmPerYear;
-  const seg = m.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC });
-  const days = Math.max(0, i.years * 365);
-  const dayH = days > 0 ? seg.timeH / days : 0;
-  const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, dayH);
-  const losses = bat.lossFor(seg.totalKwh, seg.meanPowerKw, seg.rmsFactor);
-  const startKwh = seg.onboard.startKwh * days;
-  const thermalKwh = bat.thermalKwh * days;
-  return { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy: seg.totalKwh + losses + startKwh + thermalKwh };
-}
-
 export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResult {
-  const { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy } = lifeEnergy(m, i);
+  // Battery life and cost start from a new battery: the km driven in the Conditions does not apply here.
+  const { totalKm, seg, bat, losses, days, dayH, startKwh, thermalKwh, energy } = m.lifeEnergy(i);
   const available = bat.availableKwh;
-  const cyclesRequired = available > 0 ? energy / available : Infinity;
+  const g = m.ageing(totalKm, i);
+  const cyclesRequired = g ? g.efc : available > 0 ? energy / available : Infinity;
   const rated = m.d.car.batteryCycles;
   const margin = rated ? (rated - cyclesRequired) / rated : null;
   const u = m.d.energyUnit;
@@ -402,8 +435,28 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     ...(losses > 0 ? [{ label: 'Battery losses', formula: `at ${fx(bat.temperatureC, 1)} °C`, value: losses, unit: u } as Step] : []),
     { label: 'Energy over the life', formula: '', value: energy, unit: u, kind: 'subtotal' },
     avg.step,
-    { label: 'Full cycles needed', formula: `${fx(energy, 0)} ÷ ${fx(available, 1)} ${u}`, value: cyclesRequired, unit: 'cycles', kind: 'result' },
+    g
+      ? {
+          label: 'Full cycles needed',
+          formula: `${fx(energy, 0)} ${u}, each cycle a full discharge of the ageing battery (${fx(available, 1)} → ${fx(g.capacityKwh, 1)} ${u})`,
+          value: cyclesRequired,
+          unit: 'cycles',
+          kind: 'result',
+        }
+      : { label: 'Full cycles needed', formula: `${fx(energy, 0)} ÷ ${fx(available, 1)} ${u}`, value: cyclesRequired, unit: 'cycles', kind: 'result' },
     { label: 'Rated cycles', formula: '', value: rated, unit: 'cycles', kind: 'result' },
+    ...(g
+      ? [
+          ...ageingSteps(m, g).slice(2),
+          {
+            label: `Capacity after ${fx(i.years, 0)} years`,
+            formula: `100 % − ${fx(g.cycleFadePct, 1)} % cycle wear − ${fx(g.calendarFadePct, 1)} % calendar ageing`,
+            value: g.sohPct,
+            unit: '%',
+            kind: 'result',
+          } as Step,
+        ]
+      : []),
   ];
   return {
     totalKm,
@@ -413,6 +466,7 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     margin,
     pass: margin === null ? null : margin >= 0,
     yearsUntilRated: rated && cyclesRequired > 0 ? (rated * i.years) / cyclesRequired : null,
+    capacityEndPct: g ? g.sohPct : null,
     average: avg.average,
     steps,
     warnings: rated ? [] : ['Rated battery cycles missing'],
@@ -424,7 +478,7 @@ export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs): Cost
   const a = m.ctx.a;
   const currency = a.displayCurrency;
   const warnings: string[] = [];
-  const { totalKm, energy } = lifeEnergy(m, life);
+  const { totalKm, energy } = m.lifeEnergy(life);
   // Energy paid for per km: the battery's energy over the life (driving, onboard systems, battery heating /
   // cooling and losses) plus the charging losses. Petrol: litres.
   const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
