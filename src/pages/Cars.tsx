@@ -103,14 +103,14 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
         calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)`, `${'kWh'}/100 km`, 'lower', (d) => {
           const m = out.models[d.car.id];
           if (!m || d.consumption.value === null) return { text: '', value: null };
-          const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', usagePct: 0 });
+          const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', cabinC: null });
           return n(seg.driveKwh, 1);
         });
       }
-      calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC on`, 'kW', 'lower', (d) => {
+      calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC holding ${num(a.cabinSetpointC, 0)} °C`, 'kW', 'lower', (d) => {
         const m = out.models[d.car.id];
         if (!m || d.isIce) return { text: '', value: null };
-        return n(m.onboard(100).totalKw, 2);
+        return n(m.onboard(a.cabinSetpointC).totalKw, 2);
       });
       calc('Performance', 'c_hp', 'Power', 'HP', 'higher', (d) => n(d.powerHp, 0));
       if (ids.some((id) => derivedById[id].car.currency !== a.displayCurrency))

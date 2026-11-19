@@ -79,8 +79,10 @@ export interface TrafficJamInputs {
   timeJamH: number;
   distAfterKm: number;
   speedOutsideKmh: number;
-  usageOutsidePct: number;
-  usageJamPct: number;
+  /** Cabin temperature the heating / AC holds outside the jam (°C); null = off. */
+  cabinOutsideC: number | null;
+  /** Cabin temperature in the jam (°C); null = off. */
+  cabinJamC: number | null;
   profileOutside: Profile;
 }
 
@@ -89,7 +91,8 @@ export interface NoChargerInputs {
   startPct: number;
   endPct: number;
   speedKmh: number;
-  usagePct: number;
+  /** Cabin temperature the heating / AC holds (°C); null = off. */
+  cabinC: number | null;
   profile: Profile;
   climbM: number;
 }
@@ -97,8 +100,10 @@ export interface NoChargerInputs {
 export interface LongTripInputs {
   distanceKm: number;
   speedKmh: number;
-  usageDrivingPct: number;
-  usageChargingPct: number;
+  /** Cabin temperature the heating / AC holds while driving (°C); null = off. */
+  cabinC: number | null;
+  /** Heating / AC also on while charging (people wait in the car), at the same cabin temperature. */
+  climateWhileCharging: boolean;
   chargeFromPct: number;
   chargeToPct: number;
   profile: Profile;
@@ -108,7 +113,8 @@ export interface BatteryLifeInputs {
   years: number;
   kmPerYear: number;
   speedKmh: number;
-  usagePct: number;
+  /** Cabin temperature the heating / AC holds (°C); null = off. */
+  cabinC: number | null;
   profile: Profile;
 }
 
@@ -117,7 +123,8 @@ export interface SprintInputs {
   startPct: number;
   endPct: number;
   speedKmh: number;
-  usagePct: number;
+  /** Cabin temperature the heating / AC holds (°C); null = off. */
+  cabinC: number | null;
   profile: Profile;
   climbM: number;
 }

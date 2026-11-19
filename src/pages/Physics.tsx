@@ -63,7 +63,8 @@ export function PhysicsPage() {
   const candidates = selectedIds.filter((id) => out.results[id] && !derivedById[id].isIce);
   const chosen = (physicsCars.filter((id) => candidates.includes(id)).length ? physicsCars.filter((id) => candidates.includes(id)) : candidates).slice(0, 3);
   const [chem, setChem] = useState<string>(Object.keys(ds.chemistries)[0] ?? 'LFP');
-  const usage = scenario.noCharger.usagePct;
+  const cabin = scenario.noCharger.cabinC;
+  const cabinText = cabin === null ? 'heating/AC off' : `cabin ${num(cabin, 0)} °C`;
 
   const speedData = useMemo(
     () =>
@@ -71,7 +72,7 @@ export function PhysicsPage() {
         const row: Record<string, number> = { speed: v };
         for (const id of chosen) {
           const m = out.models[id];
-          row[id] = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', usagePct: 0 }).driveKwh;
+          row[id] = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: null }).driveKwh;
         }
         return row;
       }),
@@ -83,7 +84,7 @@ export function PhysicsPage() {
     if (!first) return [];
     const m = out.models[first];
     return [30, 60, 90, 120, 150].map((v) => {
-      const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', usagePct: usage });
+      const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: cabin });
       const p = seg.physics;
       const eta = m.calibration().etaDrive;
       const rolling = (p.rollingPerKm / eta) * 100;
@@ -100,13 +101,13 @@ export function PhysicsPage() {
             lines={[
               { color: c['--series-1'], value: `${fixed(rolling, 1)} kWh`, label: 'rolling resistance' },
               { color: c['--series-2'], value: `${fixed(air, 1)} kWh`, label: 'air drag' },
-              { color: c['--series-3'], value: `${fixed(onboard, 1)} kWh`, label: `onboard (AC ${usage} %)` },
+              { color: c['--series-3'], value: `${fixed(onboard, 1)} kWh`, label: `onboard (${cabinText})` },
             ]}
           />
         ),
       };
     });
-  }, [first, out, usage, derivedById, c]);
+  }, [first, out, cabin, cabinText, derivedById, c]);
 
   const cond = scenario.conditions;
   const thermal = cond.thermalMode;
@@ -134,10 +135,10 @@ export function PhysicsPage() {
         row[`th_${code}`] = th.heatingKwh + th.coolingKwh;
       }
       const at = { ...cond, airTemperatureC: t };
-      row.regular = onboardPower(ds, a, at, 'regular', false, 100).totalKw;
-      row.regularHp = onboardPower(ds, a, at, 'regular', true, 100).totalKw;
-      row.premium = onboardPower(ds, a, at, 'premium', true, 100).totalKw;
-      row.facts = factsTabPower(ds, 'regular', t, 100)?.totalKw ?? NaN;
+      row.regular = onboardPower(ds, a, at, 'regular', false, a.cabinSetpointC).totalKw;
+      row.regularHp = onboardPower(ds, a, at, 'regular', true, a.cabinSetpointC).totalKw;
+      row.premium = onboardPower(ds, a, at, 'premium', true, a.cabinSetpointC).totalKw;
+      row.facts = factsTabPower(ds, 'regular', t, true)?.totalKw ?? NaN;
       return row;
     });
   }, [ds, a, cond, thermal]);
@@ -262,8 +263,8 @@ export function PhysicsPage() {
           <div>
             <h2>Where the energy goes</h2>
             <p className="muted">
-              {first ? derivedById[first].car.name : 'First selected car'} per 100 km at steady speed, at the battery, with onboard systems at the
-              No-charger AC usage ({usage} %).
+              {first ? derivedById[first].car.name : 'First selected car'} per 100 km at steady speed, at the battery, with onboard systems as in the
+              No-charger test ({cabinText}).
             </p>
           </div>
           {breakdown.length ? (
@@ -385,7 +386,7 @@ export function PhysicsPage() {
           <div>
             <h2>Onboard power vs. air temperature</h2>
             <p className="muted">
-              Electronics + cabin heating/AC running all the time (100 %), at the current sunshine ({num(cond.solarWm2, 0)} W/m²) and humidity (
+              Electronics + cabin heating/AC holding {num(a.cabinSetpointC, 0)} °C (the default cabin temperature), at the current sunshine ({num(cond.solarWm2, 0)} W/m²) and humidity (
               {num(cond.humidityPct, 0)} %). Battery heating/cooling depends on the trip and is added in each stress test.
             </p>
           </div>

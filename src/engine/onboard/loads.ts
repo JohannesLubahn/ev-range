@@ -9,12 +9,11 @@ export interface OnboardPower {
   totalKw: number;
   /** Electronics: control units, pumps, lights, screens, driver assistance. */
   baseKw: number;
-  /** Cabin heating / AC incl. blower, at the given usage. */
+  /** Cabin heating / AC incl. blower holding the set cabin temperature (0 when off). */
   cabinKw: number;
-  /** Cabin heating / AC with the climate control on all the time. */
-  cabinFullKw: number;
-  /** One-time energy to heat or cool the parked cabin to the setpoint at the start of a trip, at the given usage. */
+  /** One-time energy to heat or cool the parked cabin to the set temperature at the start of a trip. */
   startKwh: number;
+  /** Heat balance of the cabin; null when the heating / AC is off. */
   climate: CabinClimate | null;
 }
 
@@ -33,12 +32,14 @@ export function onboardPower(
   c: Conditions,
   carClass: string,
   heatPump: boolean,
-  cabinUsagePct: number,
+  /** Cabin temperature the heating / AC holds (°C), or null when it is off (fan and windows only). */
+  cabinC: number | null,
   engineHeat = false,
 ): OnboardPower {
   const cls = onboardClass(ds, carClass);
   const baseKw = baseLoadKw(cls);
-  if (!cls) return { totalKw: 0, baseKw: 0, cabinKw: 0, cabinFullKw: 0, startKwh: 0, climate: null };
+  if (!cls) return { totalKw: 0, baseKw: 0, cabinKw: 0, startKwh: 0, climate: null };
+  if (cabinC === null) return { totalKw: baseKw, baseKw, cabinKw: 0, startKwh: 0, climate: null };
   const climate = cabinClimate({
     cls,
     a,
@@ -48,27 +49,25 @@ export function onboardPower(
     altitudeM: c.altitudeM,
     heatPump,
     engineHeat,
+    setpointC: cabinC,
   });
-  const u = Math.max(0, cabinUsagePct) / 100;
   const preconditioned = c.thermalMode === 'preconditioned';
-  const cabinKw = climate.totalKw * u;
   return {
-    totalKw: baseKw + cabinKw,
+    totalKw: baseKw + climate.totalKw,
     baseKw,
-    cabinKw,
-    cabinFullKw: climate.totalKw,
-    // A preconditioned car starts with the cabin at the setpoint (warmed or cooled while plugged in).
-    startKwh: preconditioned ? 0 : climate.startKwh * u,
+    cabinKw: climate.totalKw,
+    // A preconditioned car starts with the cabin at the set temperature (warmed or cooled while plugged in).
+    startKwh: preconditioned ? 0 : climate.startKwh,
     climate,
   };
 }
 
-/** The Facts tab's onboard power (base, cabin at the usage, battery), for comparison only. */
+/** The Facts tab's onboard power (base, cabin heating / AC on or off, battery), for comparison only. */
 export function factsTabPower(
   ds: Dataset,
   carClass: string,
   airC: number,
-  cabinUsagePct: number,
+  climateOn: boolean,
 ): { baseKw: number; cabinKw: number; batteryKw: number; totalKw: number } | null {
   const rows = ds.factsTab;
   if (!rows.length) return null;
@@ -76,7 +75,7 @@ export function factsTabPower(
   const xs = rows.map((r) => r.temperatureC);
   const at = (f: (r: FactsTabRow) => number) => interp(xs, rows.map(f), airC);
   const baseKw = at((r) => (premium ? r.basePremiumKw : r.baseRegularKw));
-  const cabinKw = (at((r) => (premium ? r.cabinPremiumKw : r.cabinRegularKw)) * cabinUsagePct) / 100;
+  const cabinKw = climateOn ? at((r) => (premium ? r.cabinPremiumKw : r.cabinRegularKw)) : 0;
   const batteryKw = at((r) => r.batteryKw);
   return { baseKw, cabinKw, batteryKw, totalKw: baseKw + cabinKw + batteryKw };
 }

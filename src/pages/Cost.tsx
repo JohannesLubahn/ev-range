@@ -94,8 +94,7 @@ export function CostPage() {
                 onChange={(v) => setCost({ maintenancePerYear: v })}
               />
               <p className="faint">
-                Years, distance and the driving behind the energy ({num(life.speedKmh, 0)} km/h on average, cabin AC / heating {num(life.usagePct, 0)} %
-                of the time) are shared with the <a href="#stress-tests">Battery life</a> stress test. Cars with their own energy price or
+                Years, distance and the driving behind the energy ({num(life.speedKmh, 0)} km/h on average, {life.cabinC === null ? 'heating / AC off' : `cabin at ${num(life.cabinC, 0)} °C`}) are shared with the <a href="#stress-tests">Battery life</a> stress test. Cars with their own energy price or
                 maintenance in cars.csv keep those.
               </p>
             </div>

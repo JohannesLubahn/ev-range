@@ -18,7 +18,7 @@ const model = (id: string, battery: BatteryModel = 'chemistry') => new CarModel(
 describe('1+2: charging time uses consistent units and the fast window correctly', () => {
   // Neta V charges 30 → 80 % in 30 min: 100 %/h inside that window, 50 %/h (taper) outside it.
   const m = model('neta-v');
-  const drain = (m.onboard(sc.longTrip.usageChargingPct).totalKw / (derived['neta-v'].longTermKwh as number)) * 100; // %/h
+  const drain = (m.onboard(sc.longTrip.cabinC).totalKw / (derived['neta-v'].longTermKwh as number)) * 100; // %/h
   it('Neta V 20 → 80 %: 10 % below the window at half speed, 50 % inside, onboard drain in %/h', () => {
     expect(drain).toBeGreaterThan(0);
     expect(longTrip(m, sc.longTrip).timePerChargeH).toBeCloseTo(10 / (50 - drain) + 50 / (100 - drain), 9);
@@ -96,6 +96,24 @@ describe('average consumption of the stress tests (energy from the battery per 1
     const ideal = new CarModel(derived['byd-atto-3'], { ds, a, conditions: cold, settings: { battery: 'ideal' } });
     expect(trafficJam(chem, sc.trafficJam).average.battery).toBeGreaterThan(0);
     expect(trafficJam(ideal, sc.trafficJam).average.battery).toBe(0);
+  });
+  it('heating / AC off outside the jam: the parked-cabin cool-down moves into the jam', () => {
+    const hot = new CarModel(derived['byd-atto-3'], { ds, a, conditions: { ...sc.conditions, airTemperatureC: 35, solarWm2: 800 }, settings: { battery: 'chemistry' } });
+    const onboardStep = (r: { steps: { label: string; formula: string }[] }, seg: string) => r.steps.find((s) => s.label === `${seg}: onboard systems`)?.formula ?? '';
+    const both = trafficJam(hot, sc.trafficJam);
+    expect(onboardStep(both, 'Outside the jam')).toContain('parked cabin');
+    expect(onboardStep(both, 'In the jam')).not.toContain('parked cabin');
+    const jamOnly = trafficJam(hot, { ...sc.trafficJam, cabinOutsideC: null });
+    expect(onboardStep(jamOnly, 'Outside the jam')).toContain('heating/AC off');
+    expect(onboardStep(jamOnly, 'In the jam')).toContain('parked cabin');
+    expect(jamOnly.average.onboard).toBeLessThan(both.average.onboard);
+  });
+  it('long trip: heating / AC off while charging shortens the charging stops', () => {
+    const m = model('byd-atto-3');
+    const on = longTrip(m, sc.longTrip);
+    const off = longTrip(m, { ...sc.longTrip, climateWhileCharging: false });
+    expect(off.timePerChargeH).toBeLessThan(on.timePerChargeH);
+    expect(off.energyKwh).toBeCloseTo(on.energyKwh, 9);
   });
   it('no distance: no average (NaN), and no explanation value', () => {
     const r = trafficJam(model('byd-atto-3'), { ...sc.trafficJam, distBeforeKm: 0, distJamKm: 0, distAfterKm: 0 });

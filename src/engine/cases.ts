@@ -134,14 +134,14 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     steps.push({
       label: `${name}: cabin climate`,
       formula: `${climateText(o.climate, m.d.isIce)}${m.d.isIce ? ' (in litres via the calibrated engine factor)' : ''}`,
-      value: o.cabinFullKw,
+      value: o.cabinKw,
       unit: rate,
     });
   }
   steps.push({
     label: `${name}: onboard systems`,
     formula:
-      `(electronics ${fx(o.baseKw, 2)} + heating/AC ${fx(o.cabinFullKw, 2)} × ${pct(s.spec.usagePct)}) ${rate} × ${fx(s.timeH, 2)} h` +
+      `(electronics ${fx(o.baseKw, 2)} + ${o.climate ? `${o.climate.mode === 'heating' ? 'heating' : o.climate.mode === 'cooling' ? 'AC' : 'fan'} ${fx(o.cabinKw, 2)} for a ${fx(o.climate.setpointC, 0)} °C cabin` : 'heating/AC off'}) ${rate} × ${fx(s.timeH, 2)} h` +
       (s.startKwh > 0 ? ` + ${o.climate && o.climate.soakC > o.climate.setpointC ? 'cooling' : 'warming'} the parked cabin from ${fx(o.climate?.soakC ?? 0, 0)} °C ${fx(s.startKwh, 2)} ${u}` : ''),
     value: s.onboardKwh,
     unit: u,
@@ -217,10 +217,18 @@ export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
     distanceKm: i.distBeforeKm + i.distAfterKm,
     avgSpeedKmh: i.speedOutsideKmh,
     profile: i.profileOutside,
-    usagePct: i.usageOutsidePct,
-    tripStart: true,
+    cabinC: i.cabinOutsideC,
+    tripStart: i.cabinOutsideC !== null,
   };
-  const jam: SegmentSpec = { label: 'In the jam', distanceKm: i.distJamKm, timeH: i.timeJamH, profile: 'jam', usagePct: i.usageJamPct };
+  // With the heating / AC off before the jam, the parked-cabin warm-up / cool-down happens when it is switched on in the jam.
+  const jam: SegmentSpec = {
+    label: 'In the jam',
+    distanceKm: i.distJamKm,
+    timeH: i.timeJamH,
+    profile: 'jam',
+    cabinC: i.cabinJamC,
+    tripStart: i.cabinOutsideC === null && i.cabinJamC !== null,
+  };
   const segs = [m.segment(outside), m.segment(jam)];
   const check = capacityCheck(m, segs, i.startPct, i.endPct);
   // Longest jam: the jam's onboard energy grows with time; everything else stays.
@@ -241,7 +249,7 @@ function distanceCase(m: CarModel, spec: SegmentSpec, startPct: number, endPct: 
 export function noCharger(m: CarModel, i: NoChargerInputs): DistanceCheckResult {
   return distanceCase(
     m,
-    { label: 'Trip', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, climbM: i.climbM, usagePct: i.usagePct, tripStart: true },
+    { label: 'Trip', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, climbM: i.climbM, cabinC: i.cabinC, tripStart: true },
     i.startPct,
     i.endPct,
   );
@@ -256,7 +264,7 @@ export function sprint(m: CarModel, i: SprintInputs): DistanceCheckResult {
       avgSpeedKmh: i.speedKmh,
       profile: i.profile,
       climbM: i.climbM,
-      usagePct: i.usagePct,
+      cabinC: i.cabinC,
       tripStart: true,
     },
     i.startPct,
@@ -297,14 +305,14 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
     distanceKm: i.distanceKm,
     avgSpeedKmh: i.speedKmh,
     profile: i.profile,
-    usagePct: i.usageDrivingPct,
+    cabinC: i.cabinC,
     tripStart: true,
   });
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, seg.timeH);
   const perCharge = bat.deliverable(i.chargeToPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh;
   const energy = seg.totalKwh + bat.thermalKwh;
   const chargings = perCharge > 0 ? Math.max(0, energy / perCharge - 1) : Infinity;
-  const onboardCharging = m.onboard(i.usageChargingPct).totalKw;
+  const onboardCharging = m.onboard(i.climateWhileCharging ? i.cabinC : null).totalKw;
   const ct = chargingTime(m, i.chargeFromPct, i.chargeToPct, onboardCharging);
   const timeDrivingH = i.speedKmh > 0 ? i.distanceKm / i.speedKmh : 0;
   const timeChargingH = ct.hours * chargings;
@@ -332,7 +340,12 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
       unit: u,
     },
     { label: 'Charging stops', formula: `${fx(energy, 1)} ÷ ${fx(perCharge, 1)} − 1 (start with a charged battery)`, value: chargings, unit: '', kind: 'subtotal' },
-    { label: 'Onboard systems while charging', formula: '', value: onboardCharging, unit: 'kW' },
+    {
+      label: 'Onboard systems while charging',
+      formula: i.climateWhileCharging && i.cabinC !== null ? `electronics + heating/AC holding ${fx(i.cabinC, 0)} °C` : 'electronics only (heating/AC off)',
+      value: onboardCharging,
+      unit: 'kW',
+    },
     ...ct.steps,
     { label: 'Time per charge', formula: '', value: ct.hours, unit: 'h' },
     { label: 'Driving time', formula: `${fx(i.distanceKm, 0)} km ÷ ${fx(i.speedKmh, 0)} km/h`, value: timeDrivingH, unit: 'h' },
@@ -361,7 +374,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
  */
 function lifeEnergy(m: CarModel, i: BatteryLifeInputs) {
   const totalKm = i.years * i.kmPerYear;
-  const seg = m.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, usagePct: i.usagePct });
+  const seg = m.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC });
   const days = Math.max(0, i.years * 365);
   const dayH = days > 0 ? seg.timeH / days : 0;
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, dayH);

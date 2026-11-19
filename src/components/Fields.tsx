@@ -54,6 +54,26 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
   );
 }
 
+const CABIN_MIN_C = 16;
+const CABIN_MAX_C = 28;
+
+/**
+ * Cabin heating / AC: off, or the cabin temperature it holds. The power it needs follows from the cabin heat
+ * balance under the Conditions (air temperature, sun, humidity), not from a fixed share.
+ */
+export function CabinField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+  const temps = Array.from({ length: CABIN_MAX_C - CABIN_MIN_C + 1 }, (_, k) => CABIN_MIN_C + k);
+  if (value !== null && !temps.includes(value)) temps.push(value);
+  temps.sort((x, y) => x - y);
+  const options = [
+    { id: 'off', label: 'Off', description: 'Fan and windows only; the electronics stay on' },
+    ...temps.map((t) => ({ id: String(t), label: `${t} °C`, description: 'Held by heating or AC, as much as the conditions need' })),
+  ];
+  return (
+    <SelectField label={label} value={value === null ? 'off' : String(value)} options={options} onChange={(v) => onChange(v === 'off' ? null : Number(v))} />
+  );
+}
+
 interface SelectFieldProps<T extends string> {
   label: string;
   value: T;

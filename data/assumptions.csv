@@ -5,7 +5,7 @@ battery_managed_max_c,35,°C,Battery cooled above,Battery,Thermal management coo
 battery_hvac_max_kw,2,kW,Max. battery heating/cooling power,Battery,Most heat put into or taken out of the pack,Facts tab: 2 kW
 battery_heat_exchange_w_per_k,15,W/K,Battery heat loss to the air,Battery,"Heat flow between pack and outside air per °C of difference. Packs are insulated and heavy (≈ 6–8 kJ/K per kWh), so they follow the air temperature only over many hours","Estimate: a parked Nissan Leaf pack (294 kg) cools with a time constant of about 9 h (owner measurement, mynissanleaf.com forum) ≈ 9 W/K; 15 W/K for larger packs and air flow while driving. Replaces the Facts-tab slope (200 W/K)"
 battery_pack_voltage_v,400,V,Nominal pack voltage,Battery,Only scales current; energy results do not depend on it,Typical 350–400 V passenger EV packs
-cabin_setpoint_c,22,°C,Cabin temperature,Cabin climate,Temperature the heating / AC holds in the cabin,Argonne's tests hold 72 °F (22.2 °C)
+cabin_setpoint_c,22,°C,Default cabin temperature,Cabin climate,"Starting value of the stress tests' cabin temperature (each test sets its own, or heating / AC off)",Argonne's tests hold 72 °F (22.2 °C)
 cabin_occupants,1,,People in the car,Cabin climate,"Body heat helps heating and adds to the AC load",Assumption: the driver
 occupant_sensible_w,73,W,Body heat per person,Cabin climate,"Dry heat given off by a seated, moderately active person","ASHRAE Handbook – Fundamentals, Table 1 (people): moderately active office work 250 Btu/h sensible + 200 Btu/h latent = 73 W + 59 W (as tabulated in the Autodesk Revit help)"
 occupant_latent_w,59,W,Body moisture per person (as heat),Cabin climate,Moisture the AC has to condense,"ASHRAE Handbook – Fundamentals, Table 1 (people), see body heat"

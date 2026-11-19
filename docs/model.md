@@ -66,7 +66,7 @@ rated × η_charge × distance = Σ(F·v)⁺ / η_drive − η_regen · Σ|F·v|
 ## 3. Onboard systems
 
 ```
-onboard power = electronics (car class) + cabin heating/AC × usage %
+onboard power = electronics (car class) + cabin heating/AC holding the set cabin temperature (or off)
               + once per trip: bringing the parked cabin to temperature
 battery heating/cooling: per trip, from the battery's temperature (section 4)
 ```
@@ -78,7 +78,8 @@ Regular car 0.22 kW (0.15 + 0.05 + 0.02), large/premium 0.42 kW (0.20 + 0.10 + 0
 its sensors). Argonne measured 0.14–0.23 kW of non-climate load in two parked EVs; Tesla's self-driving computer
 (HW3) draws 72 W and an NVIDIA Orin module 15–60 W. The electronics also run during the official test (section 2).
 
-**Cabin heating and AC:** a steady heat balance of the cabin held at the setpoint (22 °C):
+**Cabin heating and AC:** a steady heat balance of the cabin held at the cabin temperature set in each stress test
+(default 22 °C, as in Argonne's tests at 72 °F):
 
 ```
 heat into the cabin  Q = UA · (T_air − T_cabin)               walls and windows, 45 W/K
@@ -101,7 +102,14 @@ cooling (Q > 0):  P = (Q + moisture) / COP_ac                       moisture: fr
 - **Start of a trip:** a parked cabin is at the air temperature plus 22 K × sunshine ÷ 1000 W/m² (parked cars
   warm by about 22 K within an hour in full sun, McLaren et al. 2005). Heating or cooling its 200 kJ/K (premium
   230) to the setpoint costs C · ΔT ÷ COP, once per trip; with *preconditioned*, nothing.
-- **Usage %** in the stress tests = share of the time the heating/AC is on.
+- **Cabin temperature** per stress test (traffic jam: outside and in the jam): *Off* or 16–28 °C. The heat
+  balance decides how much heating or AC that needs under the Conditions; *Off* means fan and windows only (no
+  blower, no start energy; the electronics stay on). If the heating/AC is off outside the jam and on in it, the
+  parked-cabin start energy is counted in the jam. A change of temperature between phases is not counted.
+  The long trip has a checkbox *Heating / AC on while charging (waiting in the car)*, at the trip's cabin
+  temperature; it adds to the onboard drain that slows charging. Before 19 Nov 2026 this input was a usage %
+  (share of the time on, a leftover of the spreadsheet); saved scenarios convert 0 % to *Off* and anything else to
+  the default 22 °C.
 - **Petrol car:** heating uses engine waste heat (only the blower costs fuel); AC as above, converted to litres.
 
 **Checked against measurements** (`data/onboard/measurements.csv`, also on the Physics page):
@@ -182,41 +190,42 @@ for all 21 cars before these fixes.
 
 ## 7. How the results moved (spreadsheet defaults, 25 °C)
 
-Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) or missing (−) battery capacity.
+Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) or missing (−) battery capacity. The
+spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test.
 
 | Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|
-| Neta V | +26 % · **+66 %** | −29 % · **−35 %** | −41 % · **+10 %** | 16.8 · **16.0** | 1308 · **1231** | 3.21 · **3.48** |
-| Ora Good Cat | −25 % · **+65 %** | −87 % · **−55 %** | −100 % · **+3 %** | 18.4 · **16.1** | 1941 · **1398** | 4.51 · **4.61** |
-| BYD Atto 3 | +12 % · **+77 %** | −4 % · **+8 %** | −8 % · **+39 %** | 15.5 · **14.5** | 1134 · **832** | 4.32 · **4.52** |
-| Tesla Model 3 2021 | −34 % · **+69 %** | −34 % · **+1 %** | −35 % · **+42 %** | 15.4 · **14.2** | 1513 · **924** | 6.93 · **7.05** |
-| Nio ET7 75kW | −13 % · **+72 %** | −29 % · **+1 %** | −34 % · **+45 %** | 15.8 · **14.5** | 1415 · **917** | 7.75 · **7.87** |
-| Neta S | +42 % · **+83 %** | +25 % · **+29 %** | +21 % · **+60 %** | 15.5 · **14.5** | 801 · **640** | 7.61 · **7.88** |
-| Neta X | +13 % · **+76 %** | −6 % · **−1 %** | −11 % · **+34 %** | 16.3 · **15.1** | 1143 · **912** | 4.17 · **4.46** |
-| Aion Y Plus | +12 % · **+75 %** | −13 % · **−10 %** | −19 % · **+30 %** | 16.8 · **15.4** | 1209 · **983** | 4.91 · **5.21** |
-| Aion Hyptec HT | +7 % · **+77 %** | +4 % · **+17 %** | +3 % · **+51 %** | 14.3 · **13.9** | 1074 · **761** | 6.49 · **6.78** |
-| Deepal L07 | +20 % · **+77 %** | +5 % · **+12 %** | +2 % · **+48 %** | 16.4 · **15.0** | 1027 · **796** | 5.89 · **6.15** |
-| BYD Seal low | +9 % · **+72 %** | −27 % · **−21 %** | −35 % · **+34 %** | 17.0 · **15.6** | 1337 · **1097** | 5.06 · **5.37** |
-| BYD Seal high | +30 % · **+76 %** | −9 % · **−5 %** | −17 % · **+45 %** | 16.3 · **15.2** | 1124 · **950** | 5.94 · **6.28** |
-| Zeekr X | +15 % · **+73 %** | −25 % · **−24 %** | −34 % · **+25 %** | 15.4 · **14.7** | 1304 · **1108** | 5.83 · **6.18** |
-| Xpeng G6 | −20 % · **+69 %** | −38 % · **−24 %** | −42 % · **+25 %** | 15.0 · **14.3** | 1506 · **1132** | 6.65 · **6.99** |
-| Avatar 11 | +31 % · **+81 %** | +17 % · **+24 %** | +13 % · **+56 %** | 15.2 · **14.3** | 900 · **687** | 8.96 · **9.32** |
-| Ora 07 | +31 % · **+76 %** | −6 % · **−4 %** | −14 % · **+43 %** | 16.7 · **15.5** | 1096 · **928** | 6.25 · **6.59** |
-| Honda City | +35 % · **+91 %** | +56 % · **+64 %** | +60 % · **+84 %** | 13.3 · **13.3** | 550 · **325** | 4.28 · **4.81** |
-| Deepal S05 | +1 % · **+70 %** | −39 % · **−34 %** | −47 % · **+20 %** | 15.3 · **14.6** | 1457 · **1211** | 4.38 · **4.71** |
-| BYD Dolphin | +35 % · **+67 %** | −38 % · **−45 %** | −53 % · **+11 %** | 16.0 · **15.4** | 1358 · **1309** | 3.34 · **3.66** |
-| Dolphin ER | +45 % · **+72 %** | −19 % · **−26 %** | −33 % · **+24 %** | 15.3 · **14.9** | 1172 · **1131** | 3.73 · **4.05** |
-| Hyundai Inster | +32 % · **+68 %** | −43 % · **−27 %** | −59 % · **+19 %** | 15.6 · **14.8** | 1408 · **1150** | 1.76 · **4.89** |
-| MG Windsor LG | +42 % · **+73 %** | −4 % · **−7 %** | −14 % · **+30 %** | 15.7 · **15.0** | 1048 · **971** | – · **–** |
-| MG Windsor | +22 % · **+65 %** | −40 % · **−41 %** | −53 % · **+6 %** | 16.7 · **15.8** | 1415 · **1284** | – · **–** |
+| Neta V | +26 % · **+65 %** | −29 % · **−39 %** | −41 % · **+10 %** | 16.8 · **16.0** | 1308 · **1291** | 3.21 · **3.53** |
+| Ora Good Cat | −25 % · **+64 %** | −87 % · **−58 %** | −100 % · **+3 %** | 18.4 · **16.2** | 1941 · **1452** | 4.51 · **4.66** |
+| BYD Atto 3 | +12 % · **+76 %** | −4 % · **+6 %** | −8 % · **+39 %** | 15.5 · **14.5** | 1134 · **872** | 4.32 · **4.57** |
+| Tesla Model 3 2021 | −34 % · **+68 %** | −34 % · **−2 %** | −35 % · **+41 %** | 15.4 · **14.2** | 1513 · **973** | 6.93 · **7.11** |
+| Nio ET7 75kW | −13 % · **+71 %** | −29 % · **−2 %** | −34 % · **+45 %** | 15.8 · **14.5** | 1415 · **957** | 7.75 · **7.93** |
+| Neta S | +42 % · **+82 %** | +25 % · **+27 %** | +21 % · **+59 %** | 15.5 · **14.5** | 801 · **666** | 7.61 · **7.94** |
+| Neta X | +13 % · **+75 %** | −6 % · **−4 %** | −11 % · **+34 %** | 16.3 · **15.1** | 1143 · **952** | 4.17 · **4.51** |
+| Aion Y Plus | +12 % · **+74 %** | −13 % · **−12 %** | −19 % · **+30 %** | 16.8 · **15.4** | 1209 · **1023** | 4.91 · **5.27** |
+| Aion Hyptec HT | +7 % · **+76 %** | +4 % · **+15 %** | +3 % · **+51 %** | 14.3 · **13.9** | 1074 · **795** | 6.49 · **6.85** |
+| Deepal L07 | +20 % · **+76 %** | +5 % · **+10 %** | +2 % · **+47 %** | 16.4 · **15.1** | 1027 · **832** | 5.89 · **6.20** |
+| BYD Seal low | +9 % · **+71 %** | −27 % · **−23 %** | −35 % · **+34 %** | 17.0 · **15.6** | 1337 · **1137** | 5.06 · **5.42** |
+| BYD Seal high | +30 % · **+75 %** | −9 % · **−7 %** | −17 % · **+45 %** | 16.3 · **15.2** | 1124 · **980** | 5.94 · **6.33** |
+| Zeekr X | +15 % · **+72 %** | −25 % · **−26 %** | −34 % · **+25 %** | 15.4 · **14.7** | 1304 · **1145** | 5.83 · **6.24** |
+| Xpeng G6 | −20 % · **+68 %** | −38 % · **−27 %** | −42 % · **+25 %** | 15.0 · **14.3** | 1506 · **1175** | 6.65 · **7.06** |
+| Avatar 11 | +31 % · **+80 %** | +17 % · **+22 %** | +13 % · **+56 %** | 15.2 · **14.3** | 900 · **711** | 8.96 · **9.38** |
+| Ora 07 | +31 % · **+76 %** | −6 % · **−5 %** | −14 % · **+43 %** | 16.7 · **15.5** | 1096 · **957** | 6.25 · **6.64** |
+| Honda City | +35 % · **+91 %** | +56 % · **+63 %** | +60 % · **+84 %** | 13.3 · **13.3** | 550 · **337** | 4.28 · **4.90** |
+| Deepal S05 | +1 % · **+69 %** | −39 % · **−37 %** | −47 % · **+19 %** | 15.3 · **14.6** | 1457 · **1254** | 4.38 · **4.76** |
+| BYD Dolphin | +35 % · **+66 %** | −38 % · **−48 %** | −53 % · **+11 %** | 16.0 · **15.4** | 1358 · **1358** | 3.34 · **3.72** |
+| Dolphin ER | +45 % · **+71 %** | −19 % · **−28 %** | −33 % · **+24 %** | 15.3 · **14.9** | 1172 · **1171** | 3.73 · **4.11** |
+| Hyundai Inster | +32 % · **+67 %** | −43 % · **−30 %** | −59 % · **+19 %** | 15.6 · **14.8** | 1408 · **1200** | 1.76 · **4.94** |
+| MG Windsor LG | +42 % · **+72 %** | −4 % · **−10 %** | −14 % · **+29 %** | 15.7 · **15.0** | 1048 · **1017** | – · **–** |
+| MG Windsor | +22 % · **+63 %** | −40 % · **−45 %** | −53 % · **+6 %** | 16.7 · **15.8** | 1415 · **1347** | – · **–** |
 
 What drives the differences:
 
-- **Onboard systems** are now 0.6–0.9 kW at the default 25 °C (electronics + AC 90 % of the time with some sun)
+- **Onboard systems** are now about 0.6–1.0 kW at the default 25 °C (electronics + AC holding 22 °C with some sun)
   instead of 3.8–5.8 kW from the Facts-tab curves, in line with the measurements in section 3. That is why the
-  **traffic jam** now passes for every car (+65 to +91 %; with the Facts-tab loads the physics model gave −38 to
+  **traffic jam** now passes for every car (+63 to +91 %; with the Facts-tab loads the physics model gave −38 to
   +71 %), and why **no charger**, **battery life** and **long trip** improved. In the 5-hour jam the onboard systems now
-  use about 3–4.5 kWh instead of 19–29 kWh.
+  use about 3.5–5 kWh instead of 19–29 kWh.
 - **Sprint** improves for almost every car: the spreadsheet's 2.5× high-speed factor is much more pessimistic than
   air drag and rolling resistance at 120 km/h.
 - **No charger** still fails for small batteries and cars whose rated consumption is high for their size (e.g.

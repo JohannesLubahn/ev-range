@@ -20,9 +20,9 @@ export interface SegmentSpec {
   timeH?: number;
   profile: Profile;
   climbM?: number;
-  /** Share of the time the cabin heating / AC is on, %. */
-  usagePct: number;
-  /** First segment of a trip: the parked cabin is heated or cooled to the setpoint. */
+  /** Cabin temperature the heating / AC holds (°C), or null when it is off. */
+  cabinC: number | null;
+  /** First segment of a trip with the heating / AC on: the parked cabin is heated or cooled to the set temperature. */
   tripStart?: boolean;
 }
 
@@ -97,6 +97,7 @@ export class CarModel {
   readonly ctx: ModelContext;
   private calibrationCache: Calibration | null = null;
   private simCache = new Map<string, SimResult>();
+  private onboardCache = new Map<string, OnboardPower>();
   private pack: Pack | null = null;
   /** Heat capacity of the battery pack (J/K). */
   readonly packHeatCapacityJPerK: number = 0;
@@ -122,15 +123,20 @@ export class CarModel {
   }
 
   // ------------------------------------------------------------------------------------------ onboard
-  onboard(usagePct: number): OnboardPower {
+  /** Onboard power with the heating / AC holding `cabinC` (°C), or off (null). Cached per cabin temperature. */
+  onboard(cabinC: number | null): OnboardPower {
+    const key = cabinC === null ? 'off' : String(cabinC);
+    const hit = this.onboardCache.get(key);
+    if (hit) return hit;
     const { ds, a, conditions } = this.ctx;
-    const p = onboardPower(ds, a, conditions, this.d.car.carClass, this.d.heatPump.value, usagePct, this.d.isIce);
+    let p = onboardPower(ds, a, conditions, this.d.car.carClass, this.d.heatPump.value, cabinC, this.d.isIce);
     if (this.d.isIce) {
       // Petrol car: onboard power is produced by the engine; convert kW into litres/hour with the calibrated factor.
       // Heating uses the engine's waste heat (only the blower costs fuel).
       const f = 1 / this.calibration().etaDrive;
-      return { ...p, totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, cabinFullKw: p.cabinFullKw * f, startKwh: p.startKwh * f };
+      p = { ...p, totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, startKwh: p.startKwh * f };
     }
+    this.onboardCache.set(key, p);
     return p;
   }
 
@@ -248,7 +254,7 @@ export class CarModel {
     const distanceKm = spec.distanceKm;
     const timeH = spec.timeH ?? (spec.avgSpeedKmh ? distanceKm / spec.avgSpeedKmh : 0);
     const avgSpeedKmh = timeH > 0 ? distanceKm / timeH : 0;
-    const onboard = this.onboard(spec.usagePct);
+    const onboard = this.onboard(spec.cabinC);
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
     const onboardKwh = onboard.totalKw * timeH + startKwh;
     const grade = distanceKm > 0 ? (spec.climbM ?? 0) / (distanceKm * 1000) : 0;

@@ -48,7 +48,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const baseAssumptions = useMemo(() => assumptionsFromDataset(ds), [ds]);
   const a = useMemo(() => applyOverrides(baseAssumptions, overrides, fx), [baseAssumptions, overrides, fx]);
   // Scenarios saved by an older version may lack newer fields (e.g. sunshine): fill them with defaults.
-  const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState) : spreadsheetDefaults(a)), [scenarioState, a]);
+  const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState, a) : spreadsheetDefaults(a)), [scenarioState, a]);
 
   const dScenario = useDeferredValue(scenario);
   const dSettings = useDeferredValue(settings);

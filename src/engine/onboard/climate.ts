@@ -62,8 +62,9 @@ export interface ClimateInput {
   heatPump: boolean;
   /** Petrol car: the cabin is heated with waste heat of the engine. */
   engineHeat?: boolean;
-  /** Overrides for checks against measurements (default: assumptions). */
-  setpointC?: number;
+  /** Cabin temperature the heating / AC holds (°C). */
+  setpointC: number;
+  /** Override for checks against measurements (default: assumptions). */
   occupants?: number;
   a: Assumptions;
 }
@@ -98,7 +99,7 @@ export interface CabinClimate {
 
 export function cabinClimate(i: ClimateInput): CabinClimate {
   const { cls, a } = i;
-  const set = i.setpointC ?? a.cabinSetpointC;
+  const set = i.setpointC;
   const occupants = i.occupants ?? a.cabinOccupants;
   const p = pressureAtAltitude(i.altitudeM);
   const rho = airDensity(i.airC, p);

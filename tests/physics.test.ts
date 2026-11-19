@@ -61,16 +61,17 @@ describe('rolling resistance', () => {
     expect(perPsi).toBeLessThan(0.02);
   });
   it('converts the tyre pressure in bar of older saved scenarios to % of the recommended pressure', () => {
-    const base = spreadsheetDefaults(assumptionsFromDataset(loadBundledDataset()));
+    const a0 = assumptionsFromDataset(loadBundledDataset());
+    const base = spreadsheetDefaults(a0);
     const legacy = (bar: number) => {
       const { tyrePressurePct: _drop, ...rest } = base.conditions;
-      return withDefaults({ ...base, conditions: { ...rest, tyrePressureBar: bar } as never }).conditions;
+      return withDefaults({ ...base, conditions: { ...rest, tyrePressureBar: bar } as never }, a0).conditions;
     };
     expect(legacy(2.0).tyrePressurePct).toBe(80);
     expect(legacy(2.5).tyrePressurePct).toBe(100);
     expect(legacy(1.0).tyrePressurePct).toBe(60);
     expect('tyrePressureBar' in legacy(2.0)).toBe(false);
-    expect(withDefaults(base).conditions.tyrePressurePct).toBe(100);
+    expect(withDefaults(base, a0).conditions.tyrePressurePct).toBe(100);
   });
 });
 
@@ -128,7 +129,7 @@ describe('cabin climate physics', () => {
   it('heat balance: walls + fresh air + sun + inside = load (heating and cooling)', () => {
     const cls = ds.onboardClasses.regular;
     for (const airC of [-10, 35]) {
-      const cl = cabinClimate({ cls, a, airC, humidityPct: 60, solarWm2: 500, altitudeM: 0, heatPump: false });
+      const cl = cabinClimate({ cls, a, airC, humidityPct: 60, solarWm2: 500, altitudeM: 0, heatPump: false, setpointC: 22 });
       const net = cl.walls + cl.freshAir + cl.sun + cl.inside;
       expect(cl.loadW).toBeCloseTo(airC < 0 ? -net : net + cl.moisture, 6);
       expect(cl.totalKw).toBeCloseTo(cl.compressorKw + cl.blowerKw, 9);
@@ -136,18 +137,58 @@ describe('cabin climate physics', () => {
   });
   it('a heat pump needs less power than a resistive heater; humid air costs AC power', () => {
     const c0 = { ...DEFAULT_CONDITIONS, airTemperatureC: 0, solarWm2: 0 };
-    expect(onboardPower(ds, a, c0, 'regular', true, 100).cabinKw).toBeLessThan(onboardPower(ds, a, c0, 'regular', false, 100).cabinKw * 0.7);
+    expect(onboardPower(ds, a, c0, 'regular', true, 22).cabinKw).toBeLessThan(onboardPower(ds, a, c0, 'regular', false, 22).cabinKw * 0.7);
     const dry = { ...DEFAULT_CONDITIONS, airTemperatureC: 33, humidityPct: 20 };
     const wet = { ...dry, humidityPct: 80 };
-    expect(onboardPower(ds, a, wet, 'regular', false, 100).cabinKw).toBeGreaterThan(onboardPower(ds, a, dry, 'regular', false, 100).cabinKw);
+    expect(onboardPower(ds, a, wet, 'regular', false, 22).cabinKw).toBeGreaterThan(onboardPower(ds, a, dry, 'regular', false, 22).cabinKw);
   });
   it('electronics of a regular car lie in Argonne’s measured range (0.14–0.23 kW)', () => {
-    expect(onboardPower(ds, a, DEFAULT_CONDITIONS, 'regular', false, 0).totalKw).toBeCloseTo(0.22, 6);
+    expect(onboardPower(ds, a, DEFAULT_CONDITIONS, 'regular', false, null).totalKw).toBeCloseTo(0.22, 6);
+  });
+  it('the cabin temperature sets the heating / AC power: cooler in the heat or warmer in the cold costs more', () => {
+    const hot = { ...DEFAULT_CONDITIONS, airTemperatureC: 35, solarWm2: 800 };
+    expect(onboardPower(ds, a, hot, 'regular', false, 20).cabinKw).toBeGreaterThan(onboardPower(ds, a, hot, 'regular', false, 26).cabinKw);
+    const cold = { ...DEFAULT_CONDITIONS, airTemperatureC: -10, solarWm2: 0 };
+    expect(onboardPower(ds, a, cold, 'regular', false, 24).cabinKw).toBeGreaterThan(onboardPower(ds, a, cold, 'regular', false, 18).cabinKw);
+    // Air at the cabin temperature, no sun: only the body heat and devices need a little cooling.
+    const mild = { ...DEFAULT_CONDITIONS, airTemperatureC: 22, solarWm2: 0 };
+    const m = onboardPower(ds, a, mild, 'regular', false, 22);
+    expect(m.climate?.mode).toBe('cooling');
+    expect(m.cabinKw).toBeLessThan(0.3);
+  });
+  it('heating / AC off: no cabin power and no start energy, the electronics stay', () => {
+    const hot = { ...DEFAULT_CONDITIONS, airTemperatureC: 35, solarWm2: 800 };
+    const off = onboardPower(ds, a, hot, 'regular', false, null);
+    expect(off.cabinKw).toBe(0);
+    expect(off.startKwh).toBe(0);
+    expect(off.climate).toBeNull();
+    expect(off.totalKw).toBeCloseTo(onboardPower(ds, a, hot, 'regular', false, 22).baseKw, 9);
+  });
+  it('converts the heating / AC usage % of older saved scenarios to a cabin temperature', () => {
+    const sc = spreadsheetDefaults(a);
+    const legacy = {
+      ...sc,
+      trafficJam: { ...sc.trafficJam, cabinOutsideC: undefined, cabinJamC: undefined, usageOutsidePct: 0, usageJamPct: 90 },
+      noCharger: { ...sc.noCharger, cabinC: undefined, usagePct: 50 },
+      longTrip: { ...sc.longTrip, cabinC: undefined, climateWhileCharging: undefined, usageDrivingPct: 90, usageChargingPct: 0 },
+    } as never;
+    for (const t of ['trafficJam', 'noCharger', 'longTrip'] as const) {
+      for (const k of Object.keys(legacy[t])) if ((legacy[t] as Record<string, unknown>)[k] === undefined) delete (legacy[t] as Record<string, unknown>)[k];
+    }
+    const s = withDefaults(legacy, a);
+    expect(s.trafficJam.cabinOutsideC).toBeNull();
+    expect(s.trafficJam.cabinJamC).toBe(a.cabinSetpointC);
+    expect(s.noCharger.cabinC).toBe(a.cabinSetpointC);
+    expect(s.longTrip.cabinC).toBe(a.cabinSetpointC);
+    expect(s.longTrip.climateWhileCharging).toBe(false);
+    expect('usagePct' in s.noCharger).toBe(false);
+    expect('usageChargingPct' in s.longTrip).toBe(false);
+    expect(withDefaults(sc, a)).toEqual(sc);
   });
   it('preconditioned cars start without heating or cooling the cabin', () => {
     const hot = { ...DEFAULT_CONDITIONS, airTemperatureC: 35, solarWm2: 800 };
-    expect(onboardPower(ds, a, hot, 'regular', false, 100).startKwh).toBeGreaterThan(0.3);
-    expect(onboardPower(ds, a, { ...hot, thermalMode: 'preconditioned' }, 'regular', false, 100).startKwh).toBe(0);
+    expect(onboardPower(ds, a, hot, 'regular', false, 22).startKwh).toBeGreaterThan(0.3);
+    expect(onboardPower(ds, a, { ...hot, thermalMode: 'preconditioned' }, 'regular', false, 22).startKwh).toBe(0);
   });
 });
 

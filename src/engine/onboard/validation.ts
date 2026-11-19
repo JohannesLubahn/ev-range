@@ -32,7 +32,7 @@ export function checkMeasurement(ds: Dataset, a: Assumptions, m: OnboardMeasurem
       }).totalKw
     : 0;
   const modelKw = m.compare === 'electronics' ? electronics : m.compare === 'climate' ? climate : electronics + climate;
-  const f = factsTabPower(ds, m.carClass, m.airC, 100);
+  const f = factsTabPower(ds, m.carClass, m.airC, true);
   const factsKw = !f ? null : m.compare === 'electronics' ? f.baseKw : m.compare === 'climate' ? f.cabinKw + f.batteryKw : f.totalKw;
   const lo = m.measuredMinKw ?? m.measuredKw ?? 0;
   const hi = m.measuredMaxKw ?? m.measuredKw ?? 0;

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { STRESS_TESTS } from '../caseMeta';
 import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type SideColumn, type StackSeries, type StackedRow } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
-import { NumberField, SelectField } from '../components/Fields';
+import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
 import type { DerivedCar } from '../engine/derive';
 import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
@@ -11,7 +11,7 @@ import { useEngine } from '../state/engine';
 import { useStore, type StressKey } from '../state/store';
 
 const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
-const USAGE = 'Cabin AC / heating';
+const CABIN = 'Cabin heating / AC';
 
 function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; set: (s: Scenario) => void }) {
   switch (tab) {
@@ -28,8 +28,8 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <NumberField label="Distance after the jam" unit="km" min={0} max={200} value={i.distAfterKm} onChange={(v) => u({ distAfterKm: v })} />
           <NumberField label="Average speed outside the jam" unit="km/h" min={10} max={130} value={i.speedOutsideKmh} onChange={(v) => u({ speedOutsideKmh: v })} />
           <SelectField label="Driving outside the jam" value={i.profileOutside} options={profileOptions} onChange={(v: Profile) => u({ profileOutside: v })} />
-          <NumberField label={`${USAGE} outside the jam`} unit="%" min={0} max={100} value={i.usageOutsidePct} onChange={(v) => u({ usageOutsidePct: v })} />
-          <NumberField label={`${USAGE} in the jam`} unit="%" min={0} max={100} value={i.usageJamPct} onChange={(v) => u({ usageJamPct: v })} />
+          <CabinField label={`${CABIN} outside the jam`} value={i.cabinOutsideC} onChange={(v) => u({ cabinOutsideC: v })} />
+          <CabinField label={`${CABIN} in the jam`} value={i.cabinJamC} onChange={(v) => u({ cabinJamC: v })} />
         </div>
       );
     }
@@ -45,7 +45,7 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} value={i.climbM} onChange={(v) => u({ climbM: v })} />
           <NumberField label="Charge at the start" unit="%" min={10} max={100} value={i.startPct} onChange={(v) => u({ startPct: v })} />
           <NumberField label="Charge on arrival" unit="%" min={0} max={50} value={i.endPct} onChange={(v) => u({ endPct: v })} />
-          <NumberField label={USAGE} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
+          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
         </div>
       );
     }
@@ -59,8 +59,13 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
           <NumberField label="Charge from" unit="%" min={0} max={90} value={i.chargeFromPct} onChange={(v) => u({ chargeFromPct: v })} />
           <NumberField label="Charge to" unit="%" min={20} max={100} value={i.chargeToPct} onChange={(v) => u({ chargeToPct: v })} />
-          <NumberField label={`${USAGE} while driving`} unit="%" min={0} max={100} value={i.usageDrivingPct} onChange={(v) => u({ usageDrivingPct: v })} />
-          <NumberField label={`${USAGE} while charging`} unit="%" min={0} max={100} value={i.usageChargingPct} onChange={(v) => u({ usageChargingPct: v })} />
+          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
+          {i.cabinC !== null && (
+            <label className="check">
+              <input type="checkbox" checked={i.climateWhileCharging} onChange={(e) => u({ climateWhileCharging: e.target.checked })} /> Heating / AC on
+              while charging (waiting in the car)
+            </label>
+          )}
         </div>
       );
     }
@@ -73,7 +78,7 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} value={i.kmPerYear} onChange={(v) => u({ kmPerYear: v })} />
           <NumberField label="Average speed" unit="km/h" min={10} max={120} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
           <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
-          <NumberField label={USAGE} unit="%" min={0} max={100} value={i.usagePct} onChange={(v) => u({ usagePct: v })} />
+          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
           <p className="faint">
             The <a href="#cost">cost of ownership</a> uses the same years, distance and driving.
           </p>
