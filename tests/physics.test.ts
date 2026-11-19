@@ -12,7 +12,7 @@ import { airDensity, pressureAtAltitude } from '../src/engine/physics/air';
 import { wheelForces } from '../src/engine/physics/roadLoad';
 import { rollingCoefficient } from '../src/engine/physics/rolling';
 import { simulate } from '../src/engine/physics/simulate';
-import { DEFAULT_CONDITIONS } from '../src/engine/scenario';
+import { DEFAULT_CONDITIONS, spreadsheetDefaults, withDefaults } from '../src/engine/scenario';
 
 const ds = loadBundledDataset();
 const a = assumptionsFromDataset(ds);
@@ -29,7 +29,7 @@ describe('air', () => {
 
 describe('air drag reproduces the Facts tab table (Cw 0.27, 3.2 m², 1.225 kg/m³)', () => {
   const veh = { massKg: 1500, cd: 0.27, frontalAreaM2: 3.2, crrRef: 0, tyrePressureRefBar: 2.5, rotatingMassFactor: 1, etaDrive: 1, etaRegen: 0 };
-  const env = { airDensity: 1.225, tyrePressureBar: 2.5, grade: 0 };
+  const env = { airDensity: 1.225, tyrePressurePct: 100, grade: 0 };
   const table: [number, number][] = [[10, 0.01], [50, 1.42], [100, 11.34], [120, 19.6], [160, 46.46]];
   for (const [kmh, kw] of table) {
     it(`${kmh} km/h → ${kw} kW`, () => {
@@ -40,19 +40,43 @@ describe('air drag reproduces the Facts tab table (Cw 0.27, 3.2 m², 1.225 kg/m�
 });
 
 describe('rolling resistance', () => {
-  it('equals the tyre value at 80 km/h and reference pressure', () => {
-    expect(rollingCoefficient(80, 2.5, 0.008, 2.5)).toBeCloseTo(0.008, 10);
+  it('equals the tyre value at 80 km/h and the recommended pressure', () => {
+    expect(rollingCoefficient(80, 100, 0.008, 2.5)).toBeCloseTo(0.008, 10);
   });
   it('rises with speed and falls with tyre pressure', () => {
-    expect(rollingCoefficient(130, 2.5, 0.008, 2.5)).toBeGreaterThan(0.008);
-    expect(rollingCoefficient(80, 2.0, 0.008, 2.5)).toBeGreaterThan(0.008);
-    expect(rollingCoefficient(80, 3.0, 0.008, 2.5)).toBeLessThan(0.008);
+    expect(rollingCoefficient(130, 100, 0.008, 2.5)).toBeGreaterThan(0.008);
+    expect(rollingCoefficient(80, 80, 0.008, 2.5)).toBeGreaterThan(0.008);
+    expect(rollingCoefficient(80, 110, 0.008, 2.5)).toBeLessThan(0.008);
+  });
+  it('matches the measured effect of under-inflation (National Academies SR 286: ≈1.4 % per psi, >10 % for 32 → 24 psi)', () => {
+    const psi = 0.0689476; // bar
+    for (const typical of [2.2, 2.5, 2.9]) {
+      // 80 % of the recommended pressure (the tyre-pressure warning limit of UN R141)
+      const low = rollingCoefficient(80, 80, 0.008, typical) / 0.008;
+      expect(low, `${typical} bar`).toBeGreaterThan(1.12);
+      expect(low, `${typical} bar`).toBeLessThan(1.16);
+    }
+    const perPsi = rollingCoefficient(80, 100 * (1 - psi / 2.5), 0.008, 2.5) / 0.008 - 1;
+    expect(perPsi).toBeGreaterThan(0.01);
+    expect(perPsi).toBeLessThan(0.02);
+  });
+  it('converts the tyre pressure in bar of older saved scenarios to % of the recommended pressure', () => {
+    const base = spreadsheetDefaults(assumptionsFromDataset(loadBundledDataset()));
+    const legacy = (bar: number) => {
+      const { tyrePressurePct: _drop, ...rest } = base.conditions;
+      return withDefaults({ ...base, conditions: { ...rest, tyrePressureBar: bar } as never }).conditions;
+    };
+    expect(legacy(2.0).tyrePressurePct).toBe(80);
+    expect(legacy(2.5).tyrePressurePct).toBe(100);
+    expect(legacy(1.0).tyrePressurePct).toBe(60);
+    expect('tyrePressureBar' in legacy(2.0)).toBe(false);
+    expect(withDefaults(base).conditions.tyrePressurePct).toBe(100);
   });
 });
 
 describe('simulation', () => {
   const veh = { massKg: 1800, cd: 0.28, frontalAreaM2: 2.5, crrRef: 0.008, tyrePressureRefBar: 2.5, rotatingMassFactor: 1.05, etaDrive: 0.9, etaRegen: 0.7 };
-  const env = { airDensity: 1.2, tyrePressureBar: 2.5, grade: 0 };
+  const env = { airDensity: 1.2, tyrePressurePct: 100, grade: 0 };
   it('constant speed equals the closed formula F·d/η', () => {
     const v = 100 / 3.6;
     const sim = simulate(new Array(3601).fill(100), veh, env);

@@ -16,7 +16,8 @@ export interface VehiclePhysics {
 
 export interface Environment {
   airDensity: number;
-  tyrePressureBar: number;
+  /** Tyre pressure as % of the car's recommended pressure. */
+  tyrePressurePct: number;
   /** Road slope as rise over run (e.g. 0.02 = 2 %). */
   grade: number;
 }
@@ -33,7 +34,7 @@ export interface Forces {
 /** Forces at the wheels (N) at speed v (m/s) and acceleration a (m/s²). */
 export function wheelForces(v: number, a: number, veh: VehiclePhysics, env: Environment): Forces {
   const aero = 0.5 * env.airDensity * veh.cd * veh.frontalAreaM2 * v * v;
-  const crr = rollingCoefficient(v * 3.6, env.tyrePressureBar, veh.crrRef, veh.tyrePressureRefBar);
+  const crr = rollingCoefficient(v * 3.6, env.tyrePressurePct, veh.crrRef, veh.tyrePressureRefBar);
   const moving = v > 0.01;
   const rolling = moving ? crr * veh.massKg * G * Math.cos(Math.atan(env.grade)) : 0;
   const grade = moving ? veh.massKg * G * Math.sin(Math.atan(env.grade)) : 0;

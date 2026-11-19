@@ -153,8 +153,8 @@ export class CarModel {
     const c = this.ctx.conditions;
     const a = this.ctx.a;
     return test
-      ? { airDensity: airDensity(a.testTemperatureC), tyrePressureBar: a.tyrePressureRefBar, grade: 0 }
-      : { airDensity: airDensity(c.airTemperatureC, pressureAtAltitude(c.altitudeM)), tyrePressureBar: c.tyrePressureBar, grade };
+      ? { airDensity: airDensity(a.testTemperatureC), tyrePressurePct: 100, grade: 0 }
+      : { airDensity: airDensity(c.airTemperatureC, pressureAtAltitude(c.altitudeM)), tyrePressurePct: c.tyrePressurePct, grade };
   }
 
   /**

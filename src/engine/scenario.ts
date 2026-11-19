@@ -6,14 +6,25 @@ export const DEFAULT_CONDITIONS: Conditions = {
   humidityPct: 60,
   altitudeM: 0,
   payloadKg: 100,
-  tyrePressureBar: 2.5,
+  tyrePressurePct: 100,
   thermalMode: 'managed',
   preconditionedC: 20,
 };
 
-/** Fills in fields that scenarios saved by an older version of the app do not have yet. */
+/** Tyre pressure in bar that older versions of the app treated as "as recommended" for every car. */
+const LEGACY_REFERENCE_BAR = 2.5;
+
+/**
+ * Fills in fields that scenarios saved by an older version of the app do not have yet, and converts the old
+ * absolute tyre pressure (bar) to % of the recommended pressure.
+ */
 export function withDefaults(s: Scenario): Scenario {
-  return { ...s, conditions: { ...DEFAULT_CONDITIONS, ...s.conditions } };
+  const { tyrePressureBar, ...saved } = (s.conditions ?? {}) as Partial<Conditions> & { tyrePressureBar?: number };
+  const conditions: Conditions = { ...DEFAULT_CONDITIONS, ...saved };
+  if (saved.tyrePressurePct === undefined && typeof tyrePressureBar === 'number' && Number.isFinite(tyrePressureBar)) {
+    conditions.tyrePressurePct = Math.min(110, Math.max(60, Math.round((tyrePressureBar / LEGACY_REFERENCE_BAR) * 100)));
+  }
+  return { ...s, conditions };
 }
 
 /** The inputs of the spreadsheet's Battery Sizing tab (column D), as one scenario for all cars. */
@@ -44,6 +55,6 @@ export function spreadsheetDefaults(a: Assumptions): Scenario {
     batteryLife: { years: 20, kmPerYear: 15000, speedKmh: 40, usagePct: 60, profile: 'mixed' },
     sprint: { distanceKm: 140, startPct: 95, endPct: 5, speedKmh: 120, usagePct: 90, profile: 'steady', climbM: 0 },
     cost: { energyPrice: a.electricityPrice, maintenancePerYear: a.maintenancePerYear },
-    conditions: { ...DEFAULT_CONDITIONS, tyrePressureBar: a.tyrePressureRefBar },
+    conditions: { ...DEFAULT_CONDITIONS },
   };
 }

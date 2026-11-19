@@ -60,7 +60,8 @@ export interface Conditions {
   humidityPct: number;
   altitudeM: number;
   payloadKg: number;
-  tyrePressureBar: number;
+  /** Tyre pressure as % of the car's recommended pressure (100 = as recommended). */
+  tyrePressurePct: number;
   thermalMode: ThermalMode;
   preconditionedC: number;
 }

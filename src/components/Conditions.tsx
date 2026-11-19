@@ -38,7 +38,7 @@ export function ConditionsSummary() {
         Load <b>+{num(c.payloadKg, 0)} kg</b>
       </span>
       <span>
-        Tyres <b>{num(c.tyrePressureBar, 1)} bar</b>
+        Tyres <b>{c.tyrePressurePct === 100 ? 'as recommended' : `${num(c.tyrePressurePct, 0)} % of recommended`}</b>
       </span>
       <span>
         Battery <b>{c.thermalMode === 'managed' ? 'managed' : c.thermalMode === 'ambient' ? 'unmanaged' : `at ${c.preconditionedC} °C`}</b>
@@ -135,7 +135,15 @@ export function ConditionsPanel() {
         <NumberField label="Air humidity" unit="%" min={0} max={100} step={5} value={c.humidityPct} onChange={(v) => set({ humidityPct: v })} />
         <NumberField label="Altitude" unit="m" min={0} max={4500} step={50} value={c.altitudeM} onChange={(v) => set({ altitudeM: v })} />
         <NumberField label="Load (people + luggage)" unit="kg" min={0} max={800} step={10} value={c.payloadKg} onChange={(v) => set({ payloadKg: v })} />
-        <NumberField label="Tyre pressure" unit="bar" min={1.5} max={3.5} step={0.1} value={c.tyrePressureBar} onChange={(v) => set({ tyrePressureBar: v })} />
+        <NumberField
+          label="Tyre pressure, % of the car's recommended (80 = warning light)"
+          unit="%"
+          min={60}
+          max={110}
+          step={5}
+          value={c.tyrePressurePct}
+          onChange={(v) => set({ tyrePressurePct: v })}
+        />
         <SelectField label="Battery temperature" value={c.thermalMode} options={thermalOptions(a)} onChange={(v) => set({ thermalMode: v })} />
         {c.thermalMode === 'preconditioned' && (
           <NumberField label="Preconditioned to" unit="°C" min={-10} max={40} step={1} value={c.preconditionedC} onChange={(v) => set({ preconditionedC: v })} />
