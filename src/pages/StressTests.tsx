@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { STRESS_TESTS } from '../caseMeta';
+import { BATTERY_LIFE_CASE, STRESS_TESTS, type CaseMeta } from '../caseMeta';
 import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type SideColumn, type StackSeries, type StackedRow } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
@@ -128,7 +128,7 @@ function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; se
           <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
           <CareFields value={i} onChange={u} />
           <p className="faint">
-            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving. The battery wear in the other
+            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving. The battery wear in the stress
             tests (Conditions: km driven) uses the same driving and battery care.
           </p>
         </div>
@@ -225,15 +225,16 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
   );
 }
 
-export function StressTestsPage() {
+/**
+ * One test: its inputs and the conditions on the left, the chart on the right. Used by the Stress tests page (with its
+ * tabs) and by the Battery life page.
+ */
+function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressKey; meta: CaseMeta; title: string; intro: string; tabs?: ReactNode; inputsTitle: string }) {
   const { scenario, out, selectedIds, derivedById, stale, a } = useEngine();
-  const tab = useStore((s) => s.stressTab);
-  const setTab = useStore((s) => s.setStressTab);
   const setScenario = useStore((s) => s.setScenario);
   const openDrawer = useStore((s) => s.openDrawer);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = selectedIds.filter((id) => out.results[id]);
-  const meta = STRESS_TESTS.find((c) => c.key === tab) ?? STRESS_TESTS[0];
   const open = (id: string) => openDrawer(id, tab);
   const side = consumptionColumn(ids, (r) => r[tab].average, out.results, derivedById);
 
@@ -360,26 +361,20 @@ export function StressTestsPage() {
     <div className="stack">
       <div className="page-head">
         <div className="stack" style={{ gap: 4 }}>
-          <h1>Stress tests</h1>
-          <p className="muted">Change the inputs on the left; every selected car is recalculated. Select a bar for the full calculation.</p>
+          <h1>{title}</h1>
+          <p className="muted">{intro}</p>
         </div>
         <div className="row">
           <CarsButton />
           <PresetPicker />
         </div>
       </div>
-      <div className="tabs" role="tablist" aria-label="Stress test">
-        {STRESS_TESTS.map((c) => (
-          <button key={c.key} type="button" role="tab" aria-selected={tab === c.key} onClick={() => setTab(c.key)}>
-            {c.label}
-          </button>
-        ))}
-      </div>
+      {tabs}
       <div className="case-grid">
         <div className="stack">
           <div className="panel stack">
             <div>
-              <h2>{meta.label}</h2>
+              <h2>{inputsTitle}</h2>
               <p className="muted">{meta.question}</p>
             </div>
             <Inputs tab={tab} scenario={scenario} set={setScenario} />
@@ -402,5 +397,42 @@ export function StressTestsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function StressTestsPage() {
+  const tab = useStore((s) => s.stressTab);
+  const setTab = useStore((s) => s.setStressTab);
+  const meta = STRESS_TESTS.find((c) => c.key === tab) ?? STRESS_TESTS[0];
+  return (
+    <TestView
+      tab={meta.key}
+      meta={meta}
+      title="Stress tests"
+      intro="Change the inputs on the left; every selected car is recalculated. Select a bar for the full calculation."
+      inputsTitle={meta.label}
+      tabs={
+        <div className="tabs" role="tablist" aria-label="Stress test">
+          {STRESS_TESTS.map((c) => (
+            <button key={c.key} type="button" role="tab" aria-selected={meta.key === c.key} onClick={() => setTab(c.key)}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      }
+    />
+  );
+}
+
+/** Battery life: capacity left after the years of use, on its own page between the stress tests and the cost. */
+export function BatteryLifePage() {
+  return (
+    <TestView
+      tab="batteryLife"
+      meta={BATTERY_LIFE_CASE}
+      title={BATTERY_LIFE_CASE.label}
+      intro="Capacity left after the years you keep the car, from charge cycles and age. Change the inputs on the left; select a bar for the full calculation."
+      inputsTitle="Inputs"
+    />
   );
 }

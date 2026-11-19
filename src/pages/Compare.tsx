@@ -74,8 +74,8 @@ export function ComparePage() {
           <div className="stack" style={{ gap: 4 }}>
             <h1>Compare</h1>
             <p className="muted">
-              Four stress tests check whether the battery is enough; the percentage is the spare (or missing) capacity. Long trip and cost
-              compare time and money. Select any cell for the full calculation.
+              Three stress tests and the battery life check whether the battery is enough; the percentage is the spare (or missing) capacity.
+              Long trip and cost compare time and money. Select any cell for the full calculation.
             </p>
           </div>
         </div>

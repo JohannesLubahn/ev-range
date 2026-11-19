@@ -5,8 +5,9 @@ sprint, long trip, battery life) and in their cost of ownership. Consumption is 
 drag, rolling resistance, slope, acceleration, heating and AC from a heat balance of the cabin, battery chemistry and
 temperature) and calibrated per car to its rated consumption.
 
-Pages: **Compare** (all results in one table), **Stress tests** (one tab per test: battery needed vs. available
-and the average consumption in kWh/100 km), **Cost of ownership**, **Cars** (specs and data check), **Physics** (how
+Pages: **Compare** (all results in one table), **Stress tests** (one tab per test: traffic jam, no charger, sprint,
+long trip; battery needed vs. available and the average consumption in kWh/100 km), **Battery life** (capacity left
+after the years of use), **Cost of ownership**, **Cars** (specs and data check), **Physics** (how
 the model behaves, checked against measurements) and **Assumptions** (every constant, with sources).
 
 ## Run it

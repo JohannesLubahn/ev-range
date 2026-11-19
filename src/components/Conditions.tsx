@@ -193,7 +193,7 @@ export function ConditionsPanel({ showBatteryKm = true }: { showBatteryKm?: bool
           more kinetic energy is braked away, and braking harder than {num(a.regenMaxDecelMs2, 1)} m/s² or below {num(a.regenMinKmh, 0)} km/h
           goes to the friction brakes instead of the regeneration.
           {showBatteryKm &&
-            " The km driven sets the battery's wear in the stress tests, with the driving and battery care of the battery-life test (battery life and cost start from a new battery)."}
+            " The km driven sets the battery's wear in the stress tests, with the driving and battery care of the Battery life page (battery life and cost start from a new battery)."}
         </p>
       </div>
       <div className="fields">
@@ -233,7 +233,7 @@ export function ConditionsPanel({ showBatteryKm = true }: { showBatteryKm?: bool
           />
         ) : (
           <p className="faint battery-km-note">
-            Battery life and cost start from a new battery; the km driven (battery wear) applies to the other stress tests.
+            Battery life and cost start from a new battery; the km driven (battery wear) applies to the stress tests.
           </p>
         )}
         <SelectField label="Battery temperature" value={c.thermalMode} options={thermalOptions(a)} onChange={(v) => set({ thermalMode: v })} />

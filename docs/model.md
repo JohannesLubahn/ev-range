@@ -6,8 +6,8 @@ temperature over the trip from its heat capacity, losses and thermal management,
 driven from charge cycles and age (section 4). On the Assumptions page
 the battery can be switched to *ideal* (every kWh of the charge window is delivered, at any temperature and load).
 
-The stress tests are traffic jam, no charger, sprint, long trip and battery life; the cost of ownership has its own
-page. Each stress test shows, per car:
+The stress tests are traffic jam, no charger, sprint, long trip and battery life; battery life and the cost of
+ownership have their own pages, the other four are tabs of the Stress tests page. Each stress test shows, per car:
 
 - the battery needed vs. available (traffic jam, no charger, sprint), the trip time with charging (long trip) or the
   capacity left after the years of use vs. 80 % (battery life);

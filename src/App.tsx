@@ -7,7 +7,7 @@ import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
 import { CostPage } from './pages/Cost';
 import { PhysicsPage } from './pages/Physics';
-import { StressTestsPage } from './pages/StressTests';
+import { BatteryLifePage, StressTestsPage } from './pages/StressTests';
 import { useEngine } from './state/engine';
 import { useStore, VIEWS, type Theme, type View } from './state/store';
 
@@ -91,6 +91,7 @@ export function App() {
         )}
         {view === 'compare' && <ComparePage />}
         {view === 'stress-tests' && <StressTestsPage />}
+        {view === 'battery-life' && <BatteryLifePage />}
         {view === 'cost' && <CostPage />}
         {view === 'cars' && <CarsPage />}
         {view === 'physics' && <PhysicsPage />}

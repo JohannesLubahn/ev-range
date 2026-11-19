@@ -5,10 +5,11 @@ import type { Assumptions, Conditions, ModelSettings, Scenario } from '../engine
 import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from './carList';
 import { load, save } from './storage';
 
-export type View = 'compare' | 'stress-tests' | 'cost' | 'cars' | 'physics' | 'assumptions';
+export type View = 'compare' | 'stress-tests' | 'battery-life' | 'cost' | 'cars' | 'physics' | 'assumptions';
 export const VIEWS: { id: View; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'stress-tests', label: 'Stress tests' },
+  { id: 'battery-life', label: 'Battery life' },
   { id: 'cost', label: 'Cost of ownership' },
   { id: 'cars', label: 'Cars' },
   { id: 'physics', label: 'Physics' },
@@ -16,9 +17,11 @@ export const VIEWS: { id: View; label: string }[] = [
 ];
 
 export type CaseKey = 'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost';
-/** The stress tests (tabs of the Stress tests page); cost of ownership has its own page. */
+/** The tests with a battery-needed result and an average consumption; cost of ownership has its own page. */
 export type StressKey = Exclude<CaseKey, 'cost'>;
-const STRESS_KEYS: StressKey[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip', 'batteryLife'];
+/** The tabs of the Stress tests page; battery life has its own page. */
+export type StressTab = Exclude<StressKey, 'batteryLife'>;
+const STRESS_TABS: StressTab[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip'];
 export type SortKey = 'overall' | 'name' | CaseKey;
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -73,7 +76,7 @@ export interface AppState extends SharedState {
   sort: { key: SortKey; dir: 1 | -1 };
   theme: Theme;
   drawer: { carId: string; caseKey: CaseKey } | null;
-  stressTab: StressKey;
+  stressTab: StressTab;
   physicsCars: string[];
 
   setScenario: (s: Scenario) => void;
@@ -95,7 +98,7 @@ export interface AppState extends SharedState {
   setTheme: (t: Theme) => void;
   openDrawer: (carId: string, caseKey: CaseKey) => void;
   closeDrawer: () => void;
-  setStressTab: (t: StressKey) => void;
+  setStressTab: (t: StressTab) => void;
   setPhysicsCars: (ids: string[]) => void;
   setAssumption: (key: Exclude<keyof Assumptions, 'fx'>, value: number | string | undefined) => void;
   setFx: (cur: string, value: number | undefined) => void;
@@ -122,8 +125,9 @@ function knownOverrides(raw: unknown): AssumptionOverrides {
   return Object.fromEntries(Object.entries(raw).filter(([k]) => ASSUMPTION_KEYS.has(k))) as AssumptionOverrides;
 }
 
-function stressKey(v: unknown): StressKey {
-  return STRESS_KEYS.includes(v as StressKey) ? (v as StressKey) : 'noCharger';
+/** A saved tab that no longer exists (battery life moved to its own page) falls back to No charger. */
+function parseStressTab(v: unknown): StressTab {
+  return STRESS_TABS.includes(v as StressTab) ? (v as StressTab) : 'noCharger';
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -145,7 +149,7 @@ export const useStore = create<AppState>((set, get) => ({
   sort: load<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'overall', dir: 1 }),
   theme: load<Theme>('theme', 'system'),
   drawer: null,
-  stressTab: stressKey(load<unknown>('stressTab', 'noCharger')),
+  stressTab: parseStressTab(load<unknown>('stressTab', 'noCharger')),
   physicsCars: load<string[]>('physicsCars', []),
 
   setScenario: (s) => set({ scenario: s, presetId: 'custom' }),
