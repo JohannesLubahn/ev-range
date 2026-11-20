@@ -1085,6 +1085,14 @@ table {
 .input-group > .fields {
   padding: 2px 0 14px;
 }
+.assumption-subhead {
+  margin: 18px 0 2px;
+  font-size: 14px;
+}
+.assumption-note {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+}
 .tax-groups {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

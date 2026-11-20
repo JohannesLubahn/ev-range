@@ -2,7 +2,7 @@ import { IconExternal } from '../components/Icons';
 import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import type { Assumptions } from '../engine/types';
-import { RunningCosts } from '../components/RunningCosts';
+import { RoadTaxTables, RunningCostRows } from '../components/RunningCosts';
 import { num } from '../format';
 import { ALL_MARKETS } from '../state/carList';
 import { useEngine } from '../state/engine';
@@ -114,14 +114,13 @@ export function AssumptionsPage() {
               .map((d) => {
                 const fxMatch = /^fx_([A-Z]{3})$/i.exec(d.key);
                 const key = NUMERIC_KEYS[d.key] as Key | undefined;
-                const isText = d.key === 'default_basis' || d.key === 'display_currency';
-                const current = fxMatch
-                  ? a.fx[fxMatch[1].toUpperCase()]
-                  : key
-                    ? (a[key] as number)
-                    : isText
-                      ? (a[d.key === 'default_basis' ? 'defaultBasis' : 'displayCurrency'] as string)
-                      : d.value;
+                const TEXT_KEYS: Record<string, 'defaultBasis' | 'displayCurrency' | 'costMarket'> = {
+                  default_basis: 'defaultBasis',
+                  display_currency: 'displayCurrency',
+                  cost_default_market: 'costMarket',
+                };
+                const textKey = TEXT_KEYS[d.key];
+                const current = fxMatch ? a.fx[fxMatch[1].toUpperCase()] : key ? (a[key] as number) : textKey ? (a[textKey] as string) : d.value;
                 const base = fxMatch
                   ? baseAssumptions.fx[fxMatch[1].toUpperCase()]
                   : key
@@ -140,7 +139,7 @@ export function AssumptionsPage() {
                           <option key={b}>{b}</option>
                         ))}
                       </select>
-                    ) : d.key === 'display_currency' ? (
+                    ) : d.key === 'display_currency' || d.key === 'cost_default_market' ? (
                       <input id={id} type="text" value={String(current)} readOnly title="Set in data/assumptions.csv" />
                     ) : (
                       <input
@@ -168,6 +167,7 @@ export function AssumptionsPage() {
                   </div>
                 );
               })}
+            {g === 'Costs' && <RunningCostRows a={a} />}
           </section>
         ))}
       </div>
@@ -204,7 +204,7 @@ export function AssumptionsPage() {
         </div>
       </section>
 
-      <RunningCosts />
+      <RoadTaxTables />
 
       <section className="panel stack" id="sources">
         <div>

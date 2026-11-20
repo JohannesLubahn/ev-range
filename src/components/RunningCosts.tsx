@@ -1,26 +1,109 @@
-// Assumptions page: the running costs of the market in use (data/running_costs.csv) and its road tax (data/road_tax.csv).
-import type { RoadTaxRow, RunningCostRow } from '../data/types';
-import { COST_ITEMS, COST_ITEM_LABELS } from '../engine/costItems';
+// Assumptions page: the running costs of the market in use (data/running_costs.csv) as rows of the Costs group, with
+// their sources like every other assumption, and the road-tax bands (data/road_tax.csv).
+import { Fragment, type MouseEvent } from 'react';
+import type { RoadTaxRow, RunningCostRow, Source } from '../data/types';
+import { COST_ITEMS, COST_ITEM_LABELS, type CostItem } from '../engine/costItems';
+import { marketCosts } from '../engine/costs';
+import type { Assumptions } from '../engine/types';
 import { num } from '../format';
 import { useEngine } from '../state/engine';
 
-function SourceLinks({ ids }: { ids: string[] }) {
-  if (ids.length === 0) return <span className="chip est">judgement</span>;
+/** "Source: Green Energy Thailand 2026; Krungsri Research 2024" with links to the numbered list; judgement if none. */
+function SourceText({ ids, sources }: { ids: string[]; sources: Source[] }) {
+  if (ids.length === 0) return <>Source: judgement (no source found)</>;
   return (
     <>
-      {ids.map((id, i) => (
-        <span key={id}>
-          {i > 0 && ', '}
-          <a href={`#source-${id}`}>{id}</a>
-        </span>
-      ))}
+      Source:{' '}
+      {ids.map((id, i) => {
+        const s = sources.find((x) => x.id === id);
+        // Your own files by name (e.g. "EV Calculations.ods"), others by publisher and year.
+        const text = !s ? id : s.topic === 'Your files' ? s.title.split(' (')[0] : [s.publisher || s.authors, s.year].filter(Boolean).join(' ') || s.title;
+        return (
+          <Fragment key={id}>
+            {i > 0 && '; '}
+            <a href={`#source-${id}`} title={s?.title} onClick={jump(`source-${id}`)}>
+              {text}
+            </a>
+          </Fragment>
+        );
+      })}
     </>
   );
 }
 
-const value = (r: RunningCostRow | undefined) => (r ? num(r.value, r.value % 1 === 0 ? 0 : 2) : '–');
+const unique = <T,>(xs: T[]) => [...new Set(xs)];
+
+/** The page is chosen by the URL hash, so links within the page scroll instead of changing the hash. */
+function jump(id: string) {
+  return (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+}
+
+/**
+ * The running costs as assumption rows (label, value, why · source). Values are the standard of the Cost page's inputs;
+ * they are changed there (for the session) or in data/running_costs.csv, so they are read-only here.
+ */
+export function RunningCostRows({ a }: { a: Assumptions }) {
+  const { ds } = useEngine();
+  const mc = marketCosts(a);
+  const name = ds.markets.find((m) => m.id === mc.market)?.name ?? mc.market;
+  const unitOf = (r: RunningCostRow) => r.unit.replace(mc.currency, a.displayCurrency);
+  const row = (key: string, label: string, item: CostItem, r: RunningCostRow, pt: 'BEV' | 'ICE') => {
+    const v = mc.value(item, pt);
+    return (
+      <div key={key} className="assumption">
+        <label htmlFor={`rc-${key}`}>
+          {label} <span className="faint">({unitOf(r)})</span>
+        </label>
+        <input id={`rc-${key}`} type="text" value={num(v, v % 1 === 0 ? 0 : 2)} readOnly title="Change it on the Cost of ownership page, or for good in data/running_costs.csv" />
+        <span className="desc">
+          {r.why} · <SourceText ids={r.sources} sources={ds.sources} />
+        </span>
+      </div>
+    );
+  };
+  const tax = mc.roadTax;
+  return (
+    <>
+      <h3 className="assumption-subhead">
+        Running costs ({name}
+        {mc.currency !== a.displayCurrency ? `, converted to ${a.displayCurrency}` : ''})
+      </h3>
+      <p className="faint assumption-note">
+        The standard of the Cost of ownership&rsquo;s inputs (<span className="mono">data/running_costs.csv</span>); change them on the{' '}
+        <a href="#cost">Cost of ownership</a> page. Cars can override servicing, insurance, tyre price and energy price in cars.csv.
+      </p>
+      {COST_ITEMS.flatMap((item) => {
+        const bev = mc.row(item, 'BEV');
+        const ice = mc.row(item, 'ICE');
+        if (!bev || !ice) return [];
+        const label = COST_ITEM_LABELS[item];
+        if (bev === ice) return [row(item, label, item, bev, 'BEV')];
+        return [row(`${item}-bev`, `${label}, electric`, item, bev, 'BEV'), row(`${item}-ice`, `${label}, petrol`, item, ice, 'ICE')];
+      })}
+      {tax.length > 0 && (
+        <div className="assumption">
+          <label htmlFor="rc-road-tax">
+            Road tax <span className="faint">({a.displayCurrency}/year)</span>
+          </label>
+          <input id="rc-road-tax" type="text" value="table" readOnly title="Bands in the Road tax section (data/road_tax.csv)" />
+          <span className="desc">
+            Electric cars by curb weight, petrol cars by engine size, less for older petrol cars: see{' '}
+            <a href="#road-tax" onClick={jump('road-tax')}>
+              Road tax
+            </a> ·{' '}
+            <SourceText ids={unique(tax.flatMap((r) => r.sources))} sources={ds.sources} />
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
 
 function TaxRange({ r, unit }: { r: RoadTaxRow; unit: string }) {
+  if (unit === 'years') return r.upTo === null ? <>from year {num(r.above + 1, 0)}</> : <>year {num(r.upTo, 0)}</>;
   if (r.upTo === null) return <>above {num(r.above, 0)} {unit}</>;
   return (
     <>
@@ -29,117 +112,53 @@ function TaxRange({ r, unit }: { r: RoadTaxRow; unit: string }) {
   );
 }
 
-export function RunningCosts() {
-  const { ds, a, market } = useEngine();
-  const m = a.costMarket;
-  const name = ds.markets.find((x) => x.id === m)?.name ?? m;
-  const currency = a.marketCurrencies[m] ?? a.displayCurrency;
-  const rows = ds.runningCosts.filter((r) => r.market === m);
-  const tax = ds.roadTax.filter((r) => r.market === m);
-  const find = (item: string, pt: 'BEV' | 'ICE') => rows.find((r) => r.item === item && r.powertrain === pt) ?? rows.find((r) => r.item === item && r.powertrain === 'all');
-  const allGroups: { title: string; rows: RoadTaxRow[]; unit: string; fmt: (r: RoadTaxRow) => string }[] = [
-    { title: 'Electric cars, by curb weight', rows: tax.filter((r) => r.powertrain === 'BEV' && r.basis === 'weight_kg'), unit: 'kg', fmt: (r) => `${num(r.amount, 0)} ${currency}/year` },
-    { title: 'Petrol cars, by engine size', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'engine_cc'), unit: 'cc', fmt: (r) => `${num(r.amount, 2)} ${currency} per cc` },
+/** The road-tax bands of the market in use (in its own currency, as in data/road_tax.csv). */
+export function RoadTaxTables() {
+  const { ds, baseAssumptions } = useEngine();
+  const mc = marketCosts(baseAssumptions);
+  const name = ds.markets.find((m) => m.id === mc.market)?.name ?? mc.market;
+  const cur = mc.currency;
+  const tax = ds.roadTax.filter((r) => r.market === mc.market);
+  if (tax.length === 0) return null;
+  const all: { title: string; rows: RoadTaxRow[]; unit: string; fmt: (r: RoadTaxRow) => string }[] = [
+    { title: 'Electric cars, by curb weight', rows: tax.filter((r) => r.powertrain === 'BEV' && r.basis === 'weight_kg'), unit: 'kg', fmt: (r) => `${num(r.amount, 0)} ${cur}/year` },
+    { title: 'Petrol cars, by engine size', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'engine_cc'), unit: 'cc', fmt: (r) => `${num(r.amount, 2)} ${cur} per cc` },
     { title: 'Petrol cars, older', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'age_years'), unit: 'years', fmt: (r) => `−${num(r.amount, 0)} %` },
   ];
-  const taxGroups = allGroups.filter((g) => g.rows.length > 0);
+  const groups = all.filter((g) => g.rows.length > 0);
   return (
-    <section className="panel stack" id="running-costs">
+    <section className="panel stack" id="road-tax">
       <div>
-        <h2>Running costs ({name})</h2>
+        <h2>Road tax ({name})</h2>
         <p className="muted">
-          The standard of the Cost of ownership&rsquo;s inputs, in {currency}
-          {market ? '' : ` (All markets: ${name}'s, converted to ${a.displayCurrency})`}. Change them for one session on the Cost page, or for good
-          in <span className="mono">data/running_costs.csv</span> and <span className="mono">data/road_tax.csv</span>. Values without a source are
-          judgement values. Cars can override servicing, insurance, tyre price and energy price in cars.csv.
+          Per year, in {cur}. Kept in <span className="mono">data/road_tax.csv</span>. {unique(tax.map((r) => r.why).filter(Boolean)).join(' ')}{' '}
+          <SourceText ids={unique(tax.flatMap((r) => r.sources))} sources={ds.sources} />.
         </p>
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th className="r">Electric</th>
-              <th className="r">Petrol</th>
-              <th>Unit</th>
-              <th>Why</th>
-              <th>Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {COST_ITEMS.map((item) => {
-              const bev = find(item, 'BEV');
-              const ice = find(item, 'ICE');
-              const same = bev === ice;
-              const rs = same ? [bev] : [bev, ice];
-              return (
-                <tr key={item}>
-                  <td>{COST_ITEM_LABELS[item]}</td>
-                  {same ? (
-                    <td className="r num" colSpan={2}>
-                      {value(bev)}
-                    </td>
-                  ) : (
-                    <>
-                      <td className="r num">{value(bev)}</td>
-                      <td className="r num">{value(ice)}</td>
-                    </>
-                  )}
-                  <td className="muted">{bev?.unit ?? ''}</td>
-                  <td className="muted" style={{ minWidth: 260 }}>
-                    {rs.map((r, i) => (
-                      <div key={i}>{r?.why}</div>
-                    ))}
-                  </td>
-                  <td>
-                    <SourceLinks ids={[...new Set(rs.flatMap((r) => r?.sources ?? []))]} />
-                  </td>
+      <div className="tax-groups">
+        {groups.map((g) => (
+          <div key={g.title} style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{g.title}</th>
+                  <th className="r">Tax</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {taxGroups.length > 0 && (
-        <>
-          <h3>Road tax per year</h3>
-          <div className="tax-groups">
-            {taxGroups.map((g) => (
-              <div key={g.title} style={{ overflowX: 'auto' }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>{g.title}</th>
-                      <th className="r">Tax</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {g.rows.map((r) => (
-                      <tr key={`${r.above}`}>
-                        <td>
-                          {g.unit === 'years' ? (
-                            r.upTo === null ? (
-                              <>from year {num(r.above + 1, 0)}</>
-                            ) : (
-                              <>year {num(r.upTo, 0)}</>
-                            )
-                          ) : (
-                            <TaxRange r={r} unit={g.unit} />
-                          )}
-                        </td>
-                        <td className="r num">{g.fmt(r)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
+              </thead>
+              <tbody>
+                {g.rows.map((r) => (
+                  <tr key={r.above}>
+                    <td>
+                      <TaxRange r={r} unit={g.unit} />
+                    </td>
+                    <td className="r num">{g.fmt(r)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <p className="faint">
-            {[...new Set(tax.map((r) => r.why).filter(Boolean))].join(' ')} Sources: <SourceLinks ids={[...new Set(tax.flatMap((r) => r.sources))]} />
-          </p>
-        </>
-      )}
+        ))}
+      </div>
     </section>
   );
 }

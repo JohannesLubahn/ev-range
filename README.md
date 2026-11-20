@@ -94,8 +94,9 @@ results compare with the spreadsheet.
 Total = purchase − value at the end + running costs, over the years of use (user request 2026-11-20). The chart
 splits it into **depreciation** (purchase − value at the end), **energy**, **insurance** (voluntary + compulsory),
 **road tax**, **servicing & repairs** (servicing, repairs after the warranty, 12 V battery) and **tyres**. The inputs
-sit in groups on the Cost page; their standard is the market's row in `data/running_costs.csv`. What depends on the
-car:
+sit in groups on the Cost page; their standard is the market's row in `data/running_costs.csv`. The Assumptions page
+lists each value in its **Costs** group with its source (linked to the numbered source list), and the road-tax bands
+below. What depends on the car:
 
 - **Road tax:** electric cars by curb weight, petrol cars by engine size (`engine_cc`), less for older petrol cars.
 - **Voluntary insurance:** % of the car's value at the start of each year (electric 3.0 %, petrol 2.5 % in

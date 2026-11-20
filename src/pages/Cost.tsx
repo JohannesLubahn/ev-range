@@ -135,7 +135,7 @@ export function CostPage() {
                 <p className="faint">
                   Voluntary insurance: % of the car&rsquo;s value at the start of each year, so it falls as the car loses value, down to the lowest
                   premium. Road tax follows from the car&rsquo;s weight (petrol cars: engine size), see{' '}
-                  <a href="#assumptions" onClick={() => setTimeout(() => document.getElementById('running-costs')?.scrollIntoView(), 50)}>
+                  <a href="#assumptions" onClick={() => setTimeout(() => document.getElementById('road-tax')?.scrollIntoView(), 50)}>
                     Assumptions
                   </a>
                   .
