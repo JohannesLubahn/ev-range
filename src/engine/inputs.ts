@@ -37,6 +37,9 @@ const market = (min: number, max: number, item: CostItem, pt: Powertrain = 'BEV'
   return k;
 };
 const CABIN: InputKind = { type: 'cabin' };
+/** Hills: altitude change start → finish, total climb, typical slope (blank = assumption hill_slope_default_pct). */
+const SLOPE = n(0.5, 20, (a) => a.hillSlopeDefaultPct);
+const TERRAIN = { climbM: n(-3000, 3000), ascentM: n(0, 30000), slopePct: SLOPE };
 
 export const CONDITION_INPUTS: Record<keyof Conditions, InputKind> = {
   airTemperatureC: n(-30, 50),
@@ -57,6 +60,8 @@ const LIFE_DRIVING = {
   speedKmh: n(10, 120),
   cabinC: CABIN,
   profile: PROFILE,
+  ascentPer100Km: n(0, 5000),
+  slopePct: SLOPE,
 };
 
 /** The trip inputs of each test (the keys of Scenario[test]). Ranges are those of the input fields. */
@@ -72,9 +77,10 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
     profileOutside: PROFILE,
     cabinOutsideC: CABIN,
     cabinJamC: CABIN,
+    ...TERRAIN,
   },
-  noCharger: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, climbM: n(-2000, 3000) },
-  sprint: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, climbM: n(-2000, 3000) },
+  noCharger: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, ...TERRAIN },
+  sprint: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, ...TERRAIN },
   longTrip: {
     distanceKm: n(50, 3000),
     speedKmh: n(20, 150),
@@ -83,6 +89,7 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
     chargeFromPct: n(0, 90),
     chargeToPct: n(20, 100),
     profile: PROFILE,
+    ...TERRAIN,
   },
   batteryLife: {
     ...LIFE_DRIVING,
@@ -185,13 +192,14 @@ export function copyInputs(s: Scenario, refs: InputRef[], from: Scenario): Scena
 }
 
 /** Driving of the life that Battery life and Cost both have: "use in all" copies these between the two. */
-const SHARED_LIFE_KEYS = new Set(['years', 'kmPerYear', 'speedKmh', 'profile']);
+const SHARED_LIFE_KEYS = new Set(['years', 'kmPerYear', 'speedKmh', 'profile', 'ascentPer100Km']);
 
 /**
  * The other inputs that mean the same thing as `ref`, which "use in all tests" sets to its value:
  * - a condition: the same condition in every other test;
  * - a cabin temperature: every other cabin temperature (both of the traffic jam's included);
- * - years, km per year, speed and profile of the life: between Battery life and Cost.
+ * - the typical slope of the hills: the slope of every other test;
+ * - years, km per year, speed, profile and climb per 100 km of the life: between Battery life and Cost.
  * Other inputs (a trip's distance, start charge, …) belong to their test only: none.
  */
 export function linkedInputs(ref: InputRef): InputRef[] {
@@ -206,6 +214,7 @@ export function linkedInputs(ref: InputRef): InputRef[] {
     }
     return all;
   }
+  if (ref.key === 'slopePct') return TEST_KEYS.filter((t) => t !== ref.test).map((t) => ({ test: t, group: 'trip', key: 'slopePct' }));
   if ((ref.test === 'batteryLife' || ref.test === 'cost') && SHARED_LIFE_KEYS.has(ref.key)) {
     return [{ test: ref.test === 'cost' ? 'batteryLife' : 'cost', group: 'trip', key: ref.key }];
   }

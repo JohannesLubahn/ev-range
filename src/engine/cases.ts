@@ -2,7 +2,8 @@
 import { toDisplayCurrency } from './assumptions';
 import { PART_ORDER, marketCosts, ownership, sumParts, type OwnershipLine } from './costs';
 import { kmUntilSoh, type AgeingResult } from './battery/ageing';
-import type { BatteryView, CarModel, SegmentEnergy, SegmentSpec } from './model';
+import type { BatteryView, CarModel, HillEnergy, SegmentEnergy, SegmentSpec } from './model';
+import type { TerrainSpec } from './physics/terrain';
 import type { CabinClimate } from './onboard/climate';
 import type {
   AverageConsumption,
@@ -19,6 +20,7 @@ import type {
   Step,
   TrafficJamInputs,
   TrafficJamResult,
+  TripTerrain,
 } from './types';
 
 const fx = (v: number, digits = 2) => (Number.isFinite(v) ? v.toFixed(digits) : '∞');
@@ -91,6 +93,47 @@ function thermalStep(bat: BatteryView, unit: string, scale = 1, scaleText = ''):
   ];
 }
 
+/**
+ * The hills of a segment: what the climbs cost and what the descents give back, against the same km on the flat.
+ * Gentle descents replace the motor against air drag and rolling; the rest is regenerated (η_regen, limits) or lost.
+ */
+function hillSteps(m: CarModel, h: HillEnergy, u: string): Step[] {
+  const ice = m.d.isIce;
+  const a = m.ctx.a;
+  const km = (x: number) => fx(x, x < 10 ? 1 : 0);
+  const slope = `${fx(h.slopePct, 1)} %${h.steepened ? ` (steeper than the ${fx(h.setSlopePct, 1)} % set: the hills need ${pct((h.upFrac + h.downFrac) * 100)} of the distance${h.capped ? '; even at 30 % they do not fit, fewer metres are counted' : ''})` : ''}`;
+  const steps: Step[] = [
+    {
+      label: 'Hills',
+      formula: `${fx(h.ascentM, 0)} m up over ${km(h.upKm)} km and ${fx(h.descentM, 0)} m down over ${km(h.downKm)} km at ${slope}; the rest flat`,
+      value: null,
+      unit: '',
+      kind: 'note',
+    },
+  ];
+  if (h.ascentM > 0) {
+    steps.push({
+      label: 'Climbs: extra over the flat',
+      formula: `m·g·h = ${fx(h.climbPotentialKwh, 2)} kWh at the wheels, ${ice ? `÷ ${fx(m.calibration().etaDrive, 2)} kWh per litre` : 'through the drivetrain'}`,
+      value: h.climbExtraKwh,
+      unit: u,
+    });
+  }
+  if (h.descentM > 0) {
+    const regen = ice
+      ? 'a petrol car cannot store it: the rest is lost to engine braking and the brakes'
+      : `the rest regenerated at ${fx(a.regenEfficiencyPct, 0)} % (wheel → battery) and spent again through the drivetrain`;
+    steps.push({
+      label: 'Descents: saved over the flat',
+      formula: `m·g·h = ${fx(h.descentPotentialKwh, 2)} kWh; ${pct(h.descentUsedShare * 100)} of it did work at the wheels (gravity replaces the motor against air drag and rolling; ${regen}${h.descentFrictionKwh > 0.005 ? `; ${fx(h.descentFrictionKwh, 2)} kWh beyond the regeneration limits to the friction brakes` : ''})`,
+      value: -h.descentSavingKwh,
+      unit: u,
+    });
+  }
+  steps.push({ label: 'Hills: net', formula: 'climbs − descents', value: h.netKwh, unit: u, kind: 'subtotal' });
+  return steps;
+}
+
 /** Explanation lines for one segment. */
 function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   const u = m.d.energyUnit;
@@ -134,6 +177,7 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     unit: 'kWh/km',
   });
   const cal = m.calibration();
+  if (p.hills) steps.push(...hillSteps(m, p.hills, u));
   steps.push({
     label: 'From the battery for driving',
     formula: m.d.isIce
@@ -293,6 +337,7 @@ export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
     profile: i.profileOutside,
     cabinC: i.cabinOutsideC,
     tripStart: i.cabinOutsideC !== null,
+    terrain: tripTerrain(m, i),
   };
   // With the heating / AC off before the jam, the parked-cabin warm-up / cool-down happens when it is switched on in the jam.
   const jam: SegmentSpec = {
@@ -320,10 +365,15 @@ function distanceCase(m: CarModel, spec: SegmentSpec, startPct: number, endPct: 
   return { ...check, maxDistanceKm };
 }
 
+/** The hills of a trip test's inputs (altitude change, total climb, slope). */
+function tripTerrain(m: CarModel, i: TripTerrain): TerrainSpec {
+  return { netM: i.climbM ?? 0, ascentM: i.ascentM ?? 0, slopePct: i.slopePct ?? m.ctx.a.hillSlopeDefaultPct };
+}
+
 export function noCharger(m: CarModel, i: NoChargerInputs): DistanceCheckResult {
   return distanceCase(
     m,
-    { label: 'Trip', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, climbM: i.climbM, cabinC: i.cabinC, tripStart: true },
+    { label: 'Trip', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, terrain: tripTerrain(m, i), cabinC: i.cabinC, tripStart: true },
     i.startPct,
     i.endPct,
   );
@@ -337,7 +387,7 @@ export function sprint(m: CarModel, i: SprintInputs): DistanceCheckResult {
       distanceKm: i.distanceKm,
       avgSpeedKmh: i.speedKmh,
       profile: i.profile,
-      climbM: i.climbM,
+      terrain: tripTerrain(m, i),
       cabinC: i.cabinC,
       tripStart: true,
     },
@@ -382,6 +432,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
     profile: i.profile,
     cabinC: i.cabinC,
     tripStart: true,
+    terrain: tripTerrain(m, i),
   });
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, seg.timeH);
   const perCharge = bat.deliverable(i.chargeToPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh;

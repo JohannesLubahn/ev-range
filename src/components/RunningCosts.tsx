@@ -9,7 +9,7 @@ import { num } from '../format';
 import { useEngine } from '../state/engine';
 
 /** "Source: Green Energy Thailand 2026; Krungsri Research 2024" with links to the numbered list; judgement if none. */
-function SourceText({ ids, sources }: { ids: string[]; sources: Source[] }) {
+export function SourceText({ ids, sources }: { ids: string[]; sources: Source[] }) {
   if (ids.length === 0) return <>Source: judgement (no source found)</>;
   return (
     <>

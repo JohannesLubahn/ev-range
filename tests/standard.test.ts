@@ -64,9 +64,13 @@ describe('data/standard.csv', () => {
     const s = spreadsheetScenario(ds, a);
     expect(baseConditions(ds)).toEqual(OLD_CONDITIONS);
     for (const t of TEST_KEYS) expect(s.conditions[t]).toEqual(OLD_CONDITIONS);
-    for (const t of ['trafficJam', 'noCharger', 'longTrip', 'batteryLife', 'sprint'] as const) expect(s[t]).toEqual(OLD_TRIPS[t]);
+    // Plus the hills (2026-11-20): flat, at the typical slope.
+    const slopePct = a.hillSlopeDefaultPct;
+    const lifeFlat = { ascentPer100Km: 0, slopePct };
+    for (const t of ['trafficJam', 'noCharger', 'longTrip', 'sprint'] as const) expect(s[t]).toEqual({ ...OLD_TRIPS[t], climbM: 0, ascentM: 0, slopePct });
+    expect(s.batteryLife).toEqual({ ...OLD_TRIPS.batteryLife, ...lifeFlat });
     // Cost: the life's driving and the market's running costs (the old one maintenance per year is gone).
-    expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed' });
+    expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed', ...lifeFlat });
     expect(s.cost.energyPrice).toBe(OLD_TRIPS.cost.energyPrice);
   });
   it('the standard fits the conditions to each test', () => {

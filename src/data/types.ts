@@ -97,6 +97,18 @@ export interface RunningCostRow {
   sources: string[];
 }
 
+/** One row of data/terrain.csv: a terrain preset (climb per 100 km and typical slope of the hills). */
+export interface TerrainPreset {
+  id: string;
+  label: string;
+  /** Total climb per 100 km (m); the descent is the same when the trip ends at its starting height. */
+  climbPer100KmM: number;
+  /** Typical slope of the climbs and descents (%). */
+  slopePct: number;
+  why: string;
+  sources: string[];
+}
+
 /** One row of data/road_tax.csv: a band or rate of the yearly road tax of a market. */
 export interface RoadTaxRow {
   market: string;
@@ -287,6 +299,8 @@ export interface Dataset {
   /** Running costs per market (data/running_costs.csv) and road tax (data/road_tax.csv). */
   runningCosts: RunningCostRow[];
   roadTax: RoadTaxRow[];
+  /** Terrain presets (data/terrain.csv). */
+  terrain: TerrainPreset[];
   /** Problems found while reading the files (e.g. a non-numeric value in a number column). */
   loadWarnings: string[];
 }

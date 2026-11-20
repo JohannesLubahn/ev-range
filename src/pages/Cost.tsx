@@ -4,6 +4,7 @@ import { StackedRows, TipLines, type StackedRow, type StackSeries } from '../com
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
+import { LifeTerrainFields } from '../components/Terrain';
 import { PART_LABELS, PART_ORDER, marketCosts } from '../engine/costs';
 import { PROFILES, type CostInputs, type CostPartKey, type Profile } from '../engine/types';
 import { compact, fixed, money, num } from '../format';
@@ -36,7 +37,7 @@ function Group({ title, summary, keys, open, children }: { title: string; summar
 /** Cost of ownership: purchase − value at the end, energy, insurance, tax, servicing and tyres over the years of use. */
 export function CostPage() {
   const { scenario, out, selectedIds, derivedById, a, stale } = useEngine();
-  const { trip } = useInputs('cost');
+  const { trip, setTrip } = useInputs('cost');
   const openDrawer = useStore((s) => s.openDrawer);
   const cur = a.displayCurrency;
   const c = scenario.cost;
@@ -101,14 +102,20 @@ export function CostPage() {
         <div className="stack">
           <InputsPanel test="cost" title="Inputs" question={COST_CASE.question}>
             <div className="input-groups">
-              <Group title="Use" summary={`${num(c.years, 0)} years × ${compact(c.kmPerYear)} km`} keys={['years', 'kmPerYear', 'speedKmh', 'profile', 'cabinC']} open>
+              <Group
+                title="Use"
+                summary={`${num(c.years, 0)} years × ${compact(c.kmPerYear)} km${c.ascentPer100Km > 0 ? ` · hills ${num(c.ascentPer100Km, 0)} m/100 km` : ''}`}
+                keys={['years', 'kmPerYear', 'speedKmh', 'profile', 'cabinC', 'ascentPer100Km', 'slopePct']}
+                open
+              >
                 <NumberField label="Years of use" unit="years" min={1} max={40} {...trip<number>('years')} />
                 <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} {...trip<number>('kmPerYear')} />
                 <NumberField label="Average speed" unit="km/h" min={10} max={120} {...trip<number>('speedKmh')} />
                 <SelectField label="Driving profile" options={profileOptions} {...trip<Profile>('profile')} />
                 <CabinField label="Cabin heating / AC" {...trip<number | null>('cabinC')} />
+                <LifeTerrainFields ascent={trip<number>('ascentPer100Km')} slope={trip<number>('slopePct')} set={setTrip} />
                 <p className="faint">
-                  Years, distance and driving start as on the <a href="#battery-life">Battery life</a> page; ⇉ copies a value there.
+                  Years, distance, driving and hills start as on the <a href="#battery-life">Battery life</a> page; ⇉ copies a value there.
                 </p>
               </Group>
               <Group title="Energy" summary={`${num(c.energyPrice, 2)} ${cur}/kWh`} keys={['energyPrice']} open>

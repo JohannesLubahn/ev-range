@@ -132,6 +132,29 @@ export function PhysicsPage() {
         }));
       });
   }, [chosenKey, out, stylePcts.join(','), cond.drivingStylePct, refTest]);
+  // Hills: 500 m up and 500 m down over 100 km of country road, at three slopes, against the same trip on the flat.
+  const HILL_SLOPES = [2, 5, 8];
+  const HILL_M = 500;
+  const hillRows = useMemo(
+    () =>
+      chosenKey
+        .split(',')
+        .filter(Boolean)
+        .flatMap((id) => {
+          const m = out.models[id]?.[refTest];
+          if (!m) return [];
+          const base = { label: 'x', distanceKm: 100, avgSpeedKmh: 70, profile: 'rural' as Profile, cabinC: null };
+          const flat = m.segment(base).driveKwh;
+          return [
+            {
+              id,
+              flat,
+              values: HILL_SLOPES.map((s) => m.segment({ ...base, terrain: { netM: 0, ascentM: HILL_M, slopePct: s } }).physics.hills),
+            },
+          ];
+        }),
+    [chosenKey, out, refTest],
+  );
   const styleName = (pct: number) =>
     pct === 100 ? 'Normal' : pct === a.drivingStyleGentlePct ? 'Gentle' : pct === a.drivingStyleSportyPct ? 'Sporty' : 'Yours';
 
@@ -398,6 +421,60 @@ export function PhysicsPage() {
                     <td className="r">{fixed(r.values[r.values.length - 1].friction, 2)} kWh</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel stack" id="hills">
+          <div>
+            <h2>Hills</h2>
+            <p className="muted">
+              {num(HILL_M, 0)} m up and {num(HILL_M, 0)} m down over 100 km of country road (70 km/h): extra driving energy against the flat, and the
+              share of the descents&rsquo; potential energy that came back. On gentle descents gravity replaces the motor against air drag and
+              rolling; on steeper ones the excess is regenerated at {num(a.regenEfficiencyPct, 0)} % and spent again through the drivetrain. A
+              petrol car loses it. Set the hills per test (Terrain).
+            </p>
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Per 100 km</th>
+                  <th className="r">Flat</th>
+                  {HILL_SLOPES.map((s) => (
+                    <th key={s} className="r">
+                      Slopes {num(s, 0)} %
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {hillRows.map((r) => {
+                  const u = derivedById[r.id].energyUnit;
+                  return (
+                    <tr key={r.id}>
+                      <td>{derivedById[r.id].car.name}</td>
+                      <td className="r">
+                        {fixed(r.flat, 1)} {u}
+                      </td>
+                      {r.values.map((h, i) => (
+                        <td key={i} className="r">
+                          {h ? (
+                            <>
+                              +{fixed(h.netKwh, 2)} {u}
+                              <div className="faint" style={{ fontSize: 12 }}>
+                                {num(h.descentUsedShare * 100, 0)} % of the descent back
+                              </div>
+                            </>
+                          ) : (
+                            '–'
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

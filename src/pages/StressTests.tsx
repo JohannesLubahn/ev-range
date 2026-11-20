@@ -5,6 +5,7 @@ import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
+import { LifeTerrainFields, TripTerrainFields } from '../components/Terrain';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
@@ -51,6 +52,9 @@ function Inputs({ tab }: { tab: StressKey }) {
   const num = (key: string) => trip<number>(key);
   const profile = (key: string) => trip<Profile>(key);
   const cabin = (key: string) => trip<number | null>(key);
+  const hills = (distanceKm: number, where = '') => (
+    <TripTerrainFields distanceKm={distanceKm} net={num('climbM')} ascent={num('ascentM')} slope={num('slopePct')} set={setTrip} where={where} />
+  );
   switch (tab) {
     case 'trafficJam':
       return (
@@ -65,6 +69,7 @@ function Inputs({ tab }: { tab: StressKey }) {
           <SelectField label="Driving outside the jam" options={profileOptions} {...profile('profileOutside')} />
           <CabinField label={`${CABIN} outside the jam`} {...cabin('cabinOutsideC')} />
           <CabinField label={`${CABIN} in the jam`} {...cabin('cabinJamC')} />
+          {hills(num('distBeforeKm').value + num('distAfterKm').value, ' (outside the jam)')}
         </div>
       );
     case 'noCharger':
@@ -74,10 +79,10 @@ function Inputs({ tab }: { tab: StressKey }) {
           <NumberField label="Distance between chargers" unit="km" min={10} max={1000} sliderMax={600} step={5} {...num('distanceKm')} />
           <NumberField label="Average speed" unit="km/h" min={10} max={200} {...num('speedKmh')} />
           <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
-          <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} {...num('climbM')} />
           <NumberField label="Charge at the start" unit="%" min={10} max={100} {...num('startPct')} />
           <NumberField label="Charge on arrival" unit="%" min={0} max={50} {...num('endPct')} />
           <CabinField label={CABIN} {...cabin('cabinC')} />
+          {hills(num('distanceKm').value)}
         </div>
       );
     case 'longTrip': {
@@ -97,6 +102,7 @@ function Inputs({ tab }: { tab: StressKey }) {
               (waiting in the car)
             </label>
           )}
+          {hills(num('distanceKm').value)}
         </div>
       );
     }
@@ -108,6 +114,7 @@ function Inputs({ tab }: { tab: StressKey }) {
           <NumberField label="Average speed" unit="km/h" min={10} max={120} {...num('speedKmh')} />
           <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
           <CabinField label={CABIN} {...cabin('cabinC')} />
+          <LifeTerrainFields ascent={num('ascentPer100Km')} slope={num('slopePct')} set={setTrip} />
           <CareFields dc={num('dcSharePct')} highSoc={num('highSocTimePct')} setBoth={(h) => setTrip({ ...h })} />
           <p className="faint">
             The battery wear in the stress tests (Conditions: km driven) uses this driving, battery care and the air temperature and driving

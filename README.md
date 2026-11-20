@@ -30,6 +30,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/cars.csv` | **One row per car and market.** Blank cell = unknown (the app estimates it and marks it, or flags it as missing). |
 | `data/markets.csv` | One row per market: name and currency. |
 | `data/running_costs.csv` | **Running costs per market** (in its currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). |
+| `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
 | `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): `all` rows = the conditions every test starts from, test rows = its trip inputs and its own conditions (e.g. the traffic jam at 35 °C), each with the reason. Blank = from an assumption or the market. |
@@ -120,8 +121,8 @@ on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30
 
 - **↺** next to an input puts it back to its standard (shown while it differs; the standard is shown under it).
 - **⇉** uses the value in the other tests too (shown while another test differs): a condition goes to all six
-  tests, a cabin temperature to every cabin setting, and years / km per year / speed / profile between Battery life
-  and Cost.
+  tests, a cabin temperature to every cabin setting, the slope of the hills to every test, and years / km per year /
+  speed / profile / climb per 100 km between Battery life and Cost.
 - **Reset this test** puts every input and condition of the test back to its standard.
 - **Compare → Edit conditions** sets a condition in all tests at once; where the tests differ it says so.
 - **Scenario:** Standard (fitted to each test), Spreadsheet values (25 °C everywhere), Hot or Cold day (in every
@@ -130,6 +131,15 @@ on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30
   battery's past), not the weather of the test.
 - The Physics page and the Cars page's calculated rows show one test's conditions ("Conditions of", default No
   charger).
+
+**Hills** (every test): a **Terrain** choice (Flat / Rolling / Hilly / Mountain, `data/terrain.csv`) fills in the
+hills, which you can then change. The trip tests take the **altitude change start → finish**, the **total climb**
+(all uphill metres; the descent is the total climb minus the altitude change) and the **typical slope**. The traffic
+jam's hills are on the roads before and after the jam. Battery life and Cost take a **climb per 100 km**, with as
+much down again. The climbs, descents and flat parts are each simulated. Gentle descents replace the motor; steeper
+ones go through regeneration (70 %), and the friction brakes take what is beyond its limits. A petrol car keeps none
+of it. The calculation shows what the climbs cost and how much of the descent came back. Every test's standard is
+flat.
 
 The driving style (Conditions: Gentle / Normal / Sporty, or accelerations and braking in % of the WLTP's) reshapes
 every speed trace except Steady; braking beyond the regeneration limits (`regen_max_decel_ms2`, `regen_min_kmh`

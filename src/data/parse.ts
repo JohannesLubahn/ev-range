@@ -15,6 +15,7 @@ import type {
   OnboardMeasurement,
   RoadTaxRow,
   RunningCostRow,
+  TerrainPreset,
   Source,
   StandardRow,
 } from './types';
@@ -38,6 +39,8 @@ export interface RawFiles {
   /** data/running_costs.csv and data/road_tax.csv (optional like markets). */
   runningCosts?: string;
   roadTax?: string;
+  /** data/terrain.csv (optional like markets). */
+  terrain?: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -404,9 +407,13 @@ export function parseDataset(files: RawFiles): Dataset {
   const standard = parseStandard(files.standard, warnings);
   const runningCosts = parseRunningCosts(files.runningCosts ?? '', warnings);
   const roadTax = parseRoadTax(files.roadTax ?? '', warnings);
+  const terrain = parseTerrain(files.terrain ?? '', warnings);
   const sourceIds = new Set(sources.map((s) => s.id));
   for (const r of [...runningCosts, ...roadTax]) {
     for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`${'item' in r ? 'running_costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
+  }
+  for (const t of terrain) {
+    for (const id of t.sources) if (!sourceIds.has(id)) warnings.push(`terrain.csv, ${t.id}: source "${id}" is not in sources.csv`);
   }
 
   return {
@@ -428,6 +435,7 @@ export function parseDataset(files: RawFiles): Dataset {
     standard,
     runningCosts,
     roadTax,
+    terrain,
     loadWarnings: warnings,
   };
 }
@@ -553,6 +561,31 @@ export function parseRoadTax(text: string, warnings: string[]): RoadTaxRow[] {
     }
   }
   return rows;
+}
+
+/** data/terrain.csv: terrain presets. Rows without a number ≥ 0 or with a slope outside 0.5–20 % are reported and left out. */
+export function parseTerrain(text: string, warnings: string[]): TerrainPreset[] {
+  const out: TerrainPreset[] = [];
+  for (const r of parseCsv(text).rows) {
+    const id = (r.id ?? '').trim();
+    if (!id) continue;
+    const climb = parseNumber(r.climb_per_100km_m);
+    const slope = parseNumber(r.slope_pct);
+    if (climb === null || climb < 0) {
+      warnings.push(`terrain.csv, ${id}: climb_per_100km_m "${r.climb_per_100km_m}" is not a number ≥ 0`);
+      continue;
+    }
+    if (slope === null || slope < 0.5 || slope > 20) {
+      warnings.push(`terrain.csv, ${id}: slope_pct "${r.slope_pct}" is not between 0.5 and 20`);
+      continue;
+    }
+    if (out.some((t) => t.id === id)) warnings.push(`terrain.csv: ${id} is listed twice; the last row counts`);
+    const row = { id, label: (r.label ?? '').trim() || id, climbPer100KmM: climb, slopePct: slope, why: r.why ?? '', sources: ids(r.source) };
+    const i = out.findIndex((t) => t.id === id);
+    if (i >= 0) out[i] = row;
+    else out.push(row);
+  }
+  return out;
 }
 
 /** Linear interpolation over NaN gaps in an index-addressed table. */

@@ -10,6 +10,7 @@ import { airDensity, pressureAtAltitude } from './physics/air';
 import { profileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
 import { simulate, type SimResult } from './physics/simulate';
+import { combineSims, terrainMix, type TerrainMix, type TerrainSpec } from './physics/terrain';
 import type { TraceDynamics } from './physics/style';
 import { standardScenario } from './scenario';
 import type { Assumptions, BatteryLifeInputs, Conditions, LifeDriving, ModelSettings, Profile } from './types';
@@ -22,11 +23,31 @@ export interface SegmentSpec {
   avgSpeedKmh?: number;
   timeH?: number;
   profile: Profile;
-  climbM?: number;
+  /** Hills: altitude change start → finish, total climb and typical slope (none = flat). */
+  terrain?: TerrainSpec;
   /** Cabin temperature the heating / AC holds (°C), or null when it is off. */
   cabinC: number | null;
   /** First segment of a trip with the heating / AC on: the parked cabin is heated or cooled to the set temperature. */
   tripStart?: boolean;
+}
+
+/** What the hills of a segment cost: the climbs and descents against the same trip on the flat. */
+export interface HillEnergy extends TerrainMix {
+  upKm: number;
+  downKm: number;
+  /** Potential energy of the climbs and of the descents, m·g·h (kWh). */
+  climbPotentialKwh: number;
+  descentPotentialKwh: number;
+  /** Extra energy from the battery (litres for petrol cars) on the climbs, compared with the same km on the flat. */
+  climbExtraKwh: number;
+  /** Energy the descents save compared with the same km on the flat (battery kWh or litres). */
+  descentSavingKwh: number;
+  /** Share of the descents' potential energy that did useful work at the wheels (replacing the motor, or regenerated). */
+  descentUsedShare: number;
+  /** Braking energy at the wheels lost to the friction brakes on the descents beyond the flat's (kWh). */
+  descentFrictionKwh: number;
+  /** Net: climbs − descents (battery kWh or litres). */
+  netKwh: number;
 }
 
 export interface SegmentEnergy {
@@ -61,8 +82,10 @@ export interface SegmentEnergy {
     drivePerKm: number;
     /** Dynamics of the speed trace as driven (EU RDE metrics); null for a constant speed. */
     dynamics: TraceDynamics | null;
-    /** Steady-speed force breakdown at the average moving speed (N). */
+    /** Steady-speed force breakdown at the average moving speed on the flat (N). */
     forcesAtSpeed: { speedKmh: number; aero: number; rolling: number; grade: number; crr: number };
+    /** The hills of the segment, or null when it is flat. */
+    hills: HillEnergy | null;
   };
 }
 
@@ -300,8 +323,20 @@ export class CarModel {
     const onboard = this.onboard(spec.cabinC);
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
     const onboardKwh = onboard.totalKw * timeH + startKwh;
-    const grade = distanceKm > 0 ? (spec.climbM ?? 0) / (distanceKm * 1000) : 0;
-    const { sim, trace, movingKmh, dynamics } = this.simulateProfile(spec.profile, avgSpeedKmh, grade);
+    // Hills: the speed trace driven uphill, downhill and on the flat, mixed by their share of the distance.
+    const mix = terrainMix(distanceKm, spec.terrain);
+    const flat = this.simulateProfile(spec.profile, avgSpeedKmh, 0);
+    const { trace, movingKmh, dynamics } = flat;
+    const up = mix.upFrac > 0 ? this.simulateProfile(spec.profile, avgSpeedKmh, mix.grade).sim : flat.sim;
+    const down = mix.downFrac > 0 ? this.simulateProfile(spec.profile, avgSpeedKmh, -mix.grade).sim : flat.sim;
+    const sim =
+      mix.upFrac + mix.downFrac > 0
+        ? combineSims([
+            { frac: mix.flatFrac, sim: flat.sim },
+            { frac: mix.upFrac, sim: up },
+            { frac: mix.downFrac, sim: down },
+          ])
+        : flat.sim;
     const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;
     const driveKwh = perKmDrive * distanceKm;
     const totalKwh = driveKwh + onboardKwh;
@@ -310,10 +345,34 @@ export class CarModel {
     const meanSq = sim.meanSquareKw2 + 2 * traceMeanKw * onboard.totalKw + onboard.totalKw ** 2;
     const meanKw = traceMeanKw + onboard.totalKw;
     const rmsFactor = meanKw > 0 ? Math.max(1, Math.sqrt(Math.max(meanSq, 0)) / meanKw) : 1;
-    const env = this.environment(grade);
+    const env = this.environment(0);
     const veh = this.vehicle(this.calibration().etaDrive);
     const f = wheelForces(movingKmh / 3.6, 0, veh, env);
     const per = (x: number) => (sim.distanceKm > 0 ? x / sim.distanceKm : 0);
+    let hills: HillEnergy | null = null;
+    if (mix.upFrac + mix.downFrac > 0 && flat.sim.distanceKm > 0) {
+      const km = flat.sim.distanceKm;
+      const e0 = flat.sim.batteryKwh / km;
+      const upKm = mix.upFrac * distanceKm;
+      const downKm = mix.downFrac * distanceKm;
+      const mgh = (h: number) => (veh.massKg * 9.81 * h) / 3.6e6;
+      const climbExtraKwh = upKm * (up.batteryKwh / km - e0);
+      const descentSavingKwh = downKm * (e0 - down.batteryKwh / km);
+      const descentPotentialKwh = mgh(mix.descentM);
+      hills = {
+        ...mix,
+        upKm,
+        downKm,
+        climbPotentialKwh: mgh(mix.ascentM),
+        descentPotentialKwh,
+        climbExtraKwh,
+        descentSavingKwh,
+        // Battery kWh (or litres) saved × the drivetrain = work at the wheels the descent did instead of the motor.
+        descentUsedShare: descentPotentialKwh > 0 ? (descentSavingKwh * veh.etaDrive) / descentPotentialKwh : 0,
+        descentFrictionKwh: downKm * ((down.frictionKwh - flat.sim.frictionKwh) / km),
+        netKwh: climbExtraKwh - descentSavingKwh,
+      };
+    }
     return {
       spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, startKwh, totalKwh,
       perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
@@ -332,6 +391,7 @@ export class CarModel {
         drivePerKm: perKmDrive,
         dynamics,
         forcesAtSpeed: { speedKmh: movingKmh, aero: f.aero, rolling: f.rolling, grade: f.grade, crr: f.crr },
+        hills,
       },
     };
   }
@@ -348,7 +408,9 @@ export class CarModel {
    */
   lifeEnergy(i: LifeDriving): LifeEnergy {
     const totalKm = i.years * i.kmPerYear;
-    const seg = this.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC });
+    // Hills of the life: the climb per 100 km, and as much down again (the car comes back to where it started).
+    const terrain = { netM: 0, ascentM: ((i.ascentPer100Km ?? 0) * totalKm) / 100, slopePct: i.slopePct ?? this.ctx.a.hillSlopeDefaultPct };
+    const seg = this.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC, terrain });
     const days = Math.max(0, i.years * 365);
     const dayH = days > 0 ? seg.timeH / days : 0;
     const bat = this.battery(seg.meanPowerKw, seg.rmsFactor, dayH, true);

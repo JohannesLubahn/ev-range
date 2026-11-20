@@ -51,10 +51,47 @@ Each trip segment is driven along a speed profile in 1-second steps (steady spee
 ```
 F = ½·ρ·Cd·A·v²            air drag        ρ = p / (287.05 · T): air temperature and altitude (standard atmosphere)
   + Crr(v, p_tyre)·m·g      rolling         Crr ∝ 0.005 + (0.01 + 0.0095·(v/100)²)/p, scaled to the tyre value at 80 km/h
-  + m·g·slope               hills           net climb or descent of the segment, spread evenly
+  + m·g·sin(atan s)         hills           s = +slope uphill, −slope downhill, 0 on the flat (see Hills)
   + 1.05·m·a                acceleration    1.05 = rotating parts
 battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhill, within the regeneration limits)
 ```
+
+- **Hills** (user request 20 Nov 2026; `src/engine/physics/terrain.ts`). Every test takes the altitude change
+  start → finish Δh, the total climb H⁺ (all uphill metres, at least Δh) and the typical slope s; Battery life and
+  Cost take a climb per 100 km with Δh = 0. The descent is H⁻ = H⁺ − Δh. The segment is driven as a mix:
+  `H⁺ / sin(atan s)` km uphill, `H⁻ / sin(atan s)` km downhill and the rest flat. Each part runs the same speed
+  trace through the same simulation, so the net slope work is exactly m·g·Δh. When the hills do not fit into the
+  distance at s, the slope is raised until they do (said in the calculation). What comes back on the descents
+  follows from the forces, with no extra factor:
+  - **Gentle descents:** gravity is smaller than air drag + rolling, so it replaces the motor and is used
+    completely.
+  - **Steeper descents:** the excess is regenerated at `regen_efficiency_pct` (70 %, wheel → battery) and spent
+    again through the drivetrain. A round trip comes to about η_regen × η_drive ≈ 60 %. Boretti (SAE 2013-01-2872)
+    measured about 70 % for a round trip, so 70 % wheel → battery is on the safe side.
+  - **Descents beyond the regeneration limits** go to the friction brakes. The limits are 0.2 g, together with the
+    braking of the trace, and 10 km/h.
+  - **Petrol cars** keep only the part that replaces the engine; the rest goes to engine braking and the brakes.
+
+  Example: BYD Atto 3, 100 km of country road at 70 km/h, 500 m up and 500 m down (m·g·h = 2.5 kWh). Against the
+  flat (12.6 kWh) it costs +0.10 kWh at 2 % slopes, +0.28 kWh at 5 % and +0.42 kWh at 8 %. Of the descent, 91 / 85 /
+  80 % comes back. The Honda City (petrol, 1,150 kg) gets 73 / 54 / 39 % back and pays +1.7 / +4.9 / +7.6 % over its
+  flat consumption, against +0.8 / +2.2 / +3.3 % for the Atto 3. The Physics page shows the table for the ticked cars.
+
+  The terrain presets are in `data/terrain.csv`:
+
+  | Preset | Climb per 100 km | Slope |
+  |---|---|---|
+  | Flat | 0 m | 2 % |
+  | Rolling | 300 m | 4 % |
+  | Hilly | 800 m | 5 % |
+  | Mountain | 2,000 m | 7 % |
+
+  The slopes are taken from the steepest grades of main roads by terrain (AASHTO, via the WSDOT Design Manual 1220).
+  The climbs per 100 km are judgement values. The standard of every test is flat, as in the spreadsheet.
+
+  **Not modelled:** no regeneration with a full battery (starting at the top of a mountain at 100 %), drivers
+  slowing down on steep slopes, and the air getting thinner with height (the Conditions' altitude sets the air
+  density for the whole trip).
 
 - **Regeneration limits:** the motor brakes with at most the force that decelerates the car at
   `regen_max_decel_ms2` (1.96 m/s² = 0.2 g, the usual series-braking threshold), and not below `regen_min_kmh`
@@ -294,6 +331,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 | Driving style, regeneration limits | RDE trip-dynamics bounds: Regulation (EU) 2017/1151, Annex IIIA, Appendix 7a (as amended by 2017/1154); regeneration alone below 0.2 g: NPTEL lecture on EV brake systems (series braking strategy); regeneration above 10 km/h: Kia owner's manual, Mazda; plausibility: Bingham, Walsh & Carroll 2012, IET Intell. Transp. Syst. 6(1) 29 (~30 % more energy for aggressive driving) |
+| Hills, regeneration efficiency | Terrain slopes: steepest grades of main roads by terrain (AASHTO Green Book, via WSDOT Design Manual M 22-01, ch. 1220); climbs per 100 km: judgement; regeneration round trip near 70 %: Boretti 2013, SAE 2013-01-2872; Honda City weight 1,150 kg: Thai spec sheet (IndianAutosBlog 2020) |
 | Running costs (Thailand) | `data/running_costs.csv` with sources per row: electricity your spreadsheet (public DC price), compulsory insurance Roojai/OIC, class-1 insurance quotes (Green Energy Thailand 2026, PrakanEV 2026; EV vs petrol: Viriyah via Thai Examiner 2025), servicing Thaiger 2025 via Green Energy Thailand, loss of value Krungsri Research 2024, tyres Thairath and Pirelli, load dependence KIT review; judgement values labelled |
 | Road tax (Thailand) | `data/road_tax.csv`: EV weight bands (Thansettakij; Motorist 2026), petrol per cc and age discount (Motorist 2026); Honda City 988 cc (paultan.org 2019) |
 

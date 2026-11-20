@@ -1,0 +1,5 @@
+id,label,climb_per_100km_m,slope_pct,why,source
+flat,Flat,0,2,"No hills. The slope only matters once a climb is entered; 2 % is below the steepest grades of roads in level terrain (3–4 %)",aashto-grades-wsdot
+rolling,Rolling,300,4,"Judgement for the climb per 100 km. Slope: just below the steepest grades of main roads in rolling terrain (4–5 %)",aashto-grades-wsdot
+hilly,Hilly,800,5,"Judgement for the climb per 100 km. Slope: between the steepest grades of main roads in rolling and mountainous terrain (5–6 %)",aashto-grades-wsdot
+mountain,Mountain,2000,7,"Judgement for the climb per 100 km and the slope: steeper than the steepest grades of mountain freeways (5–6 %), as slower mountain roads are steeper",aashto-grades-wsdot

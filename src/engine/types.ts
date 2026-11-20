@@ -59,6 +59,8 @@ export interface Assumptions {
   regenMaxDecelMs2: number;
   /** Below this speed (km/h) the friction brakes do the braking. */
   regenMinKmh: number;
+  /** Typical slope of the hills when a test does not set one (%). */
+  hillSlopeDefaultPct: number;
   /** Window of the local mean speed the driving style scales the deviations from (s). */
   drivingStyleWindowS: number;
   /** Driving-style presets (% of the WLTP's accelerations and braking; Normal = 100). */
@@ -123,9 +125,23 @@ export interface TrafficJamInputs {
   /** Cabin temperature in the jam (°C); null = off. */
   cabinJamC: number | null;
   profileOutside: Profile;
+  /** Hills of the roads before and after the jam (the jam is flat). */
+  climbM: number;
+  ascentM: number;
+  slopePct: number;
 }
 
-export interface NoChargerInputs {
+/**
+ * The hills of a trip: altitude change from start to finish (`climbM`, negative = the finish is lower), total climb
+ * (`ascentM`, all uphill metres, at least the altitude change) and the typical slope of the climbs and descents (%).
+ */
+export interface TripTerrain {
+  climbM: number;
+  ascentM: number;
+  slopePct: number;
+}
+
+export interface NoChargerInputs extends TripTerrain {
   distanceKm: number;
   startPct: number;
   endPct: number;
@@ -133,10 +149,9 @@ export interface NoChargerInputs {
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
   profile: Profile;
-  climbM: number;
 }
 
-export interface LongTripInputs {
+export interface LongTripInputs extends TripTerrain {
   distanceKm: number;
   speedKmh: number;
   /** Cabin temperature the heating / AC holds while driving (°C); null = off. */
@@ -156,6 +171,9 @@ export interface LifeDriving {
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
   profile: Profile;
+  /** Hills: climb per 100 km (m) and their typical slope (%); the life ends where it starts (descent = climb). */
+  ascentPer100Km: number;
+  slopePct: number;
 }
 
 export interface BatteryLifeInputs extends LifeDriving {
@@ -165,7 +183,7 @@ export interface BatteryLifeInputs extends LifeDriving {
   highSocTimePct: number;
 }
 
-export interface SprintInputs {
+export interface SprintInputs extends TripTerrain {
   distanceKm: number;
   startPct: number;
   endPct: number;
@@ -173,7 +191,6 @@ export interface SprintInputs {
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
   profile: Profile;
-  climbM: number;
 }
 
 /**

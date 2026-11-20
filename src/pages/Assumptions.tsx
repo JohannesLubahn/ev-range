@@ -3,6 +3,7 @@ import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import type { Assumptions } from '../engine/types';
 import { RoadTaxTables, RunningCostRows } from '../components/RunningCosts';
+import { TerrainTable } from '../components/Terrain';
 import { num } from '../format';
 import { ALL_MARKETS } from '../state/carList';
 import { useEngine } from '../state/engine';
@@ -203,6 +204,8 @@ export function AssumptionsPage() {
           </table>
         </div>
       </section>
+
+      <TerrainTable />
 
       <RoadTaxTables />
 
