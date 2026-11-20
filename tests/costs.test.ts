@@ -66,6 +66,19 @@ describe('road tax', () => {
     expect([5, 6, 7, 10, 15].map((y) => roadTaxDiscountPct(mc.roadTax, 'ICE', y))).toEqual([0, 10, 20, 50, 50]);
     expect(roadTaxDiscountPct(mc.roadTax, 'BEV', 10)).toBe(0);
   });
+  it('Germany, petrol: engine size plus CO₂ above 95 g/km, each gram at its band rate (ADAC: Golf 1.5 TSI 85 and 83 EUR)', () => {
+    const de = marketCosts(applyMarket(assumptionsFromDataset(ds), ds.markets.find((m) => m.id === 'DE'))).roadTax;
+    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 122).amount)).toBe(85); // Trend, 122 g/km
+    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 121).amount)).toBe(83); // Life, 121 g/km
+    expect(roadTaxBase(de, 'ICE', 1232, 1498, 90).amount).toBeCloseTo(29.96, 9); // below 95 g/km: engine size only
+    expect(roadTaxBase(de, 'ICE', 1500, 2000, 200).amount).toBeCloseTo(40 + 20 * 2 + 20 * 2.2 + 20 * 2.5 + 20 * 2.9 + 20 * 3.4 + 5 * 4, 9);
+    const noCo2 = roadTaxBase(de, 'ICE', 1232, 1498, null);
+    expect(noCo2.amount).toBeCloseTo(29.96, 9);
+    expect(noCo2.warning).toMatch(/CO₂ emissions/);
+    // The Golf in cars.csv carries the values the tax needs.
+    const golf = ds.cars.find((c) => c.id === 'vw-golf-15-tsi');
+    expect(golf).toMatchObject({ powertrain: 'ICE', market: 'DE', engineCc: 1498, co2GPerKm: 122 });
+  });
 });
 
 describe('ownership', () => {
@@ -76,6 +89,7 @@ describe('ownership', () => {
     curbKg: 1800,
     massKg: 1900,
     engineCc: null,
+    co2GPerKm: null,
     servicingPerYear: null,
     insurancePerYear: null,
     tyreSetPrice: null,

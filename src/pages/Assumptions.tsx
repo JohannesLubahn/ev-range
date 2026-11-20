@@ -50,9 +50,11 @@ function SourceList({ sources }: { sources: Source[] }) {
 }
 
 export function AssumptionsPage() {
-  const { ds, baseAssumptions, assumptionsFor } = useEngine();
+  const { ds, baseAssumptions, assumptionsFor, market } = useEngine();
   // The assumptions as set here, before the market's currency and prices (data/markets.csv) replace some of them.
   const a = assumptionsFor(ALL_MARKETS);
+  // Running costs and road tax: those of the market picked in the car list (All markets: the default cost market).
+  const costA = market ? assumptionsFor(market.id) : a;
   const overrides = useStore((s) => s.assumptionOverrides);
   const fxOverrides = useStore((s) => s.fxOverrides);
   const setAssumption = useStore((s) => s.setAssumption);
@@ -168,7 +170,7 @@ export function AssumptionsPage() {
                   </div>
                 );
               })}
-            {g === 'Costs' && <RunningCostRows a={a} />}
+            {g === 'Costs' && <RunningCostRows a={costA} />}
           </section>
         ))}
       </div>
@@ -207,7 +209,7 @@ export function AssumptionsPage() {
 
       <TerrainTable />
 
-      <RoadTaxTables />
+      <RoadTaxTables a={costA} />
 
       <section className="panel stack" id="sources">
         <div>

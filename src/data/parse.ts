@@ -160,6 +160,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       insurancePerYear: num(row, 'insurance_per_year', warnings, where),
       tyreSetPrice: num(row, 'tyre_set_price', warnings, where),
       engineCc: num(row, 'engine_cc', warnings, where),
+      co2GPerKm: num(row, 'co2_g_km', warnings, where),
       notes: row.notes ?? '',
       raw: { ...row },
     });
@@ -531,13 +532,13 @@ export function parseRoadTax(text: string, warnings: string[]): RoadTaxRow[] {
     if (!market) continue;
     const where = `road_tax.csv, ${market} ${r.powertrain} ${r.basis} ${r.above}–${r.up_to}`;
     const powertrain = r.powertrain === 'BEV' || r.powertrain === 'ICE' ? r.powertrain : null;
-    const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'age_years' ? r.basis : null;
+    const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'co2_g_km' || r.basis === 'age_years' ? r.basis : null;
     const kind = r.kind === 'band' || r.kind === 'per_unit' || r.kind === 'discount_pct' ? r.kind : null;
     const above = parseNumber(r.above);
     const upTo = parseNumber(r.up_to);
     const amount = parseNumber(r.amount);
     if (!powertrain || !basis || !kind || above === null || amount === null || (upTo !== null && upTo <= above)) {
-      warnings.push(`${where}: needs powertrain BEV/ICE, basis weight_kg/engine_cc/age_years, kind band/per_unit/discount_pct, numbers with up_to > above`);
+      warnings.push(`${where}: needs powertrain BEV/ICE, basis weight_kg/engine_cc/co2_g_km/age_years, kind band/per_unit/discount_pct, numbers with up_to > above`);
       continue;
     }
     if ((basis === 'age_years') !== (kind === 'discount_pct')) {

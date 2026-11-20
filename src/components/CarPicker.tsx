@@ -198,7 +198,7 @@ export function CarPickerContent() {
         <input
           id="car-search"
           type="search"
-          placeholder="Search brand, model, body type"
+          placeholder="Search brand or model"
           aria-label="Search cars"
           value={filters.search}
           onChange={(e) => setFilters({ search: e.target.value })}

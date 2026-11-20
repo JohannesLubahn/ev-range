@@ -128,12 +128,44 @@ export interface BulletRow {
   onClick?: () => void;
 }
 
+/**
+ * A zoomed axis for values that all sit near a limit (e.g. 70–82 % capacity left against 80 %): each bar runs from
+ * its row's target tick to the value (right = above, left = below), so the axis need not start at zero. Labelled
+ * ticks below the rows carry the scale.
+ */
+export interface BulletScale {
+  min: number;
+  max: number;
+  ticks: number[];
+  format: (v: number) => string;
+}
+
 /** Horizontal bars with a target tick: needed vs. available. One baseline, thin marks, value at the bar end. */
-export function BulletRows({ rows, valueName, targetName, side }: { rows: BulletRow[]; valueName: string; targetName: string; side?: SideColumn }) {
+export function BulletRows({
+  rows,
+  valueName,
+  targetName,
+  side,
+  scale,
+}: {
+  rows: BulletRow[];
+  valueName: string;
+  targetName: string;
+  side?: SideColumn;
+  scale?: BulletScale;
+}) {
   const tt = useTooltip();
   const finite = rows.flatMap((r) => [r.value, r.target ?? 0]).filter((v) => Number.isFinite(v));
-  const max = Math.max(1e-9, ...finite) * 1.04;
-  const pct = (v: number) => `${Math.min(100, (Math.max(0, Number.isFinite(v) ? v : max) / max) * 100)}%`;
+  const lo = scale ? scale.min : 0;
+  const hi = scale ? scale.max : Math.max(1e-9, ...finite) * 1.04;
+  const pos = (v: number) => Math.min(100, Math.max(0, (((Number.isFinite(v) ? v : hi) - lo) / Math.max(1e-9, hi - lo)) * 100));
+  const pct = (v: number) => `${pos(v)}%`;
+  const barStyle = (r: BulletRow) => {
+    if (!scale || r.target === null) return { width: pct(r.value) };
+    const from = pos(r.target);
+    const to = pos(r.value);
+    return to >= from ? { left: `${from}%`, width: `${to - from}%` } : { left: `${to}%`, width: `${from - to}%`, borderRadius: '4px 0 0 4px' };
+  };
   const smax = sideMax(side);
   const legend = (
     <>
@@ -160,13 +192,35 @@ export function BulletRows({ rows, valueName, targetName, side }: { rows: Bullet
               aria-label={`${r.label}: ${valueName} ${r.value.toFixed(1)}${r.target !== null ? `, ${targetName} ${r.target.toFixed(1)}` : ''}`}
               {...hoverProps(tt, r.tip, r.onClick)}
             >
-              <span className="bar" style={{ width: pct(r.value) }} />
+              <span className="bar" style={barStyle(r)} />
               {r.target !== null && <span className="avail" style={{ left: pct(r.target) }} />}
             </div>
             <span className="value">{r.end}</span>
             {side && <SideCells side={side} id={r.id} max={smax} tt={tt} onClick={r.onClick} />}
           </div>
         ))}
+        {scale && (
+          <div className="row-axis" aria-hidden="true">
+            <span className="axis-label" />
+            <div className="axis">
+              {scale.ticks.map((t) => {
+                const p = pos(t);
+                return (
+                  <span key={t} style={{ left: `${p}%`, transform: `translateX(${p < 3 ? 0 : p > 97 ? -100 : -50}%)` }}>
+                    {scale.format(t)}
+                  </span>
+                );
+              })}
+            </div>
+            <span />
+            {side && (
+              <>
+                <span />
+                <span />
+              </>
+            )}
+          </div>
+        )}
       </div>
       {tt.node}
     </div>

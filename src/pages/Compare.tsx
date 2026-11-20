@@ -1,23 +1,12 @@
-import { useEffect, useState } from 'react';
-import { CarPicker } from '../components/CarPicker';
+import { useState } from 'react';
+import { CarPicker, CarsButton } from '../components/CarPicker';
 import { ConditionsPanel, ConditionsSummary, PresetPicker } from '../components/Conditions';
 import { IconLink } from '../components/Icons';
 import { ScoreCards, ScoreTable, sortIds } from '../components/ScoreTable';
+import { useNarrow } from '../components/useNarrow';
 import { EMBEDDED } from '../embedded';
 import { useEngine } from '../state/engine';
 import { shareLink, useStore } from '../state/store';
-
-function useNarrow(px = 720) {
-  const q = `(max-width: ${px}px)`;
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
-  useEffect(() => {
-    const m = window.matchMedia(q);
-    const on = () => setNarrow(m.matches);
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, [q]);
-  return narrow;
-}
 
 export function ShareButton() {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
@@ -55,6 +44,8 @@ export function ComparePage() {
   const layout = useStore((s) => s.layout);
   const setLayout = useStore((s) => s.setLayout);
   const narrow = useNarrow();
+  // One column (phones, small tablets): the car list opens from a button, so the results come first.
+  const stacked = useNarrow(960);
   const [editing, setEditing] = useState(false);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = sortIds(
@@ -68,7 +59,7 @@ export function ComparePage() {
 
   return (
     <div className="compare-grid">
-      <CarPicker />
+      {!stacked && <CarPicker />}
       <div className="stack" style={{ minWidth: 0 }}>
         <div className="page-head">
           <div className="stack" style={{ gap: 4 }}>
@@ -81,6 +72,7 @@ export function ComparePage() {
         </div>
         <div className="panel stack" style={{ gap: 10 }}>
           <div className="toolbar">
+            {stacked && <CarsButton />}
             <PresetPicker />
             <span className="spacer" />
             {!EMBEDDED && <ShareButton />}
@@ -113,8 +105,9 @@ export function ComparePage() {
           <ScoreTable ids={ids} />
         )}
         <p className="faint" style={{ fontSize: 12.5 }}>
-          Green ✓ = the battery is enough, with the spare capacity in %. Red ✗ = not enough, with the shortfall. Battery figures are
-          long-term capacities (kWh). Long trip and cost: the thin bar shows each car relative to the slowest or most expensive one.
+          Green ✓ = the battery is enough, with the spare capacity in %. Red ✗ = not enough, with the shortfall. Battery figures: needed /
+          available kWh, available = the capacity after the km driven (Conditions); petrol cars in litres of fuel. Long trip and cost: the
+          thin bar shows each car relative to the slowest or most expensive one.
         </p>
       </div>
     </div>

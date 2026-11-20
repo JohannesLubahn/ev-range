@@ -28,7 +28,9 @@ Over `years` of use and `km = years × km per year`, in the display currency (`s
 - Voluntary insurance in year y: `max(r × V(y − 1), minimum)`, r = rate per powertrain; a car's
   `insurance_per_year` replaces it. Compulsory insurance: a fixed amount per year.
 - Road tax: electric by curb weight (band containing it, above < kg ≤ up to), petrol by engine size (per cc, summed
-  over the progressive bands), minus the age discount in year y (petrol cars from the 6th year).
+  over the progressive bands) and, where the market taxes it, CO₂ (Germany: each g/km above 95 at the rate of its
+  band, from the car's `co2_g_km`); the parts add up. Minus the age discount in year y (Thailand: petrol cars from
+  the 6th year; Germany: electric cars free for the first 10 years).
 - Servicing: per year by powertrain (or the car's `maintenance_per_year`). Repairs: % of the price × the years after
   the warranty. 12 V battery: replaced every N years before the end (`ceil(years / N) − 1` times).
 - Tyres: `km ÷ life × set price` with `life = tyre life × reference mass ÷ (curb weight + load)`: tread wear grows
@@ -331,12 +333,14 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 | Driving style, regeneration limits | RDE trip-dynamics bounds: Regulation (EU) 2017/1151, Annex IIIA, Appendix 7a (as amended by 2017/1154); regeneration alone below 0.2 g: NPTEL lecture on EV brake systems (series braking strategy); regeneration above 10 km/h: Kia owner's manual, Mazda; plausibility: Bingham, Walsh & Carroll 2012, IET Intell. Transp. Syst. 6(1) 29 (~30 % more energy for aggressive driving) |
-| Hills, regeneration efficiency | Terrain slopes: steepest grades of main roads by terrain (AASHTO Green Book, via WSDOT Design Manual M 22-01, ch. 1220); climbs per 100 km: judgement; regeneration round trip near 70 %: Boretti 2013, SAE 2013-01-2872; Honda City weight 1,150 kg: Thai spec sheet (IndianAutosBlog 2020) |
+| Hills, regeneration efficiency | Terrain slopes: steepest grades of main roads by terrain (AASHTO Green Book, via WSDOT Design Manual M 22-01, ch. 1220); climbs per 100 km: judgement; regeneration round trip near 70 %: Boretti 2013, SAE 2013-01-2872 |
 | Running costs (Thailand) | `data/running_costs.csv` with sources per row: electricity your spreadsheet (public DC price), compulsory insurance Roojai/OIC, class-1 insurance quotes (Green Energy Thailand 2026, PrakanEV 2026; EV vs petrol: Viriyah via Thai Examiner 2025), servicing Thaiger 2025 via Green Energy Thailand, loss of value Krungsri Research 2024, tyres Thairath and Pirelli, load dependence KIT review; judgement values labelled |
-| Road tax (Thailand) | `data/road_tax.csv`: EV weight bands (Thansettakij; Motorist 2026), petrol per cc and age discount (Motorist 2026); Honda City 988 cc (paultan.org 2019) |
+| Road tax (Thailand) | `data/road_tax.csv`: EV weight bands (Thansettakij; Motorist 2026), petrol per cc and age discount (Motorist 2026); Honda City 988 cc (Honda Thailand 2026) |
 | Running costs (Germany) | `data/running_costs.csv`: electricity ACE/Hocsy 2026 (public DC, ad hoc 50–80 ct/kWh), ADAC, BDEW (home 37 ct/kWh); Haftpflicht GDV via checkalle.de; Vollkasko Stiftung Warentest 11/2026 via t-online, Verivox 2026; Teilkasko Allianz; servicing ADAC 2026; loss of value DAT (Sep 2026); tyres testbericht.de; judgement values labelled |
-| Road tax (Germany) | `data/road_tax.csv`: electric cars tax-free for 10 years when first registered by 2030 (Bundestag, Dec 2025), then § 9 KraftStG per 200 kg, halved |
+| Road tax (Germany) | `data/road_tax.csv`: electric cars tax-free for 10 years when first registered by 2030 (Bundestag, Dec 2025), then § 9 KraftStG per 200 kg, halved; petrol cars (first registered since 2021) 2 EUR per 100 cc plus 2.00–4.00 EUR per g/km of CO₂ above 95 g/km (§ 9 Abs. 1 Nr. 2 c KraftStG), checked against ADAC's 85 EUR for the Golf 1.5 TSI |
 | Car data (20 Nov 2026) | `data/cars.csv` `source_url` per car: Thai prices rodfaifa, Bangkok Motorhaus, Paul Tan, Headlight Magazine; Thai specs ZigWheels, Autospinn; EU type approval (WLTP range and consumption, usable battery, weight, size) and German prices EV Database; drag coefficients from the makers; choice of German cars: KBA via electrive (Oct 2026) |
+| Petrol cars | Honda City (Thailand): Honda Thailand's 2026 specification (40 l tank, 1,144 kg, 22.7 km/l, 599,000 THB), Motorist and Paul Tan 2026; Gasohol 95 39.34 THB/l (Thai government, 11 Nov 2026). VW Golf 1.5 TSI (Germany, the best-selling car in 2025: KBA via Motor1): ADAC Autokatalog (30,210 EUR, WLTP 5.4 l/100 km, 122 g/km, 45 l, 1,307 kg EU), Volkswagen press kit 2019 (Cd 0.275, 2.21 m²); Super E10 1.978 EUR/l (ADAC, 11 Nov 2026) |
+| Consumption checks | Sources of the No-charger analysis (20 Nov 2026), listed under "Consumption checks" on the Assumptions page: Hyptec HT WLTP rating (Motorist Singapore), PakWheels highway test, Bjørn Nyland's Atto 3 test (InsideEVs), Hyptec HT specifications (CarNewsChina, auto-data.net, Paul Tan, ZigWheels) |
 
 ## 6. Spreadsheet issues fixed
 

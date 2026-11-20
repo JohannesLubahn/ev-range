@@ -90,7 +90,7 @@ export function RunningCostRows({ a }: { a: Assumptions }) {
           </label>
           <input id="rc-road-tax" type="text" value="table" readOnly title="Bands in the Road tax section (data/road_tax.csv)" />
           <span className="desc">
-            Electric cars by curb weight, petrol cars by engine size, less for older petrol cars: see{' '}
+            Electric cars by curb weight, petrol cars by engine size (Germany: plus CO₂), less for older cars where the law says so: see{' '}
             <a href="#road-tax" onClick={jump('road-tax')}>
               Road tax
             </a> ·{' '}
@@ -103,8 +103,17 @@ export function RunningCostRows({ a }: { a: Assumptions }) {
 }
 
 function TaxRange({ r, unit }: { r: RoadTaxRow; unit: string }) {
-  if (unit === 'years') return r.upTo === null ? <>from year {num(r.above + 1, 0)}</> : <>year {num(r.upTo, 0)}</>;
-  if (r.upTo === null) return <>above {num(r.above, 0)} {unit}</>;
+  if (unit === 'years') {
+    if (r.upTo === null) return <>from year {num(r.above + 1, 0)}</>;
+    return r.upTo - r.above > 1 ? (
+      <>
+        years {num(r.above + 1, 0)}–{num(r.upTo, 0)}
+      </>
+    ) : (
+      <>year {num(r.upTo, 0)}</>
+    );
+  }
+  if (r.upTo === null) return r.above === 0 ? <>every {unit}</> : <>above {num(r.above, 0)} {unit}</>;
   return (
     <>
       {num(r.above, 0)}–{num(r.upTo, 0)} {unit}
@@ -113,16 +122,21 @@ function TaxRange({ r, unit }: { r: RoadTaxRow; unit: string }) {
 }
 
 /** The road-tax bands of the market in use (in its own currency, as in data/road_tax.csv). */
-export function RoadTaxTables() {
-  const { ds, baseAssumptions } = useEngine();
-  const mc = marketCosts(baseAssumptions);
+export function RoadTaxTables({ a }: { a: Assumptions }) {
+  const { ds } = useEngine();
+  const mc = marketCosts(a);
   const name = ds.markets.find((m) => m.id === mc.market)?.name ?? mc.market;
   const cur = mc.currency;
   const tax = ds.roadTax.filter((r) => r.market === mc.market);
   if (tax.length === 0) return null;
+  // A band is the tax of the whole band; a per-unit row is a rate per kg, cc or g/km within its band.
+  const amount = (r: RoadTaxRow, unit: string) =>
+    r.kind === 'band' ? `${num(r.amount, 0)} ${cur}/year` : `${num(r.amount, r.amount < 0.1 ? 4 : 2)} ${cur} per ${unit}`;
   const all: { title: string; rows: RoadTaxRow[]; unit: string; fmt: (r: RoadTaxRow) => string }[] = [
-    { title: 'Electric cars, by curb weight', rows: tax.filter((r) => r.powertrain === 'BEV' && r.basis === 'weight_kg'), unit: 'kg', fmt: (r) => `${num(r.amount, 0)} ${cur}/year` },
-    { title: 'Petrol cars, by engine size', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'engine_cc'), unit: 'cc', fmt: (r) => `${num(r.amount, 2)} ${cur} per cc` },
+    { title: 'Electric cars, by curb weight', rows: tax.filter((r) => r.powertrain === 'BEV' && r.basis === 'weight_kg'), unit: 'kg', fmt: (r) => amount(r, 'kg') },
+    { title: 'Electric cars, new', rows: tax.filter((r) => r.powertrain === 'BEV' && r.basis === 'age_years'), unit: 'years', fmt: (r) => `−${num(r.amount, 0)} %` },
+    { title: 'Petrol cars, by engine size', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'engine_cc'), unit: 'cc', fmt: (r) => amount(r, 'cc') },
+    { title: 'Petrol cars, by CO₂ (added)', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'co2_g_km'), unit: 'g/km', fmt: (r) => amount(r, 'g/km') },
     { title: 'Petrol cars, older', rows: tax.filter((r) => r.powertrain === 'ICE' && r.basis === 'age_years'), unit: 'years', fmt: (r) => `−${num(r.amount, 0)} %` },
   ];
   const groups = all.filter((g) => g.rows.length > 0);
@@ -131,7 +145,10 @@ export function RoadTaxTables() {
       <div>
         <h2>Road tax ({name})</h2>
         <p className="muted">
-          Per year, in {cur}. Kept in <span className="mono">data/road_tax.csv</span>. {unique(tax.map((r) => r.why).filter(Boolean)).join(' ')}{' '}
+          Per year, in {cur}. Kept in <span className="mono">data/road_tax.csv</span>.{' '}
+          {unique(tax.map((r) => r.why).filter(Boolean))
+            .map((w) => (/[.!?]$/.test(w) ? w : `${w}.`))
+            .join(' ')}{' '}
           <SourceText ids={unique(tax.flatMap((r) => r.sources))} sources={ds.sources} />.
         </p>
       </div>

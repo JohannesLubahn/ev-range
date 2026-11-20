@@ -1,15 +1,26 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BATTERY_LIFE_CASE, STRESS_TESTS, type CaseMeta } from '../caseMeta';
-import { BulletRows, StackedRows, TipLines, type BulletRow, type SideCell, type SideColumn, type StackSeries, type StackedRow } from '../components/Bars';
+import {
+  BulletRows,
+  StackedRows,
+  TipLines,
+  type BulletRow,
+  type BulletScale,
+  type SideCell,
+  type SideColumn,
+  type StackSeries,
+  type StackedRow,
+} from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
 import { LifeTerrainFields, TripTerrainFields } from '../components/Terrain';
+import { useNarrow } from '../components/useNarrow';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
-import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile } from '../engine/types';
+import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
 import { capacityLeft, fixed, hours, lifeYears, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
 import { useInputs, type InputProps } from '../state/inputs';
@@ -17,6 +28,44 @@ import { useStore, type StressKey } from '../state/store';
 
 const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
 const CABIN = 'Cabin heating / AC';
+
+const profileLabel = (p: Profile) => PROFILES.find((x) => x.id === p)?.label ?? p;
+const cabinText = (c: number | null) => (c === null ? 'heating / AC off' : `cabin ${num(c, 0)} °C`);
+
+/** One line with the main inputs of a test, shown on phones where the inputs fold away. */
+function inputSummary(tab: StressKey, s: Scenario): string {
+  const air = `${num(s.conditions[tab].airTemperatureC, 0)} °C outside`;
+  switch (tab) {
+    case 'trafficJam': {
+      const t = s.trafficJam;
+      return [`${num(t.timeJamH, 1)} h in the jam`, `${num(t.startPct, 0)} → ${num(t.endPct, 0)} %`, `in the jam ${cabinText(t.cabinJamC)}`, air].join(' · ');
+    }
+    case 'noCharger':
+    case 'sprint': {
+      const t = s[tab];
+      return [`${num(t.distanceKm, 0)} km at ${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), `${num(t.startPct, 0)} → ${num(t.endPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
+    }
+    case 'longTrip': {
+      const t = s.longTrip;
+      return [`${num(t.distanceKm, 0)} km at ${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), `charging ${num(t.chargeFromPct, 0)} → ${num(t.chargeToPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
+    }
+    case 'batteryLife': {
+      const t = s.batteryLife;
+      return [`${num(t.years, 0)} years × ${num(t.kmPerYear, 0)} km`, `${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), air].join(' · ');
+    }
+  }
+}
+
+/** Battery life: a zoomed axis from a little below the lowest value (or the limit) to 100 %. */
+function lifeScale(rows: BulletRow[]): BulletScale | undefined {
+  const values = rows.flatMap((r) => [r.value, r.target ?? 100]).filter(Number.isFinite);
+  if (values.length === 0) return undefined;
+  const min = Math.max(0, Math.floor((Math.min(...values) - 3) / 5) * 5);
+  const step = 100 - min > 30 ? 10 : 5;
+  const ticks: number[] = [];
+  for (let t = Math.ceil(min / step) * step; t <= 100; t += step) ticks.push(t);
+  return { min, max: 100, ticks, format: (t) => `${num(t, 0)} %` };
+}
 
 /** Battery care: a preset (Gentle / Typical / Hard) or the two habits set by hand. */
 function CareFields({ dc, highSoc, setBoth }: { dc: InputProps<number>; highSoc: InputProps<number>; setBoth: (h: CareHabits) => void }) {
@@ -165,10 +214,10 @@ function consumptionColumn(ids: string[], average: (r: CarResults) => AverageCon
     const ratedLabel =
       d.consumption.provenance === 'calculated' ? `battery ÷ ${d.basis.value} range` : `rated (${d.basis.value} test${kwh ? ', from the grid' : ''})`;
     cells[id] = {
-      // Litres (petrol cars) do not share the kWh scale: no bar, the value with its unit in its place.
+      // Litres (petrol cars) do not share the kWh scale: no bar; the value with its unit in the number column.
       parts: ok && kwh ? [avg.driving, avg.onboard, avg.battery] : [],
-      note: ok && !kwh ? `${fixed(avg.total, 1)} l/100 km` : undefined,
-      end: !ok ? '–' : kwh ? fixed(avg.total, 1) : '',
+      note: ok && !kwh ? 'petrol: litres, no bar' : undefined,
+      end: !ok ? '–' : kwh ? fixed(avg.total, 1) : `${fixed(avg.total, 1)} l`,
       tip: (
         <TipLines
           title={`${d.car.name}: average consumption`}
@@ -241,16 +290,25 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
 function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressKey; meta: CaseMeta; title: string; intro: string; tabs?: ReactNode; inputsTitle: string }) {
   const { scenario, out, selectedIds, derivedById, stale, a } = useEngine();
   const openDrawer = useStore((s) => s.openDrawer);
+  // Phones: the inputs fold away behind a summary, so the results come first.
+  const narrow = useNarrow(900);
+  const [showInputs, setShowInputs] = useState(false);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = selectedIds.filter((id) => out.results[id]);
   const open = (id: string) => openDrawer(id, tab);
   const side = consumptionColumn(ids, (r) => r[tab].average, out.results, derivedById);
+  const anyIce = ids.some((id) => derivedById[id].isIce);
 
   let chart: ReactNode = null;
   let howFar: ReactNode = null;
   if (tab === 'trafficJam' || tab === 'noCharger' || tab === 'sprint') {
     chart = (
-      <BulletRows rows={capacityRows(tab, ids, out.results, derivedById, open)} valueName="Battery needed (kWh)" targetName="Battery available" side={side} />
+      <BulletRows
+        rows={capacityRows(tab, ids, out.results, derivedById, open)}
+        valueName={anyIce ? 'Energy needed (kWh; petrol cars: litres)' : 'Battery needed (kWh)'}
+        targetName={anyIce ? 'Available (battery or tank)' : 'Battery available'}
+        side={side}
+      />
     );
     const sorted = [...ids].sort((x, y) =>
       tab === 'trafficJam'
@@ -300,7 +358,13 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
     const unjudged = ids.filter((id) => out.results[id].batteryLife.pass === null && !derivedById[id].isIce);
     chart = (
       <div className="stack">
-        <BulletRows rows={rows} valueName={`Capacity left after ${num(life.years, 0)} years (%)`} targetName={`${num(a.ratedCyclesEndCapacityPct, 0)} % (must stay at or above)`} side={side} />
+        <BulletRows
+          rows={rows}
+          valueName={`Capacity left after ${num(life.years, 0)} years: bar from the ${num(a.ratedCyclesEndCapacityPct, 0)} % line`}
+          targetName={`${num(a.ratedCyclesEndCapacityPct, 0)} % (must stay at or above)`}
+          side={side}
+          scale={lifeScale(rows)}
+        />
         {unjudged.length > 0 && <p className="faint">No rated cycles or chemistry in cars.csv: {unjudged.map((id) => names[id]).join(', ')}</p>}
       </div>
     );
@@ -370,7 +434,7 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
       <div className="page-head">
         <div className="stack" style={{ gap: 4 }}>
           <h1>{title}</h1>
-          <p className="muted">{intro}</p>
+          <p className="muted">{narrow ? intro.replace('on the left', 'with Edit inputs') : intro}</p>
         </div>
         <div className="row">
           <CarsButton />
@@ -379,12 +443,37 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
       </div>
       {tabs}
       <div className="case-grid">
-        <div className="stack">
-          <InputsPanel test={tab} title={inputsTitle} question={meta.question}>
-            <Inputs tab={tab} />
-          </InputsPanel>
-          <ConditionsPanel test={tab} />
-        </div>
+        {narrow ? (
+          <div className="stack">
+            <div className="panel panel-title">
+              <div className="stack" style={{ gap: 2, minWidth: 0 }}>
+                <h2>{inputsTitle}</h2>
+                <p className="muted">{inputSummary(tab, scenario)}</p>
+              </div>
+              <button type="button" className="btn small" aria-expanded={showInputs} onClick={() => setShowInputs(!showInputs)}>
+                {showInputs ? 'Done' : 'Edit inputs'}
+              </button>
+            </div>
+            {showInputs && (
+              <>
+                <InputsPanel test={tab} title={inputsTitle} question={meta.question}>
+                  <Inputs tab={tab} />
+                </InputsPanel>
+                <ConditionsPanel test={tab} />
+                <button type="button" className="btn" onClick={() => setShowInputs(false)}>
+                  Done: show the results
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="stack">
+            <InputsPanel test={tab} title={inputsTitle} question={meta.question}>
+              <Inputs tab={tab} />
+            </InputsPanel>
+            <ConditionsPanel test={tab} />
+          </div>
+        )}
         <div className={`panel stack ${stale ? 'stale' : ''}`} style={{ minWidth: 0 }}>
           {ids.length === 0 ? (
             <p className="muted">No cars selected (Compare → Cars).</p>

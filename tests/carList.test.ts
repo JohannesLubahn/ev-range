@@ -140,8 +140,9 @@ describe('sorting and grouping', () => {
   it('by price, both directions, blanks last; a model ranks by its best variant', () => {
     const up = flat(listCars(thCars, { key: 'price', dir: 1 }, 'none', 'THB'));
     expect(up[0]).toBe('neta-v');
-    expect(up[1]).toBe('byd-dolphin');
-    expect(up[2]).toBe('dolphin-er'); // kept with its model
+    expect(up[1]).toBe('honda-city'); // 599,000 THB
+    expect(up[2]).toBe('byd-dolphin'); // 599,900 THB
+    expect(up[3]).toBe('dolphin-er'); // kept with its model
     expect(up[up.length - 1]).toBe('mg-windsor-lg'); // no price
     const down = flat(listCars(thCars, { key: 'price', dir: -1 }, 'none', 'THB'));
     expect(down[0]).toBe('avatar-11');

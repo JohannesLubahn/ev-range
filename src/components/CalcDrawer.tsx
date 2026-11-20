@@ -74,6 +74,18 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
       return <CapacitySummary r={r.sprint} unit={unit} howFar={`reaches about ${num(r.sprint.maxDistanceKm, 0)} km at this speed`} />;
     case 'batteryLife': {
       const b = r.batteryLife;
+      if (b.pass === null) {
+        // Not judged: no traction battery (petrol car), or no rated cycles / chemistry.
+        return (
+          <div className="row">
+            <PassFail pass={null} margin={null} />
+            <span className="muted">
+              {unit === 'l' ? 'Petrol car: no traction battery to wear out' : 'Not judged: rated cycles or chemistry missing in cars.csv'}
+              {averageText(b.average, unit)}
+            </span>
+          </div>
+        );
+      }
       return (
         <div className="row">
           <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(b.capacityEndPct)} />

@@ -118,7 +118,8 @@ lists each value in its **Costs** group with its source (linked to the numbered 
 below. What depends on the car:
 
 - **Road tax:** electric cars by curb weight, petrol cars by engine size (`engine_cc`), less for older petrol cars.
-  Germany: electric cars pay no Kfz-Steuer for 10 years, then half the weight tax.
+  Germany: electric cars pay no Kfz-Steuer for 10 years, then half the weight tax; petrol cars 2 EUR per 100 cc plus
+  CO₂ above 95 g/km (`co2_g_km`).
 - **Voluntary insurance:** % of the car's value at the start of each year (electric 3.0 %, petrol 2.5 % in
   Thailand; Vollkasko 1.5 % in Germany), at least the lowest premium.
 - **Loss of value:** % per year by powertrain (Thailand: electric 6.5 %, petrol 3.4 %, from 3 years of Krungsri data;

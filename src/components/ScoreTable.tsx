@@ -51,15 +51,20 @@ function CapacityCell({ id, k, r, unit }: { id: string; k: CapKey; r: CarResults
   );
 }
 
-function LifeCell({ id, r }: { id: string; r: CarResults }) {
+function LifeCell({ id, r, ice }: { id: string; r: CarResults; ice: boolean }) {
   const open = useStore((s) => s.openDrawer);
   const b = r.batteryLife;
+  // Not judged: a petrol car has no traction battery; an electric car may lack rated cycles or chemistry.
+  const detail =
+    b.pass !== null
+      ? `${fixed(b.eolPct, 0)} % reached in ${lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX)}`
+      : ice
+        ? 'petrol car: no traction battery'
+        : 'not judged: rated cycles or chemistry missing';
   return (
     <button type="button" className={`cell-btn ${b.pass === null ? '' : b.pass ? 'good' : 'bad'}`} onClick={() => open(id, 'batteryLife')}>
       <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(b.capacityEndPct)} />
-      <span className="detail">
-        {fixed(b.eolPct, 0)} % reached in {lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX)}
-      </span>
+      <span className="detail">{detail}</span>
     </button>
   );
 }
@@ -168,7 +173,7 @@ export function ScoreTable({ ids }: { ids: string[] }) {
                       />
                     </td>
                     <td className="cell">
-                      <LifeCell id={id} r={r} />
+                      <LifeCell id={id} r={r} ice={d.isIce} />
                     </td>
                     <td className="cell">
                       <MetricCell
@@ -220,7 +225,7 @@ export function ScoreCards({ ids }: { ids: string[] }) {
                 <CapacityCell id={id} k="noCharger" r={r} unit={d.energyUnit} />
                 <CapacityCell id={id} k="sprint" r={r} unit={d.energyUnit} />
                 <MetricCell id={id} k="longTrip" text={`Trip ${hours(r.longTrip.tripTimeH)}`} detail={plural(r.longTrip.stops, "stop", "stops")} frac={null} />
-                <LifeCell id={id} r={r} />
+                <LifeCell id={id} r={r} ice={d.isIce} />
                 <MetricCell
                   id={id}
                   k="cost"

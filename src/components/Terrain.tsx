@@ -65,7 +65,7 @@ export function TripTerrainFields({
         presets={presets}
         describe={(p) =>
           p.climbPer100KmM === 0
-            ? `No hills (only the altitude change, at ${num(p.slopePct, 0)} %)`
+            ? 'No hills: only the altitude change start → finish, at the slope below'
             : `${num(p.climbPer100KmM, 0)} m up per 100 km (${num(tripClimb(p, distanceKm, net.value), 0)} m over ${num(distanceKm, 0)} km), slopes of ${num(p.slopePct, 0)} %`
         }
         onPick={(p) => set({ ascentM: tripClimb(p, distanceKm, net.value), slopePct: p.slopePct })}

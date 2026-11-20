@@ -41,41 +41,58 @@ export function marketCosts(a: Assumptions): MarketCosts {
   return out;
 }
 
-/** The yearly road tax of a new car, from its weight (electric) or engine size (petrol). */
+/** The yearly road tax of a new car, from its weight (electric), engine size and, where taxed, CO₂ (petrol). */
 export interface RoadTaxBase {
   amount: number;
-  basis: 'weight_kg' | 'engine_cc' | null;
-  /** The car's weight or engine size the tax was taken from. */
-  x: number | null;
-  /** E.g. "band 1,750–2,000 kg". */
+  /** E.g. "band 1,750–2,000 kg", or the parts when several bases add up. */
   note: string;
   warning?: string;
 }
 
+type TaxBasis = Exclude<RoadTaxRow['basis'], 'age_years'>;
+const TAX_UNIT: Record<TaxBasis, string> = { weight_kg: 'kg', engine_cc: 'cc', co2_g_km: 'g/km' };
+const TAX_MISSING: Record<TaxBasis, string> = { weight_kg: 'Curb weight', engine_cc: 'Engine size (engine_cc)', co2_g_km: 'CO₂ emissions (co2_g_km)' };
+
 const thousands = (v: number, digits = 0) => v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-export function roadTaxBase(rules: RoadTaxRow[], pt: Powertrain, weightKg: number, engineCc: number | null): RoadTaxBase {
-  const own = rules.filter((r) => r.powertrain === pt && r.basis !== 'age_years').sort((x, y) => x.above - y.above);
-  if (own.length === 0) return { amount: 0, basis: null, x: null, note: 'no road tax rows for this market', warning: `No road tax in data/road_tax.csv for ${pt} cars` };
-  const basis = own[0].basis as 'weight_kg' | 'engine_cc';
-  const unit = basis === 'weight_kg' ? 'kg' : 'cc';
-  const x = basis === 'weight_kg' ? weightKg : engineCc;
-  if (x === null) return { amount: 0, basis, x: null, note: 'engine size missing', warning: 'Engine size (engine_cc) missing: no road tax counted' };
+/** The tax of one basis: its bands, or progressive rates per unit (each unit at the rate of its band). */
+function taxPart(own: RoadTaxRow[], x: number, unit: string): RoadTaxBase {
   if (own.some((r) => r.kind === 'per_unit')) {
     let amount = 0;
     for (const r of own) amount += Math.max(0, Math.min(x, r.upTo ?? Infinity) - r.above) * r.amount;
-    return { amount, basis, x, note: `${thousands(x)} ${unit}, progressive rate per ${unit}` };
+    return { amount, note: `${thousands(x)} ${unit}, progressive rate per ${unit}` };
   }
   const band = own.find((r) => x > r.above && (r.upTo === null || x <= r.upTo));
-  if (band) return { amount: band.amount, basis, x, note: `${thousands(x)} ${unit}: band ${thousands(band.above)}–${band.upTo === null ? '' : thousands(band.upTo)} ${unit}` };
+  if (band) return { amount: band.amount, note: `${thousands(x)} ${unit}: band ${thousands(band.above)}–${band.upTo === null ? '' : thousands(band.upTo)} ${unit}` };
   const last = own[own.length - 1];
   return {
     amount: last.amount,
-    basis,
-    x,
     note: `${thousands(x)} ${unit}: above the table, highest band`,
     warning: `Road tax table ends at ${thousands(last.upTo ?? last.above)} ${unit}; the highest band is used`,
   };
+}
+
+export function roadTaxBase(rules: RoadTaxRow[], pt: Powertrain, weightKg: number, engineCc: number | null, co2GPerKm: number | null = null): RoadTaxBase {
+  const own = rules.filter((r) => r.powertrain === pt && r.basis !== 'age_years').sort((x, y) => x.above - y.above);
+  if (own.length === 0) return { amount: 0, note: 'no road tax rows for this market', warning: `No road tax in data/road_tax.csv for ${pt} cars` };
+  const values: Record<TaxBasis, number | null> = { weight_kg: weightKg, engine_cc: engineCc, co2_g_km: co2GPerKm };
+  const bases = [...new Set(own.map((r) => r.basis as TaxBasis))];
+  let amount = 0;
+  const notes: string[] = [];
+  const warnings: string[] = [];
+  for (const b of bases) {
+    const x = values[b];
+    if (x === null) {
+      notes.push(`${TAX_MISSING[b].split(' (')[0].toLowerCase()} missing`);
+      warnings.push(`${TAX_MISSING[b]} missing: ${bases.length > 1 ? 'that part of the' : 'no'} road tax counted${bases.length > 1 ? ' is 0' : ''}`);
+      continue;
+    }
+    const p = taxPart(own.filter((r) => r.basis === b), x, TAX_UNIT[b]);
+    amount += p.amount;
+    notes.push(bases.length > 1 ? `${thousands(x)} ${TAX_UNIT[b]} → ${thousands(p.amount, 2)}` : p.note);
+    if (p.warning) warnings.push(p.warning);
+  }
+  return { amount, note: notes.join(' + '), warning: warnings.length ? warnings.join('; ') : undefined };
 }
 
 /** % off the road tax in year `year` of use (1 = the first year), e.g. for older petrol cars. */
@@ -98,6 +115,8 @@ export interface OwnershipCar {
   /** Curb weight + load of the cost's conditions (for the tyres). */
   massKg: number;
   engineCc: number | null;
+  /** Official CO₂ emissions (g/km), for road taxes that depend on CO₂. */
+  co2GPerKm: number | null;
   /** Overrides from cars.csv, in the display currency (null = the rule). */
   servicingPerYear: number | null;
   insurancePerYear: number | null;
@@ -179,7 +198,7 @@ export function ownership(car: OwnershipCar, ci: CostInputs, years: number, tota
   lines.push({ part: 'insurance', label: 'Compulsory insurance', value: ci.compulsoryInsurance * years, formula: `${money(ci.compulsoryInsurance)} × ${thousands(years)} years` });
 
   // Road tax.
-  const tax = roadTaxBase(mc.roadTax, pt, car.curbKg, car.engineCc);
+  const tax = roadTaxBase(mc.roadTax, pt, car.curbKg, car.engineCc, car.co2GPerKm);
   if (tax.warning) warnings.push(tax.warning);
   let taxSum = 0;
   let discounted = false;
