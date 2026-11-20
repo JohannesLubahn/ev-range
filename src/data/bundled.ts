@@ -18,6 +18,7 @@ import standard from '../../data/standard.csv?raw';
 import runningCosts from '../../data/running_costs.csv?raw';
 import roadTax from '../../data/road_tax.csv?raw';
 import terrain from '../../data/terrain.csv?raw';
+import profiles from '../../data/profiles.csv?raw';
 import { parseDataset, type RawFiles } from './parse';
 import type { Dataset } from './types';
 
@@ -47,6 +48,7 @@ export const bundledFiles: RawFiles = {
   runningCosts,
   roadTax,
   terrain,
+  profiles,
   cycles: Object.fromEntries(Object.entries(cycleFiles).map(([path, text]) => [path.split('/').pop() as string, text])),
 };
 

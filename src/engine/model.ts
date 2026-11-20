@@ -7,7 +7,7 @@ import { coolingCop } from './onboard/climate';
 import { baseLoadKw, onboardClass, onboardPower, type OnboardPower } from './onboard/loads';
 import { packHeatCapacity, packThermal, type PackThermal } from './onboard/thermal';
 import { airDensity, pressureAtAltitude } from './physics/air';
-import { profileTrace } from './physics/profiles';
+import { profileTrace, type ProfileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
 import { simulate, type SimResult } from './physics/simulate';
 import { combineSims, terrainMix, type TerrainMix, type TerrainSpec } from './physics/terrain';
@@ -19,8 +19,12 @@ import { clamp } from './util';
 export interface SegmentSpec {
   label: string;
   distanceKm: number;
-  /** Average speed including stops (km/h). Ignored if timeH is given. */
-  avgSpeedKmh?: number;
+  /**
+   * Speed of the driving profile as set (km/h): held by Steady, the cruising (top) speed of a road profile, unused by
+   * Mixed. The time comes from the profile's average speed, unless `timeH` is given (the traffic jam: its trace is
+   * slowed down to distance ÷ time).
+   */
+  speedKmh?: number;
   timeH?: number;
   profile: Profile;
   /** Hills: altitude change start → finish, total climb and typical slope (none = flat). */
@@ -82,6 +86,8 @@ export interface SegmentEnergy {
     drivePerKm: number;
     /** Dynamics of the speed trace as driven (EU RDE metrics); null for a constant speed. */
     dynamics: TraceDynamics | null;
+    /** The speed trace driven on the flat: speed used, average, top speed, stops, cap at the car's top speed. */
+    profile: ProfileTrace;
     /** Steady-speed force breakdown at the average moving speed on the flat (N). */
     forcesAtSpeed: { speedKmh: number; aero: number; rolling: number; grade: number; crr: number };
     /** The hills of the segment, or null when it is flat. */
@@ -304,31 +310,40 @@ export class CarModel {
     return (this.ctx.conditions.drivingStylePct ?? 100) / 100;
   }
 
-  private simulateProfile(profile: Profile, avgKmh: number, grade: number): { sim: SimResult; trace: string; movingKmh: number; dynamics: TraceDynamics | null } {
-    const tr = profileTrace(this.ctx.ds, profile, avgKmh, this.styleFactor, this.ctx.a.drivingStyleWindowS);
-    const key = `${profile}|${avgKmh}|${grade}`;
+  /** The profile's speed trace for this car (driving style of the Conditions, capped at the car's top speed). */
+  profileTrace(profile: Profile, speedKmh: number): ProfileTrace {
+    return profileTrace(this.ctx.ds, profile, speedKmh, this.styleFactor, this.ctx.a.drivingStyleWindowS, this.d.car.topSpeedKmh);
+  }
+
+  private simulateProfile(profile: Profile, speedKmh: number, grade: number): { sim: SimResult; trace: ProfileTrace } {
+    const tr = this.profileTrace(profile, speedKmh);
+    const key = `${profile}|${speedKmh}|${grade}`;
     let sim = this.simCache.get(key);
     if (!sim) {
       sim = simulate(tr.speedsKmh, this.vehicle(this.calibration().etaDrive), this.environment(grade));
       this.simCache.set(key, sim);
     }
-    return { sim, trace: tr.description, movingKmh: tr.movingAvgKmh, dynamics: tr.dynamics };
+    return { sim, trace: tr };
   }
 
   // ------------------------------------------------------------------------------------------ segments
   segment(spec: SegmentSpec): SegmentEnergy {
     const distanceKm = spec.distanceKm;
-    const timeH = spec.timeH ?? (spec.avgSpeedKmh ? distanceKm / spec.avgSpeedKmh : 0);
+    // A given time (the traffic jam) sets the average speed the trace is slowed down to; otherwise the profile's
+    // speed trace sets the time: distance ÷ its average speed incl. stops.
+    const speedSet = spec.timeH !== undefined ? (spec.timeH > 0 ? distanceKm / spec.timeH : 0) : (spec.speedKmh ?? 0);
+    const flat = this.simulateProfile(spec.profile, speedSet, 0);
+    const profile = flat.trace;
+    const timeH = spec.timeH ?? (profile.avgKmh > 0 ? distanceKm / profile.avgKmh : 0);
     const avgSpeedKmh = timeH > 0 ? distanceKm / timeH : 0;
+    const { description: trace, movingAvgKmh: movingKmh, dynamics } = profile;
     const onboard = this.onboard(spec.cabinC);
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
     const onboardKwh = onboard.totalKw * timeH + startKwh;
     // Hills: the speed trace driven uphill, downhill and on the flat, mixed by their share of the distance.
     const mix = terrainMix(distanceKm, spec.terrain);
-    const flat = this.simulateProfile(spec.profile, avgSpeedKmh, 0);
-    const { trace, movingKmh, dynamics } = flat;
-    const up = mix.upFrac > 0 ? this.simulateProfile(spec.profile, avgSpeedKmh, mix.grade).sim : flat.sim;
-    const down = mix.downFrac > 0 ? this.simulateProfile(spec.profile, avgSpeedKmh, -mix.grade).sim : flat.sim;
+    const up = mix.upFrac > 0 ? this.simulateProfile(spec.profile, speedSet, mix.grade).sim : flat.sim;
+    const down = mix.downFrac > 0 ? this.simulateProfile(spec.profile, speedSet, -mix.grade).sim : flat.sim;
     const sim =
       mix.upFrac + mix.downFrac > 0
         ? combineSims([
@@ -390,6 +405,7 @@ export class CarModel {
         frictionPerKm: per(sim.frictionKwh),
         drivePerKm: perKmDrive,
         dynamics,
+        profile,
         forcesAtSpeed: { speedKmh: movingKmh, aero: f.aero, rolling: f.rolling, grade: f.grade, crr: f.crr },
         hills,
       },
@@ -404,13 +420,13 @@ export class CarModel {
 
   /**
    * Energy taken from the battery over `i.years × i.kmPerYear` with a new battery (incl. losses). The daily drive
-   * (km per year ÷ 365 at the average speed) is one trip: it starts with a parked cabin and battery each day.
+   * (km per year ÷ 365 at the driving profile's average speed) is one trip: it starts with a parked cabin and battery each day.
    */
   lifeEnergy(i: LifeDriving): LifeEnergy {
     const totalKm = i.years * i.kmPerYear;
     // Hills of the life: the climb per 100 km, and as much down again (the car comes back to where it started).
     const terrain = { netM: 0, ascentM: ((i.ascentPer100Km ?? 0) * totalKm) / 100, slopePct: i.slopePct ?? this.ctx.a.hillSlopeDefaultPct };
-    const seg = this.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC, terrain });
+    const seg = this.segment({ label: 'Life', distanceKm: totalKm, speedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC, terrain });
     const days = Math.max(0, i.years * 365);
     const dayH = days > 0 ? seg.timeH / days : 0;
     const bat = this.battery(seg.meanPowerKw, seg.rmsFactor, dayH, true);

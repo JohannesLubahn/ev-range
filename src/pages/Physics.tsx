@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { CarsButton } from '../components/CarPicker';
+import { drivingText } from '../components/Driving';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { StackedRows, TipLines, type StackedRow } from '../components/Bars';
 import { niceTicks } from '../components/ticks';
@@ -9,7 +10,7 @@ import { Pack } from '../engine/battery/pack';
 import { coolingCop } from '../engine/onboard/climate';
 import { factsTabPower, onboardPower } from '../engine/onboard/loads';
 import { packHeatCapacity, packThermal } from '../engine/onboard/thermal';
-import { CarModel } from '../engine/model';
+import { CarModel, type SegmentSpec } from '../engine/model';
 import { checkMeasurement } from '../engine/onboard/validation';
 import { TEST_KEYS, TEST_LABELS, type TestKey } from '../engine/inputs';
 import type { Profile } from '../engine/types';
@@ -84,7 +85,7 @@ export function PhysicsPage() {
         const row: Record<string, number> = { speed: v };
         for (const id of chosen) {
           const m = out.models[id][refTest];
-          row[id] = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: null }).driveKwh;
+          row[id] = m.segment({ label: 'x', distanceKm: 100, speedKmh: v, profile: 'steady', cabinC: null }).driveKwh;
         }
         return row;
       }),
@@ -112,8 +113,8 @@ export function PhysicsPage() {
   const stylePcts = [...new Set([a.drivingStyleGentlePct, 100, a.drivingStyleSportyPct, cond.drivingStylePct])].sort((x, y) => x - y);
   const styleRows = useMemo(() => {
     const runs: { profile: Profile; speed: number; label: string }[] = [
-      { profile: 'city', speed: 30, label: 'City, 30 km/h' },
-      { profile: 'mixed', speed: 45, label: 'Mixed, 45 km/h' },
+      { profile: 'city', speed: 50, label: 'City at 50 km/h' },
+      { profile: 'mixed', speed: 0, label: 'Mixed (the WLTP)' },
     ];
     return chosenKey
       .split(',')
@@ -126,7 +127,7 @@ export function PhysicsPage() {
           label: r.label,
           values: stylePcts.map((pct) => {
             const mm = pct === cond.drivingStylePct ? m : new CarModel(m.d, { ...m.ctx, conditions: { ...m.ctx.conditions, drivingStylePct: pct } });
-            const seg = mm.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: r.speed, profile: r.profile, cabinC: null });
+            const seg = mm.segment({ label: 'x', distanceKm: 100, speedKmh: r.speed, profile: r.profile, cabinC: null });
             return { kwh: seg.driveKwh, friction: seg.physics.frictionPerKm * 100 };
           }),
         }));
@@ -143,7 +144,7 @@ export function PhysicsPage() {
         .flatMap((id) => {
           const m = out.models[id]?.[refTest];
           if (!m) return [];
-          const base = { label: 'x', distanceKm: 100, avgSpeedKmh: 70, profile: 'rural' as Profile, cabinC: null };
+          const base: SegmentSpec = { label: 'x', distanceKm: 100, speedKmh: 90, profile: 'rural', cabinC: null };
           const flat = m.segment(base).driveKwh;
           return [
             {
@@ -163,7 +164,7 @@ export function PhysicsPage() {
     if (!first) return [];
     const m = out.models[first][refTest];
     return [30, 60, 90, 120, 150].map((v) => {
-      const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: cabin });
+      const seg = m.segment({ label: 'x', distanceKm: 100, speedKmh: v, profile: 'steady', cabinC: cabin });
       const p = seg.physics;
       const eta = m.calibration().etaDrive;
       const rolling = (p.rollingPerKm / eta) * 100;
@@ -430,7 +431,7 @@ export function PhysicsPage() {
           <div>
             <h2>Hills</h2>
             <p className="muted">
-              {num(HILL_M, 0)} m up and {num(HILL_M, 0)} m down over 100 km of country road (70 km/h): extra driving energy against the flat, and the
+              {num(HILL_M, 0)} m up and {num(HILL_M, 0)} m down over 100 km of country road (Rural profile at up to 90 km/h): extra driving energy against the flat, and the
               share of the descents&rsquo; potential energy that came back. On gentle descents gravity replaces the motor against air drag and
               rolling; on steeper ones the excess is regenerated at {num(a.regenEfficiencyPct, 0)} % and spent again through the drivetrain. A
               petrol car loses it. Set the hills per test (Terrain).
@@ -582,7 +583,7 @@ export function PhysicsPage() {
             <h2>Battery wear vs. km driven</h2>
             <p className="muted">
               Capacity left from charge cycles and age, at {num(scenario.conditions.batteryLife.airTemperatureC, 0)} °C (the battery's past: Battery life page) and the battery-life driving ({num(scenario.batteryLife.kmPerYear, 0)}{' '}
-              km a year, {num(scenario.batteryLife.speedKmh, 0)} km/h) and battery care ({num(scenario.batteryLife.dcSharePct, 0)} % fast charging,{' '}
+              km a year, {drivingText(ds, scenario.batteryLife.profile, scenario.batteryLife.speedKmh)}) and battery care ({num(scenario.batteryLife.dcSharePct, 0)} % fast charging,{' '}
               {num(scenario.batteryLife.highSocTimePct, 0)} % of the time parked above 80 %). {TEST_LABELS[refTest]} uses the value at {num(cond.batteryKm, 0)} km
               (its Conditions; battery life and cost start from new).
             </p>

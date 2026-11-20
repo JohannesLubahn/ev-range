@@ -9,6 +9,34 @@ const LEGACY_MAINTENANCE = 8000;
 
 type Loose = Record<string, unknown>;
 
+/** Version of the inputs' meaning (see Scenario.version): 2 = a driving profile's speed is its cruising speed. */
+export const SCENARIO_VERSION = 2;
+
+/** The standard driving of each test before version 2, when a profile's speed was the average speed incl. stops. */
+const LEGACY_DRIVING: { test: TestKey; speed: string; profile: string; speedKmh: number; profileId: string }[] = [
+  { test: 'trafficJam', speed: 'speedOutsideKmh', profile: 'profileOutside', speedKmh: 40, profileId: 'city' },
+  { test: 'noCharger', speed: 'speedKmh', profile: 'profile', speedKmh: 70, profileId: 'rural' },
+  { test: 'sprint', speed: 'speedKmh', profile: 'profile', speedKmh: 120, profileId: 'steady' },
+  { test: 'longTrip', speed: 'speedKmh', profile: 'profile', speedKmh: 60, profileId: 'rural' },
+  { test: 'batteryLife', speed: 'speedKmh', profile: 'profile', speedKmh: 40, profileId: 'mixed' },
+  { test: 'cost', speed: 'speedKmh', profile: 'profile', speedKmh: 40, profileId: 'mixed' },
+];
+
+/**
+ * Scenarios older than version 2: a test still at the old standard driving gets the new standard (removed here, so the
+ * standard fills it in); a driving the user had changed keeps its numbers, now read as the cruising speed (each
+ * profile keeps the speed inside its own range).
+ */
+function migrateDriving(tests: Record<TestKey, Loose>): void {
+  for (const l of LEGACY_DRIVING) {
+    const t = tests[l.test];
+    if (t[l.speed] === l.speedKmh && t[l.profile] === l.profileId) {
+      delete t[l.speed];
+      delete t[l.profile];
+    }
+  }
+}
+
 /** Values of the rows of data/standard.csv for one test ('all' = the shared conditions). */
 function rowsOf(ds: Dataset, a: Assumptions, test: string, table: Record<string, InputKind>): Loose {
   const out: Loose = {};
@@ -36,8 +64,8 @@ function build(ds: Dataset, a: Assumptions): { standard: Scenario; spreadsheet: 
   const trip = (t: TestKey) => rowsOf(ds, a, t, TRIP_INPUTS[t] as Record<string, InputKind>);
   const cond = (t: TestKey) => ({ ...all, ...rowsOf(ds, a, t, CONDITION_INPUTS) }) as Conditions;
   const parts = Object.fromEntries(TEST_KEYS.map((t) => [t, trip(t)])) as unknown as Omit<Scenario, 'conditions'>;
-  const standard: Scenario = { ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, cond(t)])) as Scenario['conditions'] };
-  const spreadsheet: Scenario = { ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, { ...all }])) as Scenario['conditions'] };
+  const standard: Scenario = { version: SCENARIO_VERSION, ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, cond(t)])) as Scenario['conditions'] };
+  const spreadsheet: Scenario = { version: SCENARIO_VERSION, ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, { ...all }])) as Scenario['conditions'] };
   const r = { standard, spreadsheet };
   byA.set(a, r);
   return r;
@@ -94,7 +122,8 @@ function isPerTest(c: unknown): c is Partial<Record<TestKey, Loose>> {
  * - one set of conditions for all tests → the same conditions in each test (filled up to the old defaults, the
  *   "all" rows), so an old scenario gives the same results;
  * - Cost without its own years / distance / driving → Battery life's; one maintenance per year → servicing;
- * - absolute tyre pressure (bar) → % of the recommended pressure; heating / AC usage % → a cabin temperature.
+ * - absolute tyre pressure (bar) → % of the recommended pressure; heating / AC usage % → a cabin temperature;
+ * - before version 2 (speed = average incl. stops): the old standard driving → the new standard (see migrateDriving).
  */
 export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario {
   const base = standardScenario(ds, a);
@@ -125,6 +154,7 @@ export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario
     delete longTrip.usageChargingPct;
     if (!('climateWhileCharging' in longTrip)) longTrip.climateWhileCharging = !(typeof usage === 'number' && usage <= 0);
   }
+  if ((s.version ?? 1) < SCENARIO_VERSION) migrateDriving({ trafficJam, noCharger, sprint, longTrip, batteryLife, cost });
   const life = { ...base.batteryLife, ...batteryLife };
   if (s.cost && !('years' in cost)) {
     // Older versions: the cost used Battery life's years, distance and driving.
@@ -142,6 +172,7 @@ export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario
   }
   return {
     ...s,
+    version: SCENARIO_VERSION,
     trafficJam: { ...base.trafficJam, ...trafficJam },
     noCharger: { ...base.noCharger, ...noCharger },
     longTrip: { ...base.longTrip, ...longTrip },

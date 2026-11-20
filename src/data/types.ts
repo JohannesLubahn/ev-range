@@ -52,6 +52,8 @@ export interface Car {
   engineCc: number | null;
   /** Petrol cars: official CO₂ emissions (g/km, WLTP combined), for road taxes that depend on CO₂ (Germany). */
   co2GPerKm: number | null;
+  /** Top speed (km/h): the driving profiles are capped at it. */
+  topSpeedKmh: number | null;
   notes: string;
   /** Every column of the CSV row as text, including columns the app does not know (shown on the Cars page). */
   raw: Record<string, string>;
@@ -273,6 +275,34 @@ export interface Cycle {
   phases: string[];
 }
 
+/**
+ * What the speed set for a driving profile means (data/profiles.csv, column speed):
+ * - constant: the car holds it (Steady);
+ * - cruising: the top of the speed trace; the trace is stretched in time to it, so its accelerations stay as recorded;
+ * - own: none, the trace is driven at its recorded speeds (a mix of roads has no single speed);
+ * - average: the trace is slowed down to this average speed (the traffic jam: distance ÷ time).
+ */
+export type ProfileSpeedKind = 'constant' | 'cruising' | 'own' | 'average';
+
+/** One row of data/profiles.csv: a driving profile, its speed trace and the speeds it allows. */
+export interface ProfileDef {
+  id: string;
+  label: string;
+  description: string;
+  speed: ProfileSpeedKind;
+  /** Test cycle the trace comes from (an id of data/cycles/index.csv); blank for Steady. */
+  cycle: string;
+  /** Phases of the cycle in the trace; empty = the whole cycle. */
+  phases: string[];
+  /** Speed (km/h) where the trace is cut on its way up and down and joined, so repeating it never stops; null = as recorded. */
+  joinKmh: number | null;
+  /** Speeds the profile allows (km/h); null for profiles without a speed setting. */
+  speedMinKmh: number | null;
+  speedMaxKmh: number | null;
+  why: string;
+  sources: string[];
+}
+
 /** One row of data/standard.csv: the standard value of one input of one test ('all' = every test's conditions). */
 export interface StandardRow {
   test: string;
@@ -306,6 +336,8 @@ export interface Dataset {
   roadTax: RoadTaxRow[];
   /** Terrain presets (data/terrain.csv). */
   terrain: TerrainPreset[];
+  /** Driving profiles (data/profiles.csv), in the file's order. */
+  profiles: ProfileDef[];
   /** Problems found while reading the files (e.g. a non-numeric value in a number column). */
   loadWarnings: string[];
 }

@@ -49,6 +49,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/markets.csv` | One row per market: name and currency. |
 | `data/running_costs.csv` | **Running costs per market** (in its currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). |
 | `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
+| `data/profiles.csv` | Driving profiles (Steady, City, Rural, Highway, Motorway, Mixed, the traffic jam): speed trace (cycle and phases), what the speed set means, the speeds each allows, with why and sources. |
 | `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): `all` rows = the conditions every test starts from, test rows = its trip inputs and its own conditions (e.g. the traffic jam at 35 °C), each with the reason. Blank = from an assumption or the market. |
@@ -152,6 +153,17 @@ on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30
   battery's past), not the weather of the test.
 - The Physics page and the Cars page's calculated rows show one test's conditions ("Conditions of", default No
   charger).
+
+**Driving** (every test): first the **driving profile**, then its speed, and under them a chart of the speed trace
+the test drives (one stretch, with its average speed, top speed and stops; hover for the speed at each moment).
+Steady holds the speed set. City, Rural, Highway and Motorway take a **cruising speed**, the fastest you drive: the
+recorded trace is stretched in time to it, so the accelerations stay as recorded and the profile adds the slowing
+down and the stops; the average speed, and with it the time, comes out of the trace. Mixed drives the whole WLTP at
+its own speeds and has no speed to set. Each profile allows its own range of speeds (`data/profiles.csv`, with the
+EU real-driving test and the speed limits as sources); the car's top speed caps the trace. Standard: No charger and
+Long trip on the Highway at 90 km/h, the roads around the traffic jam in town at 50 km/h, Battery life and Cost on
+Mixed, the sprint at a steady 120 km/h. Scenarios saved before 20 Nov 2026 (speed = average incl. stops) are
+converted: the old standard driving becomes the new one.
 
 **Battery wear** (Conditions: km driven, default 100,000 km) sets the capacity the stress tests start from:
 cycle wear up to the car's rated cycles plus calendar ageing, per chemistry. **Battery care** (Battery life page:

@@ -141,7 +141,7 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
         calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)${of}`, `${'kWh'}/100 km`, 'lower', (d) => {
           const m = out.models[d.car.id]?.[refTest];
           if (!m || d.consumption.value === null) return { text: '', value: null };
-          const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', cabinC: null });
+          const seg = m.segment({ label: 'x', distanceKm: 100, speedKmh: speed, profile: 'steady', cabinC: null });
           return n(seg.driveKwh, 1);
         });
       }

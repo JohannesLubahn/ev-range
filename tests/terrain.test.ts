@@ -21,7 +21,7 @@ const model = (id: string) => new CarModel(derived[id], { ds, a, conditions: sc.
 const spec = (profile: Profile, speed: number, netM: number, ascentM: number, slopePct: number): SegmentSpec => ({
   label: 'Trip',
   distanceKm: 100,
-  avgSpeedKmh: speed,
+  speedKmh: speed,
   profile,
   cabinC: null,
   terrain: { netM, ascentM, slopePct },

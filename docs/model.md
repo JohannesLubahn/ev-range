@@ -74,10 +74,11 @@ battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhi
     braking of the trace, and 10 km/h.
   - **Petrol cars** keep only the part that replaces the engine; the rest goes to engine braking and the brakes.
 
-  Example: BYD Atto 3, 100 km of country road at 70 km/h, 500 m up and 500 m down (m·g·h = 2.5 kWh). Against the
-  flat (12.6 kWh) it costs +0.10 kWh at 2 % slopes, +0.28 kWh at 5 % and +0.42 kWh at 8 %. Of the descent, 91 / 85 /
-  80 % comes back. The Honda City (petrol, 1,150 kg) gets 73 / 54 / 39 % back and pays +1.7 / +4.9 / +7.6 % over its
-  flat consumption, against +0.8 / +2.2 / +3.3 % for the Atto 3. The Physics page shows the table for the ticked cars.
+  Example: BYD Atto 3, 100 km of country road (Rural profile cruising at 90 km/h, average 52 km/h), 500 m up and
+  500 m down (m·g·h = 2.5 kWh). Against the flat (11.0 kWh) it costs +0.19 kWh at 2 % slopes, +0.46 kWh at 5 % and
+  +0.62 kWh at 8 %. Of the descent, 87 / 79 / 74 % comes back. The Honda City (petrol, 1,144 kg) gets 67 / 43 / 31 %
+  back and pays +3.3 / +8.5 / +11.4 % over its flat consumption, against +1.7 / +4.2 / +5.6 % for the Atto 3. The
+  Physics page shows the table for the ticked cars.
 
   The terrain presets are in `data/terrain.csv`:
 
@@ -109,9 +110,36 @@ battery = F·v / η_drive  (driving)    or    F·v · η_regen  (braking, downhi
   saved scenarios are converted (bar ÷ 2.5).
 - `m` = curb weight + payload. Missing Cd / frontal area come from `body_types.csv`; frontal area can also be
   0.85 × width × height. Missing weights are estimated from battery size (a fit over the cars that have both).
-- Profiles: *steady*; *motorway*, *rural*, *city* and *mixed* use the WLTP class 3b phases (extra-high, high,
-  low + medium, all); *traffic jam* is the low phase slowed down to crawl speed. If the requested average speed is
-  above the profile's moving average, its speeds are scaled up; a lower average only adds standing time.
+- **Driving profiles** (`data/profiles.csv`, user's choice 20 Nov 2026). The speed set for a profile is what the
+  profile's `speed` column says:
+  - *Steady*: a constant speed (10–200 km/h);
+  - *City* (WLTP low + medium phases, 30–60 km/h), *Rural* (WLTP high phase, 50–100 km/h), *Highway* (US EPA
+    HWFET, 60–120 km/h) and *Motorway* (WLTP extra-high phase, 80–160 km/h): the **cruising speed**, the fastest
+    the trace goes. The recorded trace is stretched in time to it: `v'(t) = k·v(t/k)` with `k` = speed ÷ recorded
+    top speed, so speeds and durations scale with `k`, the length of a stretch with `k²` and the accelerations stay
+    as recorded. The stops are those of the recording (City about one every 0.6–1.3 km, Rural one every 7 km at
+    its recorded speeds, Highway one every 17 km). The Motorway is the extra-high phase cut where it passes
+    105 km/h on its way up and down and joined, so repeating it never stops (judgement);
+  - *Mixed*: the whole WLTP at its own speeds (average 46.5 km/h): a mix of roads has no single speed;
+  - *traffic jam*: the low phase slowed down (all speeds scaled) to the jam's average speed, distance ÷ time.
+
+  The speed ranges follow the EU real-driving test (Regulation (EU) 2017/1151, Annex IIIA, points 6.3–6.8: urban
+  up to 60 km/h, motorway normally up to 145 km/h plus 15 km/h for a short time) and the speed limits (Germany:
+  50 km/h in towns and 100 km/h outside, StVO § 3, 130 km/h recommended on the Autobahn; Thailand: 90 km/h on
+  highways, 120 km/h on signed four-lane sections since 2021). Each profile keeps the speed set inside its range,
+  and the car's top speed (`top_speed_kmh`) caps the trace, with a warning. The segment's time is distance ÷ the
+  trace's average speed incl. stops (Highway at 90 km/h: 73 km/h), which also sets the onboard energy and the long
+  trip's driving time.
+
+  Before 20 Nov 2026 the speed was the average incl. stops and the speeds of the trace were multiplied to reach it,
+  which also multiplied the accelerations: at "70 km/h" the Rural profile peaked at 112 km/h, City at 155 and Mixed
+  at 171, and the No-charger standard (Rural, 70 km/h) gave the Hyptec HT 16.8 kWh/100 km, about 25 % more than
+  its owner measures. Below a profile's own average the speed only added standing time, so slower driving used
+  more energy. Now faster cruising always costs more on country roads, highways and motorways; in town the
+  driving energy hardly changes with the cruising speed (accelerations and stops per km stay the same) and a slow
+  crawl costs more per km because heating / AC and electronics run longer. Saved scenarios of older versions
+  (`Scenario.version` missing) are converted: a test still at the old standard driving gets the new standard, a
+  changed one keeps its numbers, read as the cruising speed.
 - **Driving style** (Conditions, user request 19 Nov 2026): accelerations and braking in % of the WLTP's
   (Gentle 65 % · Normal 100 % · Sporty 170 %, or any value 40–200 %). Each speed's deviation from its 30-second
   local mean is scaled: `v' = max(0, v̄ + k·(v − v̄))`, then the trace is rescaled to its original distance, so
@@ -340,6 +368,7 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Road tax (Germany) | `data/road_tax.csv`: electric cars tax-free for 10 years when first registered by 2030 (Bundestag, Dec 2025), then § 9 KraftStG per 200 kg, halved; petrol cars (first registered since 2021) 2 EUR per 100 cc plus 2.00–4.00 EUR per g/km of CO₂ above 95 g/km (§ 9 Abs. 1 Nr. 2 c KraftStG), checked against ADAC's 85 EUR for the Golf 1.5 TSI |
 | Car data (20 Nov 2026) | `data/cars.csv` `source_url` per car: Thai prices rodfaifa, Bangkok Motorhaus, Paul Tan, Headlight Magazine; Thai specs ZigWheels, Autospinn; EU type approval (WLTP range and consumption, usable battery, weight, size) and German prices EV Database; drag coefficients from the makers; choice of German cars: KBA via electrive (Oct 2026) |
 | Petrol cars | Honda City (Thailand): Honda Thailand's 2026 specification (40 l tank, 1,144 kg, 22.7 km/l, 599,000 THB), Motorist and Paul Tan 2026; Gasohol 95 39.34 THB/l (Thai government, 11 Nov 2026). VW Golf 1.5 TSI (Germany, the best-selling car in 2025: KBA via Motor1): ADAC Autokatalog (30,210 EUR, WLTP 5.4 l/100 km, 122 g/km, 45 l, 1,307 kg EU), Volkswagen press kit 2019 (Cd 0.275, 2.21 m²); Super E10 1.978 EUR/l (ADAC, 11 Nov 2026) |
+| Driving profiles | Traces: WLTC class 3b phases (UN GTR No. 15, Regulation (EU) 2017/1151), US EPA HWFET (EPA dynamometer drive schedules). Speed ranges: EU real-driving test (Regulation (EU) 2017/1151, Annex IIIA, points 6.3–6.8: urban up to 60 km/h, motorway normally up to 145 km/h + 15 km/h), StVO § 3 (50 km/h in towns, 100 km/h outside), Autobahn-Richtgeschwindigkeits-Verordnung (130 km/h), Thailand's 120 km/h on divided four-lane highways (The Nation, March 2021). Judgement: the Motorway's join at 105 km/h and the standard speeds (your choice) |
 | Consumption checks | Sources of the No-charger analysis (20 Nov 2026), listed under "Consumption checks" on the Assumptions page: Hyptec HT WLTP rating (Motorist Singapore), PakWheels highway test, Bjørn Nyland's Atto 3 test (InsideEVs), Hyptec HT specifications (CarNewsChina, auto-data.net, Paul Tan, ZigWheels) |
 
 ## 6. Spreadsheet issues fixed
@@ -369,37 +398,39 @@ Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) o
 spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test. The
 spreadsheet used 80 % of nominal as the battery; the Physics model uses the capacity after 100,000 km (85–91 %).
 The battery-life column shows the full cycles needed; the verdict itself is now the capacity left after 20 years
-(section 4, battery care). The Physics values were recalculated on 20 Nov 2026, after the cost categories, the
-hills (flat in every standard, so they change nothing here) and the Honda City's weight (1,150 kg instead of an
-estimate of about 1,780 kg). The cost column compares two different totals: the spreadsheet's purchase + energy +
+(section 4, battery care). The Physics values were recalculated on 20 Nov 2026 with the car data of November 2026
+and the driving profiles of section 1: the speed is the cruising speed, No charger and Long trip drive the Highway
+profile at 90 km/h (the spreadsheet: 70 and 60 km/h average), the roads around the traffic jam the City profile at
+50 km/h (spreadsheet: 40 km/h average), Battery life and Cost the WLTP at its own speeds (spreadsheet: 40 km/h);
+the hills are flat in every standard. The cost column compares two different totals: the spreadsheet's purchase + energy +
 one maintenance figure, against today's full cost of ownership (depreciation, energy, insurance, road tax, servicing
 & repairs, tyres).
 
 | Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|
-| Neta V | +26 % · **+68 %** | −29 % · **−26 %** | −41 % · **+19 %** | 16.8 · **15.6** | 1308 · **1216** | 3.21 · **4.45** |
-| Ora Good Cat | −25 % · **+67 %** | −87 % · **−43 %** | −100 % · **+12 %** | 18.4 · **15.8** | 1941 · **1375** | 4.51 · **5.71** |
-| BYD Atto 3 | +12 % · **+79 %** | −4 % · **+16 %** | −8 % · **+46 %** | 15.5 · **14.3** | 1134 · **801** | 4.32 · **5.70** |
-| Tesla Model 3 2021 | −34 % · **+71 %** | −34 % · **+9 %** | −35 % · **+48 %** | 15.4 · **14.1** | 1513 · **896** | 6.93 · **9.28** |
-| Nio ET7 75kW | −13 % · **+74 %** | −29 % · **+9 %** | −34 % · **+51 %** | 15.8 · **14.3** | 1415 · **881** | 7.75 · **10.36** |
-| Neta S | +42 % · **+84 %** | +25 % · **+37 %** | +21 % · **+65 %** | 15.5 · **14.3** | 801 · **595** | 7.61 · **9.83** |
-| Neta X | +13 % · **+78 %** | −6 % · **+9 %** | −11 % · **+42 %** | 16.3 · **14.8** | 1143 · **866** | 4.17 · **5.58** |
-| Aion Y Plus | +12 % · **+77 %** | −13 % · **+1 %** | −19 % · **+38 %** | 16.8 · **15.1** | 1209 · **935** | 4.91 · **6.47** |
-| Aion Hyptec HT | +7 % · **+79 %** | +4 % · **+26 %** | +3 % · **+57 %** | 14.3 · **13.8** | 1074 · **717** | 6.49 · **8.94** |
-| Deepal L07 | +20 % · **+78 %** | +5 % · **+20 %** | +2 % · **+53 %** | 16.4 · **14.8** | 1027 · **780** | 5.89 · **7.67** |
-| BYD Seal low | +9 % · **+74 %** | −27 % · **−10 %** | −35 % · **+41 %** | 17.0 · **15.3** | 1337 · **1048** | 5.06 · **6.69** |
-| BYD Seal high | +30 % · **+78 %** | −9 % · **+5 %** | −17 % · **+51 %** | 16.3 · **14.9** | 1124 · **894** | 5.94 · **7.86** |
-| Zeekr X | +15 % · **+74 %** | −25 % · **−15 %** | −34 % · **+31 %** | 15.4 · **14.5** | 1304 · **1121** | 5.83 · **7.65** |
-| Xpeng G6 | −20 % · **+71 %** | −38 % · **−13 %** | −42 % · **+33 %** | 15.0 · **14.1** | 1506 · **1086** | 6.65 · **9.05** |
-| Avatar 11 | +31 % · **+82 %** | +17 % · **+31 %** | +13 % · **+61 %** | 15.2 · **14.1** | 900 · **658** | 8.96 · **11.97** |
-| Ora 07 | +31 % · **+78 %** | −6 % · **+5 %** | −14 % · **+49 %** | 16.7 · **15.2** | 1096 · **914** | 6.25 · **8.13** |
-| Honda City | +35 % · **+89 %** | +56 % · **+61 %** | +60 % · **+80 %** | 13.3 · **13.3** | 550 · **361** | 4.28 · **6.16** |
-| Deepal S05 | +1 % · **+72 %** | −39 % · **−22 %** | −47 % · **+28 %** | 15.3 · **14.4** | 1457 · **1165** | 4.38 · **5.88** |
-| BYD Dolphin | +35 % · **+69 %** | −38 % · **−32 %** | −53 % · **+20 %** | 16.0 · **15.1** | 1358 · **1268** | 3.34 · **4.64** |
-| Dolphin ER | +45 % · **+74 %** | −19 % · **−14 %** | −33 % · **+32 %** | 15.3 · **14.7** | 1172 · **1081** | 3.73 · **5.11** |
-| Hyundai Inster | +32 % · **+62 %** | −43 % · **−52 %** | −59 % · **+6 %** | 15.6 · **15.1** | 1408 · **1568** | 1.76 · **6.10** |
-| MG Windsor LG | +42 % · **+75 %** | −4 % · **+2 %** | −14 % · **+37 %** | 15.7 · **14.8** | 1048 · **942** | – · **–** |
-| MG Windsor | +22 % · **+67 %** | −40 % · **−31 %** | −53 % · **+15 %** | 16.7 · **15.5** | 1415 · **1272** | – · **–** |
+| Neta V | +26 % · **+69 %** | −29 % · **−1 %** | −41 % · **+15 %** | 16.8 · **13.2** | 1308 · **1242** | 3.21 · **3.79** |
+| Ora Good Cat | −25 % · **+70 %** | −87 % · **−5 %** | −100 % · **+12 %** | 18.4 · **13.1** | 1941 · **1296** | 4.51 · **5.61** |
+| BYD Atto 3 | +12 % · **+78 %** | −4 % · **+27 %** | −8 % · **+40 %** | 15.5 · **12.0** | 1134 · **891** | 4.32 · **5.98** |
+| Tesla Model 3 2021 | −34 % · **+71 %** | −34 % · **+29 %** | −35 % · **+46 %** | 15.4 · **11.7** | 1513 · **886** | 6.93 · **9.07** |
+| Nio ET7 75kW | −13 % · **+75 %** | −29 % · **+28 %** | −34 % · **+47 %** | 15.8 · **11.8** | 1415 · **904** | 7.75 · **10.42** |
+| Neta S | +42 % · **+85 %** | +25 % · **+52 %** | +21 % · **+65 %** | 15.5 · **11.7** | 801 · **587** | 7.61 · **9.81** |
+| Neta X | +13 % · **+78 %** | −6 % · **+23 %** | −11 % · **+37 %** | 16.3 · **12.5** | 1143 · **948** | 4.17 · **5.69** |
+| Aion Y Plus | +12 % · **+78 %** | −13 % · **+24 %** | −19 % · **+37 %** | 16.8 · **12.5** | 1209 · **925** | 4.91 · **5.45** |
+| Aion Hyptec HT | +7 % · **+79 %** | +4 % · **+42 %** | +3 % · **+56 %** | 14.3 · **11.4** | 1074 · **708** | 6.49 · **7.91** |
+| Deepal L07 | +20 % · **+78 %** | +5 % · **+32 %** | +2 % · **+48 %** | 16.4 · **12.4** | 1027 · **862** | 5.89 · **7.78** |
+| BYD Seal low | +9 % · **+77 %** | −27 % · **+30 %** | −35 % · **+48 %** | 17.0 · **12.3** | 1337 · **875** | 5.06 · **7.75** |
+| BYD Seal high | +30 % · **+82 %** | −9 % · **+41 %** | −17 % · **+57 %** | 16.3 · **11.7** | 1124 · **745** | 5.94 · **9.15** |
+| Zeekr X | +15 % · **+76 %** | −25 % · **+19 %** | −34 % · **+35 %** | 15.4 · **11.6** | 1304 · **1002** | 5.83 · **6.20** |
+| Xpeng G6 | −20 % · **+75 %** | −38 % · **+29 %** | −42 % · **+43 %** | 15.0 · **11.3** | 1506 · **867** | 6.65 · **7.77** |
+| Avatar 11 | +31 % · **+83 %** | +17 % · **+48 %** | +13 % · **+60 %** | 15.2 · **11.7** | 900 · **654** | 8.96 · **12.71** |
+| Ora 07 | +31 % · **+82 %** | −6 % · **+44 %** | −14 % · **+57 %** | 16.7 · **12.0** | 1096 · **709** | 6.25 · **7.76** |
+| Honda City | +35 % · **+86 %** | +56 % · **+64 %** | +60 % · **+74 %** | 13.3 · **11.0** | 550 · **469** | 4.28 · **6.09** |
+| Deepal S05 | +1 % · **+76 %** | −39 % · **+21 %** | −47 % · **+37 %** | 15.3 · **11.8** | 1457 · **973** | 4.38 · **5.57** |
+| BYD Dolphin | +35 % · **+74 %** | −38 % · **+13 %** | −53 % · **+27 %** | 16.0 · **12.3** | 1358 · **1071** | 3.34 · **4.70** |
+| Dolphin ER | +45 % · **+78 %** | −19 % · **+26 %** | −33 % · **+39 %** | 15.3 · **12.1** | 1172 · **907** | 3.73 · **5.26** |
+| Hyundai Inster (Standard Range) | +32 % · **+65 %** | −43 % · **−9 %** | −59 % · **+9 %** | 15.6 · **12.5** | 1408 · **1425** | 1.76 · **5.90** |
+| MG Windsor LG | +42 % · **+75 %** | −4 % · **+16 %** | −14 % · **+30 %** | 15.7 · **12.5** | 1048 · **1031** | – · **–** |
+| MG Windsor | +22 % · **+66 %** | −40 % · **−16 %** | −53 % · **+2 %** | 16.7 · **13.3** | 1415 · **1445** | – · **–** |
 
 What drives the differences:
 
@@ -411,7 +442,9 @@ What drives the differences:
 - **Sprint** improves for almost every car: the spreadsheet's 2.5× high-speed factor is much more pessimistic than
   air drag and rolling resistance at 120 km/h.
 - **No charger** still fails for small batteries and cars whose rated consumption is high for their size (e.g.
-  Neta V, Ora Good Cat, BYD Dolphin): 300 km at 70 km/h need more than their capacity after 100,000 km.
+  Neta V, Ora Good Cat, Hyundai Inster, MG Windsor): 300 km on the highway at 90 km/h need more than their
+  capacity after 100,000 km. Before the driving profiles were changed (20 Nov 2026) the standard drove the WLTP
+  high phase at a 70 km/h average, with peaks of 112 km/h; every car needed about 25 % more energy.
 - **Hot or cold days** (presets): at 35 °C with strong sun the AC needs about 1.1 kW (premium 1.3 kW) plus 0.6 kWh
   to cool the parked cabin; at −10 °C a resistive heater needs about 2.4 kW plus up to 4 kWh to warm the battery
   in a long jam, so the traffic jam fails for the smallest batteries.

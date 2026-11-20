@@ -45,6 +45,18 @@ function oldScenario(conditions: Partial<Conditions> = {}): Scenario {
 
 const run = (s: Scenario) => runEngine(ds, a, s, settings, cars).results;
 
+/**
+ * The driving of the standard since version 2 (2026-11-20): a profile's speed is its cruising speed; No charger and
+ * Long trip on the Highway profile at 90 km/h, town traffic at 50 km/h, Battery life and Cost on Mixed (own speeds).
+ */
+const NEW_DRIVING = {
+  trafficJam: { speedOutsideKmh: 50, profileOutside: 'city' },
+  noCharger: { speedKmh: 90, profile: 'highway' },
+  longTrip: { speedKmh: 90, profile: 'highway' },
+  batteryLife: { speedKmh: 90, profile: 'mixed' },
+  sprint: { speedKmh: 120, profile: 'steady' },
+};
+
 describe('data/standard.csv', () => {
   it('loads without warnings and covers every input of every test', () => {
     expect(ds.loadWarnings.filter((w) => w.includes('standard.csv'))).toEqual([]);
@@ -67,10 +79,12 @@ describe('data/standard.csv', () => {
     // Plus the hills (2026-11-20): flat, at the typical slope.
     const slopePct = a.hillSlopeDefaultPct;
     const lifeFlat = { ascentPer100Km: 0, slopePct };
-    for (const t of ['trafficJam', 'noCharger', 'longTrip', 'sprint'] as const) expect(s[t]).toEqual({ ...OLD_TRIPS[t], climbM: 0, ascentM: 0, slopePct });
-    expect(s.batteryLife).toEqual({ ...OLD_TRIPS.batteryLife, ...lifeFlat });
+    // The driving changed with version 2 (speed = cruising speed).
+    expect(s.version).toBe(2);
+    for (const t of ['trafficJam', 'noCharger', 'longTrip', 'sprint'] as const) expect(s[t]).toEqual({ ...OLD_TRIPS[t], ...NEW_DRIVING[t], climbM: 0, ascentM: 0, slopePct });
+    expect(s.batteryLife).toEqual({ ...OLD_TRIPS.batteryLife, ...NEW_DRIVING.batteryLife, ...lifeFlat });
     // Cost: the life's driving and the market's running costs (the old one maintenance per year is gone).
-    expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed', ...lifeFlat });
+    expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 90, cabinC: c, profile: 'mixed', ...lifeFlat });
     expect(s.cost.energyPrice).toBe(OLD_TRIPS.cost.energyPrice);
   });
   it('the standard fits the conditions to each test', () => {
@@ -102,7 +116,8 @@ describe('older saved scenarios', () => {
   it('cost takes the years, distance and driving of Battery life', () => {
     const s0 = oldScenario();
     const s = withDefaults({ ...s0, batteryLife: { ...s0.batteryLife, years: 8, kmPerYear: 22000, cabinC: null } }, ds, a);
-    expect(s.cost).toMatchObject({ years: 8, kmPerYear: 22000, cabinC: null, speedKmh: 40, profile: 'mixed' });
+    // The old standard driving (40 km/h average, Mixed) became the new standard before Cost copied it.
+    expect(s.cost).toMatchObject({ years: 8, kmPerYear: 22000, cabinC: null, speedKmh: 90, profile: 'mixed' });
   });
   it('a scenario of the new shape stays as it is', () => {
     const s = standardScenario(ds, a);

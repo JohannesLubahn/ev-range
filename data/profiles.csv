@@ -1,0 +1,8 @@
+id,label,description,speed,cycle,phases,join_kmh,speed_min_kmh,speed_max_kmh,why,source
+steady,Steady,"Constant speed, as with cruise control",constant,,,,10,200,"Any speed you set; a car slower than that drives at its top speed",
+city,City,"Town traffic with many stops: the WLTP low and medium phases",cruising,WLTP,low;medium,,30,60,"Up to 60 km/h: urban driving in the EU real-driving test (RDE), whose urban part averages 15–40 km/h including stops. Towns: 50 km/h in Germany",un-gtr-15;eu-2017-1151;stvo-3
+rural,Rural,"Country roads with junctions and villages: the WLTP high phase",cruising,WLTP,high,,50,100,"Country roads: 100 km/h outside towns in Germany, 90 km/h on Thai highways",un-gtr-15;stvo-3;nation-th-120-2021
+highway,Highway,"Highway with a stop now and then: the US EPA highway cycle (HWFET)",cruising,EPA_HIGHWAY,,,60,120,"Thai highways: 90 km/h, and 120 km/h on divided four-lane highways where signed",epa-schedules;nation-th-120-2021
+motorway,Motorway,"Motorway without stops: the WLTP extra-high phase, joined where it passes 105 km/h",cruising,WLTP,extra_high,105,80,160,"Up to 160 km/h: the motorway limit of the EU real-driving test (normally 145 km/h, 15 km/h more for a short time). Germany recommends 130 km/h. Joined at 105 km/h so that repeating the phase does not stop every 8 km (judgement)",un-gtr-15;eu-2017-1151;babrigeschwv-1978
+mixed,Mixed,"Town, country road and motorway as in the WLTP test, at the test's own speeds",own,WLTP,,,,,"A mix of roads has no single speed: the whole WLTP at its recorded speeds",un-gtr-15;eu-2017-1151
+jam,Traffic jam,"Stop-and-go: the WLTP low phase slowed down to the jam's average speed",average,WLTP,low,,,,"The jam's distance and time set its average speed",un-gtr-15

@@ -13,6 +13,7 @@ import {
 } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
+import { DrivingFields, drivingText } from '../components/Driving';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
 import { PassFail } from '../components/Status';
 import { LifeTerrainFields, TripTerrainFields } from '../components/Terrain';
@@ -20,20 +21,19 @@ import { useNarrow } from '../components/useNarrow';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
-import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
+import type { Dataset } from '../data/types';
+import type { AverageConsumption, CapacityCheck, CarResults, Scenario } from '../engine/types';
 import { capacityLeft, fixed, hours, lifeYears, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
 import { useInputs, type InputProps } from '../state/inputs';
 import { useStore, type StressKey } from '../state/store';
 
-const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
 const CABIN = 'Cabin heating / AC';
 
-const profileLabel = (p: Profile) => PROFILES.find((x) => x.id === p)?.label ?? p;
 const cabinText = (c: number | null) => (c === null ? 'heating / AC off' : `cabin ${num(c, 0)} °C`);
 
 /** One line with the main inputs of a test, shown on phones where the inputs fold away. */
-function inputSummary(tab: StressKey, s: Scenario): string {
+function inputSummary(tab: StressKey, s: Scenario, ds: Dataset): string {
   const air = `${num(s.conditions[tab].airTemperatureC, 0)} °C outside`;
   switch (tab) {
     case 'trafficJam': {
@@ -43,15 +43,15 @@ function inputSummary(tab: StressKey, s: Scenario): string {
     case 'noCharger':
     case 'sprint': {
       const t = s[tab];
-      return [`${num(t.distanceKm, 0)} km at ${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), `${num(t.startPct, 0)} → ${num(t.endPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
+      return [`${num(t.distanceKm, 0)} km`, drivingText(ds, t.profile, t.speedKmh), `${num(t.startPct, 0)} → ${num(t.endPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
     }
     case 'longTrip': {
       const t = s.longTrip;
-      return [`${num(t.distanceKm, 0)} km at ${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), `charging ${num(t.chargeFromPct, 0)} → ${num(t.chargeToPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
+      return [`${num(t.distanceKm, 0)} km`, drivingText(ds, t.profile, t.speedKmh), `charging ${num(t.chargeFromPct, 0)} → ${num(t.chargeToPct, 0)} %`, cabinText(t.cabinC), air].join(' · ');
     }
     case 'batteryLife': {
       const t = s.batteryLife;
-      return [`${num(t.years, 0)} years × ${num(t.kmPerYear, 0)} km`, `${num(t.speedKmh, 0)} km/h`, profileLabel(t.profile), air].join(' · ');
+      return [`${num(t.years, 0)} years × ${num(t.kmPerYear, 0)} km`, drivingText(ds, t.profile, t.speedKmh), air].join(' · ');
     }
   }
 }
@@ -99,7 +99,6 @@ function CareFields({ dc, highSoc, setBoth }: { dc: InputProps<number>; highSoc:
 function Inputs({ tab }: { tab: StressKey }) {
   const { trip, setTrip } = useInputs(tab);
   const num = (key: string) => trip<number>(key);
-  const profile = (key: string) => trip<Profile>(key);
   const cabin = (key: string) => trip<number | null>(key);
   const hills = (distanceKm: number, where = '') => (
     <TripTerrainFields distanceKm={distanceKm} net={num('climbM')} ascent={num('ascentM')} slope={num('slopePct')} set={setTrip} where={where} />
@@ -114,8 +113,13 @@ function Inputs({ tab }: { tab: StressKey }) {
           <NumberField label="Distance in the jam" unit="km" min={0} max={50} {...num('distJamKm')} />
           <NumberField label="Distance before the jam" unit="km" min={0} max={200} {...num('distBeforeKm')} />
           <NumberField label="Distance after the jam" unit="km" min={0} max={200} {...num('distAfterKm')} />
-          <NumberField label="Average speed outside the jam" unit="km/h" min={10} max={130} {...num('speedOutsideKmh')} />
-          <SelectField label="Driving outside the jam" options={profileOptions} {...profile('profileOutside')} />
+          <DrivingFields
+            test="trafficJam"
+            speedKey="speedOutsideKmh"
+            profileKey="profileOutside"
+            where=" outside the jam"
+            distanceKm={num('distBeforeKm').value + num('distAfterKm').value}
+          />
           <CabinField label={`${CABIN} outside the jam`} {...cabin('cabinOutsideC')} />
           <CabinField label={`${CABIN} in the jam`} {...cabin('cabinJamC')} />
           {hills(num('distBeforeKm').value + num('distAfterKm').value, ' (outside the jam)')}
@@ -126,8 +130,7 @@ function Inputs({ tab }: { tab: StressKey }) {
       return (
         <div className="fields">
           <NumberField label="Distance between chargers" unit="km" min={10} max={1000} sliderMax={600} step={5} {...num('distanceKm')} />
-          <NumberField label="Average speed" unit="km/h" min={10} max={200} {...num('speedKmh')} />
-          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <DrivingFields test={tab} distanceKm={num('distanceKm').value} />
           <NumberField label="Charge at the start" unit="%" min={10} max={100} {...num('startPct')} />
           <NumberField label="Charge on arrival" unit="%" min={0} max={50} {...num('endPct')} />
           <CabinField label={CABIN} {...cabin('cabinC')} />
@@ -140,8 +143,7 @@ function Inputs({ tab }: { tab: StressKey }) {
       return (
         <div className="fields">
           <NumberField label="Trip distance" unit="km" min={50} max={3000} sliderMax={2000} step={10} {...num('distanceKm')} />
-          <NumberField label="Average speed" unit="km/h" min={20} max={150} {...num('speedKmh')} />
-          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <DrivingFields test="longTrip" distanceKm={num('distanceKm').value} />
           <NumberField label="Charge from" unit="%" min={0} max={90} {...num('chargeFromPct')} />
           <NumberField label="Charge to" unit="%" min={20} max={100} {...num('chargeToPct')} />
           <CabinField label={CABIN} {...cab} />
@@ -160,8 +162,7 @@ function Inputs({ tab }: { tab: StressKey }) {
         <div className="fields">
           <NumberField label="Years of use" unit="years" min={1} max={40} {...num('years')} />
           <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} {...num('kmPerYear')} />
-          <NumberField label="Average speed" unit="km/h" min={10} max={120} {...num('speedKmh')} />
-          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <DrivingFields test="batteryLife" />
           <CabinField label={CABIN} {...cabin('cabinC')} />
           <LifeTerrainFields ascent={num('ascentPer100Km')} slope={num('slopePct')} set={setTrip} />
           <CareFields dc={num('dcSharePct')} highSoc={num('highSocTimePct')} setBoth={(h) => setTrip({ ...h })} />
@@ -288,7 +289,7 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
  * tabs) and by the Battery life page.
  */
 function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressKey; meta: CaseMeta; title: string; intro: string; tabs?: ReactNode; inputsTitle: string }) {
-  const { scenario, out, selectedIds, derivedById, stale, a } = useEngine();
+  const { scenario, out, selectedIds, derivedById, stale, a, ds } = useEngine();
   const openDrawer = useStore((s) => s.openDrawer);
   // Phones: the inputs fold away behind a summary, so the results come first.
   const narrow = useNarrow(900);
@@ -448,7 +449,7 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
             <div className="panel panel-title">
               <div className="stack" style={{ gap: 2, minWidth: 0 }}>
                 <h2>{inputsTitle}</h2>
-                <p className="muted">{inputSummary(tab, scenario)}</p>
+                <p className="muted">{inputSummary(tab, scenario, ds)}</p>
               </div>
               <button type="button" className="btn small" aria-expanded={showInputs} onClick={() => setShowInputs(!showInputs)}>
                 {showInputs ? 'Done' : 'Edit inputs'}

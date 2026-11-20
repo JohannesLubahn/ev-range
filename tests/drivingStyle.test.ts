@@ -128,7 +128,7 @@ describe('driving style in the consumption', () => {
   const gentle = a.drivingStyleGentlePct;
   const sporty = a.drivingStyleSportyPct;
   const perKm = (id: string, style: number, profile: Profile, speed: number) =>
-    model(id, style).segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile, cabinC: null }).driveKwh / 100;
+    model(id, style).segment({ label: 'x', distanceKm: 100, speedKmh: speed, profile, cabinC: null }).driveKwh / 100;
 
   it('every car: Gentle < Normal < Sporty in the city, on rural roads and in a jam; Steady is unchanged', () => {
     for (const d of Object.values(derived)) {
@@ -160,7 +160,7 @@ describe('driving style in the consumption', () => {
     expect(iceRatio).toBeGreaterThan(evRatio);
   });
   it('the friction brakes take a bigger share of the braking when driving hard', () => {
-    const seg = (style: number) => model(evIds[0], style).segment({ label: 'x', distanceKm: 10, avgSpeedKmh: 30, profile: 'city', cabinC: null });
+    const seg = (style: number) => model(evIds[0], style).segment({ label: 'x', distanceKm: 10, speedKmh: 50, profile: 'city', cabinC: null });
     expect(seg(sporty).physics.frictionPerKm).toBeGreaterThan(2 * seg(100).physics.frictionPerKm);
     expect(seg(gentle).physics.frictionPerKm).toBeLessThan(seg(100).physics.frictionPerKm);
     expect(seg(sporty).physics.dynamics!.maxAccel).toBeGreaterThan(seg(100).physics.dynamics!.maxAccel);
@@ -172,7 +172,7 @@ describe('driving style in the consumption', () => {
   it('the regeneration limits change Normal driving only a little (re-calibrated on the test cycle)', () => {
     const noLimits = { ...a, regenMaxDecelMs2: 100, regenMinKmh: 0 };
     for (const id of evIds) {
-      const seg = (as: Assumptions) => model(id, 100, as).segment({ label: 'x', distanceKm: 100, avgSpeedKmh: 45, profile: 'mixed', cabinC: null }).driveKwh;
+      const seg = (as: Assumptions) => model(id, 100, as).segment({ label: 'x', distanceKm: 100, speedKmh: 45, profile: 'mixed', cabinC: null }).driveKwh;
       expect(seg(a) / seg(noLimits), id).toBeGreaterThan(0.97);
       expect(seg(a) / seg(noLimits), id).toBeLessThan(1.03);
     }

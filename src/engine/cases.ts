@@ -134,6 +134,28 @@ function hillSteps(m: CarModel, h: HillEnergy, u: string): Step[] {
   return steps;
 }
 
+/** The driving profile of a segment in words: "average of Highway at 90 km/h". */
+export function speedText(s: SegmentEnergy): string {
+  const p = s.physics.profile;
+  const def = p.profile;
+  const set = s.spec.speedKmh;
+  const outside = set !== undefined && p.speedKmh !== null && def.speed !== 'average' && Math.abs(set - p.speedKmh) > 1e-9;
+  const at =
+    def.speed === 'own'
+      ? `at the ${def.cycle === 'WLTP' ? "WLTP's" : "test's"} own speeds`
+      : def.speed === 'constant'
+        ? `${fx(p.speedKmh ?? 0, 0)} km/h`
+        : `at ${fx(p.speedKmh ?? 0, 0)} km/h`;
+  const range = outside ? `; ${fx(set, 0)} km/h set, ${def.label} allows ${fx(def.speedMinKmh ?? 0, 0)}–${fx(def.speedMaxKmh ?? 0, 0)} km/h` : '';
+  return def.speed === 'constant' ? `${def.label} ${at}${range}` : `average of ${def.label} ${at}${range}`;
+}
+
+/** Warnings for segments whose speed trace the car's top speed capped. */
+function capWarnings(m: CarModel, segs: SegmentEnergy[]): string[] {
+  const capped = segs.map((s) => s.physics.profile).find((p) => p.cappedAtKmh !== null);
+  return capped ? [`Top speed ${fx(capped.cappedAtKmh ?? 0, 0)} km/h: ${m.d.car.name} cannot drive the profile's faster parts, so it drives at its top speed there`] : [];
+}
+
 /** Explanation lines for one segment. */
 function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   const u = m.d.energyUnit;
@@ -141,7 +163,7 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   const name = s.spec.label;
   steps.push({
     label: `${name}: time`,
-    formula: s.spec.timeH !== undefined ? 'given' : `${fx(s.distanceKm, 0)} km ÷ ${fx(s.avgSpeedKmh, 0)} km/h`,
+    formula: s.spec.timeH !== undefined ? 'given' : `${fx(s.distanceKm, 0)} km ÷ ${fx(s.avgSpeedKmh, 0)} km/h (${speedText(s)})`,
     value: s.timeH,
     unit: 'h',
   });
@@ -285,6 +307,7 @@ function capacityCheck(m: CarModel, segs: SegmentEnergy[], startPct: number, end
   const warnings: string[] = [];
   if (deliv.powerLimited) warnings.push('The battery cannot deliver the requested power at this temperature');
   if (deliv.cutoff) warnings.push('The battery voltage reaches its cut-off before the end of the window');
+  warnings.push(...capWarnings(m, segs));
   const steps: Step[] = segs.flatMap((s) => segmentSteps(m, s));
   steps.push(...thermalStep(bat, u));
   const parts = [...segs.map((s) => s.totalKwh), ...(bat.thermal ? [bat.thermalKwh] : [])];
@@ -333,7 +356,7 @@ export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
   const outside: SegmentSpec = {
     label: 'Outside the jam',
     distanceKm: i.distBeforeKm + i.distAfterKm,
-    avgSpeedKmh: i.speedOutsideKmh,
+    speedKmh: i.speedOutsideKmh,
     profile: i.profileOutside,
     cabinC: i.cabinOutsideC,
     tripStart: i.cabinOutsideC !== null,
@@ -373,7 +396,7 @@ function tripTerrain(m: CarModel, i: TripTerrain): TerrainSpec {
 export function noCharger(m: CarModel, i: NoChargerInputs): DistanceCheckResult {
   return distanceCase(
     m,
-    { label: 'Trip', distanceKm: i.distanceKm, avgSpeedKmh: i.speedKmh, profile: i.profile, terrain: tripTerrain(m, i), cabinC: i.cabinC, tripStart: true },
+    { label: 'Trip', distanceKm: i.distanceKm, speedKmh: i.speedKmh, profile: i.profile, terrain: tripTerrain(m, i), cabinC: i.cabinC, tripStart: true },
     i.startPct,
     i.endPct,
   );
@@ -385,7 +408,7 @@ export function sprint(m: CarModel, i: SprintInputs): DistanceCheckResult {
     {
       label: 'Sprint',
       distanceKm: i.distanceKm,
-      avgSpeedKmh: i.speedKmh,
+      speedKmh: i.speedKmh,
       profile: i.profile,
       terrain: tripTerrain(m, i),
       cabinC: i.cabinC,
@@ -428,7 +451,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
   const seg = m.segment({
     label: 'Driving',
     distanceKm: i.distanceKm,
-    avgSpeedKmh: i.speedKmh,
+    speedKmh: i.speedKmh,
     profile: i.profile,
     cabinC: i.cabinC,
     tripStart: true,
@@ -440,13 +463,14 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
   const chargings = perCharge > 0 ? Math.max(0, energy / perCharge - 1) : Infinity;
   const onboardCharging = m.onboard(i.climateWhileCharging ? i.cabinC : null).totalKw;
   const ct = chargingTime(m, i.chargeFromPct, i.chargeToPct, onboardCharging);
-  const timeDrivingH = i.speedKmh > 0 ? i.distanceKm / i.speedKmh : 0;
+  const timeDrivingH = seg.timeH;
   const timeChargingH = ct.hours * chargings;
   const tripTimeH = timeDrivingH + timeChargingH;
   const u = m.d.energyUnit;
   const warnings: string[] = [];
   if (!Number.isFinite(ct.hours)) warnings.push('Onboard consumption while charging exceeds the charging speed');
   if (m.d.fastPctPerH === null) warnings.push('Charging test data missing');
+  warnings.push(...capWarnings(m, [seg]));
   const avg = average(seg.distanceKm, seg.driveKwh, seg.onboardKwh, bat.thermalKwh, u);
   const steps: Step[] = [
     ...segmentSteps(m, seg),
@@ -474,7 +498,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
     },
     ...ct.steps,
     { label: 'Time per charge', formula: '', value: ct.hours, unit: 'h' },
-    { label: 'Driving time', formula: `${fx(i.distanceKm, 0)} km ÷ ${fx(i.speedKmh, 0)} km/h`, value: timeDrivingH, unit: 'h' },
+    { label: 'Driving time', formula: `${fx(i.distanceKm, 0)} km ÷ ${fx(seg.avgSpeedKmh, 0)} km/h (${speedText(seg)})`, value: timeDrivingH, unit: 'h' },
     { label: 'Charging time', formula: `${fx(chargings, 2)} × ${fx(ct.hours, 2)} h`, value: timeChargingH, unit: 'h' },
     { label: 'Total trip time', formula: '', value: tripTimeH, unit: 'h', kind: 'result' },
   ];
@@ -565,7 +589,7 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
     capacityEndPct: g ? g.sohPct : null,
     average: avg.average,
     steps,
-    warnings: rated ? [] : ['Rated battery cycles missing'],
+    warnings: [...(rated ? [] : ['Rated battery cycles missing']), ...capWarnings(m, [seg])],
   };
 }
 
@@ -574,7 +598,8 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
   const a = m.ctx.a;
   const currency = a.displayCurrency;
   const warnings: string[] = [];
-  const { totalKm, energy } = m.lifeEnergy(ci);
+  const { totalKm, energy, seg } = m.lifeEnergy(ci);
+  warnings.push(...capWarnings(m, [seg]));
   // Energy paid for per km: the battery's energy over the life (driving, onboard systems, battery heating /
   // cooling and losses) plus the charging losses. Petrol: litres.
   const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;

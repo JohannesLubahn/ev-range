@@ -3,16 +3,12 @@ import type { RoadTaxRow, RunningCostRow } from '../data/types';
 
 export type BatteryModel = 'chemistry' | 'ideal';
 export type ThermalMode = 'managed' | 'ambient' | 'preconditioned';
-export type Profile = 'steady' | 'motorway' | 'rural' | 'city' | 'mixed' | 'jam';
-
-export const PROFILES: { id: Profile; label: string; description: string }[] = [
-  { id: 'steady', label: 'Steady', description: 'Constant speed, e.g. cruise control' },
-  { id: 'motorway', label: 'Motorway', description: 'Speed shape of the WLTP extra-high phase' },
-  { id: 'rural', label: 'Rural', description: 'Speed shape of the WLTP high phase' },
-  { id: 'city', label: 'City', description: 'Speed shape of the WLTP low + medium phases' },
-  { id: 'mixed', label: 'Mixed', description: 'Speed shape of the whole WLTP cycle' },
-  { id: 'jam', label: 'Traffic jam', description: 'Stop-and-go: the WLTP low phase slowed down to crawl speed' },
-];
+/**
+ * Driving profiles. Their speed traces, labels, speed ranges and sources are in data/profiles.csv; the speed set for a
+ * profile means what its `speed` column says (constant, cruising = top speed, own speeds, average).
+ */
+export type Profile = 'steady' | 'city' | 'rural' | 'highway' | 'motorway' | 'mixed' | 'jam';
+export const PROFILE_IDS: Profile[] = ['steady', 'city', 'rural', 'highway', 'motorway', 'mixed', 'jam'];
 
 /** Global assumptions (data/assumptions.csv), possibly changed by the user. */
 export interface Assumptions {
@@ -119,6 +115,7 @@ export interface TrafficJamInputs {
   distJamKm: number;
   timeJamH: number;
   distAfterKm: number;
+  /** Speed of the driving profile outside the jam (km/h): held by Steady, the cruising (top) speed of the others; unused by Mixed. */
   speedOutsideKmh: number;
   /** Cabin temperature the heating / AC holds outside the jam (°C); null = off. */
   cabinOutsideC: number | null;
@@ -145,6 +142,7 @@ export interface NoChargerInputs extends TripTerrain {
   distanceKm: number;
   startPct: number;
   endPct: number;
+  /** Speed of the driving profile (km/h): held by Steady, the cruising (top) speed of the others; unused by Mixed. */
   speedKmh: number;
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
@@ -153,6 +151,7 @@ export interface NoChargerInputs extends TripTerrain {
 
 export interface LongTripInputs extends TripTerrain {
   distanceKm: number;
+  /** Speed of the driving profile (km/h): held by Steady, the cruising (top) speed of the others; unused by Mixed. */
   speedKmh: number;
   /** Cabin temperature the heating / AC holds while driving (°C); null = off. */
   cabinC: number | null;
@@ -167,6 +166,7 @@ export interface LongTripInputs extends TripTerrain {
 export interface LifeDriving {
   years: number;
   kmPerYear: number;
+  /** Speed of the driving profile (km/h): held by Steady, the cruising (top) speed of the others; unused by Mixed. */
   speedKmh: number;
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
@@ -187,6 +187,7 @@ export interface SprintInputs extends TripTerrain {
   distanceKm: number;
   startPct: number;
   endPct: number;
+  /** Speed of the driving profile (km/h): held by Steady, the cruising (top) speed of the others; unused by Mixed. */
   speedKmh: number;
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
@@ -227,6 +228,11 @@ export interface CostInputs extends LifeDriving {
 }
 
 export interface Scenario {
+  /**
+   * Version of the inputs' meaning. 2 (2026-11-20): the speed of a driving profile is the cruising speed (the top of
+   * its trace), no longer the average speed incl. stops. Missing = older; withDefaults() converts it.
+   */
+  version?: number;
   trafficJam: TrafficJamInputs;
   noCharger: NoChargerInputs;
   longTrip: LongTripInputs;

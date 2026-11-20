@@ -2,7 +2,7 @@
 // thing in several tests (for "use in all tests"), and reading / writing them in a scenario. Pure code, no UI.
 import type { CostItem } from './costItems';
 import { marketCosts, type Powertrain } from './costs';
-import { PROFILES, type Assumptions, type Conditions, type CostInputs, type Scenario } from './types';
+import { PROFILE_IDS, type Assumptions, type Conditions, type CostInputs, type Scenario } from './types';
 
 /** The six tests that each keep their own inputs. */
 export type TestKey = 'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost';
@@ -29,6 +29,8 @@ export type InputKind =
 
 const n = (min: number, max: number, fallback?: (a: Assumptions) => number): InputKind => ({ type: 'number', min, max, fallback });
 const PROFILE: InputKind = { type: 'profile' };
+/** Speed of a driving profile: each profile narrows it to its own range (data/profiles.csv). */
+const SPEED = n(10, 200);
 /** Cost inputs whose standard is the market's value (data/running_costs.csv). */
 const marketKinds = new WeakSet<InputKind>();
 const market = (min: number, max: number, item: CostItem, pt: Powertrain = 'BEV'): InputKind => {
@@ -57,7 +59,7 @@ export const CONDITION_INPUTS: Record<keyof Conditions, InputKind> = {
 const LIFE_DRIVING = {
   years: n(1, 40),
   kmPerYear: n(1000, 80000),
-  speedKmh: n(10, 120),
+  speedKmh: SPEED,
   cabinC: CABIN,
   profile: PROFILE,
   ascentPer100Km: n(0, 5000),
@@ -73,17 +75,17 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
     distJamKm: n(0, 50),
     timeJamH: n(0.5, 24),
     distAfterKm: n(0, 200),
-    speedOutsideKmh: n(10, 130),
+    speedOutsideKmh: SPEED,
     profileOutside: PROFILE,
     cabinOutsideC: CABIN,
     cabinJamC: CABIN,
     ...TERRAIN,
   },
-  noCharger: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, ...TERRAIN },
-  sprint: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: n(10, 200), cabinC: CABIN, profile: PROFILE, ...TERRAIN },
+  noCharger: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: SPEED, cabinC: CABIN, profile: PROFILE, ...TERRAIN },
+  sprint: { distanceKm: n(10, 1000), startPct: n(10, 100), endPct: n(0, 50), speedKmh: SPEED, cabinC: CABIN, profile: PROFILE, ...TERRAIN },
   longTrip: {
     distanceKm: n(50, 3000),
-    speedKmh: n(20, 150),
+    speedKmh: SPEED,
     cabinC: CABIN,
     climateWhileCharging: { type: 'bool' },
     chargeFromPct: n(0, 90),
@@ -159,7 +161,9 @@ export function parseInputValue(kind: InputKind, raw: string, a?: Assumptions): 
       return Number.isFinite(x) && x >= 10 && x <= 32 ? { value: x } : { error: `"${raw}" is not off or a cabin temperature (°C)` };
     }
     case 'profile':
-      return PROFILES.some((p) => p.id === v) ? { value: v } : { error: `"${raw}" is not a driving profile (${PROFILES.map((p) => p.id).join(', ')})` };
+      return (PROFILE_IDS as string[]).includes(v) && v !== 'jam'
+        ? { value: v }
+        : { error: `"${raw}" is not a driving profile (${PROFILE_IDS.filter((p) => p !== 'jam').join(', ')})` };
     case 'bool':
       if (/^(yes|true|1)$/i.test(v)) return { value: true };
       if (/^(no|false|0)$/i.test(v)) return { value: false };

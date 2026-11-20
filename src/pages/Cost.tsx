@@ -3,17 +3,16 @@ import { COST_CASE } from '../caseMeta';
 import { StackedRows, TipLines, type StackedRow, type StackSeries } from '../components/Bars';
 import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
-import { CabinField, NumberField, SelectField } from '../components/Fields';
+import { DrivingFields } from '../components/Driving';
+import { CabinField, NumberField } from '../components/Fields';
 import { LifeTerrainFields } from '../components/Terrain';
 import { PART_LABELS, PART_ORDER, marketCosts } from '../engine/costs';
-import { PROFILES, type CostInputs, type CostPartKey, type Profile } from '../engine/types';
+import type { CostInputs, CostPartKey } from '../engine/types';
 import { compact, fixed, money, num } from '../format';
 import { useEngine } from '../state/engine';
 import { useInputs } from '../state/inputs';
 import { useStore } from '../state/store';
 import { InputsPanel } from './StressTests';
-
-const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
 
 const SERIES: StackSeries[] = PART_ORDER.map((key, i) => ({ key, label: PART_LABELS[key], color: `var(--series-${i + 1})` }));
 const COLOR: Record<CostPartKey, string> = Object.fromEntries(SERIES.map((s) => [s.key, s.color])) as Record<CostPartKey, string>;
@@ -110,8 +109,7 @@ export function CostPage() {
               >
                 <NumberField label="Years of use" unit="years" min={1} max={40} {...trip<number>('years')} />
                 <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} {...trip<number>('kmPerYear')} />
-                <NumberField label="Average speed" unit="km/h" min={10} max={120} {...trip<number>('speedKmh')} />
-                <SelectField label="Driving profile" options={profileOptions} {...trip<Profile>('profile')} />
+                <DrivingFields test="cost" />
                 <CabinField label="Cabin heating / AC" {...trip<number | null>('cabinC')} />
                 <LifeTerrainFields ascent={trip<number>('ascentPer100Km')} slope={trip<number>('slopePct')} set={setTrip} />
                 <p className="faint">

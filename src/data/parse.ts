@@ -13,6 +13,8 @@ import type {
   Market,
   OnboardClass,
   OnboardMeasurement,
+  ProfileDef,
+  ProfileSpeedKind,
   RoadTaxRow,
   RunningCostRow,
   TerrainPreset,
@@ -41,6 +43,8 @@ export interface RawFiles {
   roadTax?: string;
   /** data/terrain.csv (optional like markets). */
   terrain?: string;
+  /** data/profiles.csv: the driving profiles. */
+  profiles?: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -161,6 +165,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       tyreSetPrice: num(row, 'tyre_set_price', warnings, where),
       engineCc: num(row, 'engine_cc', warnings, where),
       co2GPerKm: num(row, 'co2_g_km', warnings, where),
+      topSpeedKmh: num(row, 'top_speed_kmh', warnings, where),
       notes: row.notes ?? '',
       raw: { ...row },
     });
@@ -409,12 +414,16 @@ export function parseDataset(files: RawFiles): Dataset {
   const runningCosts = parseRunningCosts(files.runningCosts ?? '', warnings);
   const roadTax = parseRoadTax(files.roadTax ?? '', warnings);
   const terrain = parseTerrain(files.terrain ?? '', warnings);
+  const profiles = parseProfiles(files.profiles ?? '', cycles, warnings);
   const sourceIds = new Set(sources.map((s) => s.id));
   for (const r of [...runningCosts, ...roadTax]) {
     for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`${'item' in r ? 'running_costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
   }
   for (const t of terrain) {
     for (const id of t.sources) if (!sourceIds.has(id)) warnings.push(`terrain.csv, ${t.id}: source "${id}" is not in sources.csv`);
+  }
+  for (const p of profiles) {
+    for (const id of p.sources) if (!sourceIds.has(id)) warnings.push(`profiles.csv, ${p.id}: source "${id}" is not in sources.csv`);
   }
 
   return {
@@ -437,6 +446,7 @@ export function parseDataset(files: RawFiles): Dataset {
     runningCosts,
     roadTax,
     terrain,
+    profiles,
     loadWarnings: warnings,
   };
 }
@@ -585,6 +595,67 @@ export function parseTerrain(text: string, warnings: string[]): TerrainPreset[] 
     const i = out.findIndex((t) => t.id === id);
     if (i >= 0) out[i] = row;
     else out.push(row);
+  }
+  return out;
+}
+
+const SPEED_KINDS: ProfileSpeedKind[] = ['constant', 'cruising', 'own', 'average'];
+
+/**
+ * data/profiles.csv: the driving profiles. A row is left out (and reported) when its speed kind is unknown, its cycle
+ * or phases are not in data/cycles, or a profile with a speed setting has no valid speed range.
+ */
+export function parseProfiles(text: string, cycles: Record<string, Cycle>, warnings: string[]): ProfileDef[] {
+  const out: ProfileDef[] = [];
+  for (const r of parseCsv(text).rows) {
+    const id = (r.id ?? '').trim();
+    if (!id) continue;
+    const where = `profiles.csv, ${id}`;
+    const speed = (r.speed ?? '').trim() as ProfileSpeedKind;
+    if (!SPEED_KINDS.includes(speed)) {
+      warnings.push(`${where}: speed "${r.speed}" is not one of ${SPEED_KINDS.join(', ')}`);
+      continue;
+    }
+    const cycle = (r.cycle ?? '').trim().toUpperCase();
+    const phases = ids(r.phases);
+    if (speed !== 'constant') {
+      const c = cycles[cycle];
+      if (!c) {
+        warnings.push(`${where}: cycle "${r.cycle}" is not in data/cycles/index.csv`);
+        continue;
+      }
+      const missing = phases.filter((ph) => !c.phases.includes(ph));
+      if (missing.length) {
+        warnings.push(`${where}: ${cycle} has no phase ${missing.join(', ')}`);
+        continue;
+      }
+    }
+    const min = parseNumber(r.speed_min_kmh);
+    const max = parseNumber(r.speed_max_kmh);
+    const ranged = speed === 'constant' || speed === 'cruising';
+    if (ranged && (min === null || max === null || min <= 0 || max < min)) {
+      warnings.push(`${where}: speed_min_kmh / speed_max_kmh "${r.speed_min_kmh}" / "${r.speed_max_kmh}" are not a range of speeds`);
+      continue;
+    }
+    const join = parseNumber(r.join_kmh);
+    const row: ProfileDef = {
+      id,
+      label: (r.label ?? '').trim() || id,
+      description: r.description ?? '',
+      speed,
+      cycle,
+      phases,
+      joinKmh: join !== null && join > 0 ? join : null,
+      speedMinKmh: ranged ? min : null,
+      speedMaxKmh: ranged ? max : null,
+      why: r.why ?? '',
+      sources: ids(r.source),
+    };
+    const i = out.findIndex((p) => p.id === id);
+    if (i >= 0) {
+      warnings.push(`profiles.csv: ${id} is listed twice; the last row counts`);
+      out[i] = row;
+    } else out.push(row);
   }
   return out;
 }
