@@ -61,10 +61,12 @@ interface NumberFieldProps extends InputActions<number> {
   step?: number;
   /** Slider range can be narrower than the allowed number range. */
   sliderMax?: number;
+  /** A short help line under the field (e.g. typical values). */
+  hint?: string;
 }
 
 /** Label + slider + number input + unit, with ↺ / ⇉. The number input accepts any value in [min, max]. */
-export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMax, reset, applyAll, spread }: NumberFieldProps) {
+export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMax, hint, reset, applyAll, spread }: NumberFieldProps) {
   const id = useId();
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
@@ -105,6 +107,7 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
         onBlur={(e) => commit(e.target.value)}
       />
       <span className="unit">{unit}</span>
+      {hint && <span className="field-note faint">{hint}</span>}
       <FieldNote resetShown={resetShown} standardText={standardText} spreadText={spreadText} />
     </div>
   );

@@ -17,6 +17,25 @@ ownership have their own pages, the other four are tabs of the Stress tests page
   over a short distance. Petrol cars: litres per 100 km. The cost of ownership uses the same energy from the grid,
   i.e. ÷ the charging efficiency and including the battery's own losses.
 
+### Cost of ownership
+
+Over `years` of use and `km = years × km per year`, in the display currency (`src/engine/costs.ts`, `cost()` in
+`src/engine/cases.ts`). A fraction of a year counts in proportion.
+
+- Value after t years: `V(t) = price × (1 − d)^t`, d = loss of value per year (electric / petrol). Depreciation =
+  price − V(years) = what the owner does not get back.
+- Energy: price per kWh × grid energy per km × km (unchanged; petrol: per litre).
+- Voluntary insurance in year y: `max(r × V(y − 1), minimum)`, r = rate per powertrain; a car's
+  `insurance_per_year` replaces it. Compulsory insurance: a fixed amount per year.
+- Road tax: electric by curb weight (band containing it, above < kg ≤ up to), petrol by engine size (per cc, summed
+  over the progressive bands), minus the age discount in year y (petrol cars from the 6th year).
+- Servicing: per year by powertrain (or the car's `maintenance_per_year`). Repairs: % of the price × the years after
+  the warranty. 12 V battery: replaced every N years before the end (`ceil(years / N) − 1` times).
+- Tyres: `km ÷ life × set price` with `life = tyre life × reference mass ÷ (curb weight + load)`: tread wear grows
+  about in proportion to the load (KIT review); the reference is 1,500 kg. Premium cars use the premium set; a car's
+  `tyre_set_price` replaces it. Counting the tread worn (not whole sets) gives each car the cost of its own wear.
+- Total = price − V(years) + all running costs; per km = total ÷ km. A battery replacement is not included.
+
 Each test has its own inputs and its own Conditions (user request 20 Nov 2026); the standard values are in
 `data/standard.csv`. The engine builds one car model per test (tests with equal conditions share one) with one
 shared calibration (`src/engine/run.ts`).
@@ -275,7 +294,8 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Battery care | Fast-charging wear: INL DC Fast Charge Effects study, 50,000-mile update (INL/MIS-13-29877, 2014). Charge level: BLAST-Lite anode-potential terms with the graphite potential of Safari & Delacourt 2011 (J. Electrochem. Soc. 158(5), A562). Groups and presets: Geotab's battery-health guide (2026) |
 | Exchange rates | Your Currency_Converter.ods (Frankfurter, 2026-09-18) |
 | Driving style, regeneration limits | RDE trip-dynamics bounds: Regulation (EU) 2017/1151, Annex IIIA, Appendix 7a (as amended by 2017/1154); regeneration alone below 0.2 g: NPTEL lecture on EV brake systems (series braking strategy); regeneration above 10 km/h: Kia owner's manual, Mazda; plausibility: Bingham, Walsh & Carroll 2012, IET Intell. Transp. Syst. 6(1) 29 (~30 % more energy for aggressive driving) |
-| Markets (electricity price, maintenance) | `data/markets.csv`; Thailand: your spreadsheet, Battery Sizing rows 73–74 |
+| Running costs (Thailand) | `data/running_costs.csv` with sources per row: electricity your spreadsheet (public DC price), compulsory insurance Roojai/OIC, class-1 insurance quotes (Green Energy Thailand 2026, PrakanEV 2026; EV vs petrol: Viriyah via Thai Examiner 2025), servicing Thaiger 2025 via Green Energy Thailand, loss of value Krungsri Research 2024, tyres Thairath and Pirelli, load dependence KIT review; judgement values labelled |
+| Road tax (Thailand) | `data/road_tax.csv`: EV weight bands (Thansettakij; Motorist 2026), petrol per cc and age discount (Motorist 2026); Honda City 988 cc (paultan.org 2019) |
 
 ## 6. Spreadsheet issues fixed
 
@@ -288,9 +308,12 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 4. Total cost used motor consumption only; it now includes the onboard systems like every other case.
 5. Aion Y Plus horsepower was calculated from torque; horsepower is now always kW × 1.341.
 6. Mixed currencies: each car has a currency; prices and cost overrides are converted with the exchange rates.
-   The market picked in the car list (`data/markets.csv`) sets the currency shown and replaces the electricity
-   price and maintenance assumptions with its own (blank = the assumption, converted). All markets keeps the
-   assumptions and `display_currency`.
+   The market picked in the car list (`data/markets.csv`) sets the currency shown and its running costs
+   (`data/running_costs.csv`; a market without rows uses `cost_default_market`'s, converted). All markets keeps
+   `display_currency`.
+7. The total cost had one "maintenance per year" (8,000 THB) for every car and nothing back at the end. Since
+   20 Nov 2026 it is purchase − value at the end + energy, insurance, road tax, servicing & repairs and tyres, with
+   the rules below (section "Cost of ownership").
 
 Until the Simple model was removed, a parity test showed that it reproduced the Battery Sizing and Summary tabs
 for all 21 cars before these fixes.

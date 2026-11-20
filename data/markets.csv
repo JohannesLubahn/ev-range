@@ -1,2 +1,2 @@
-id,name,currency,electricity_price,maintenance_per_year,description,source
-TH,Thailand,THB,7.5,8000,"Prices in THB; electricity per kWh from the grid, maintenance per year","Your spreadsheet, Battery Sizing rows 73 (electricity) and 74 (maintenance)"
+id,name,currency,description,source
+TH,Thailand,THB,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/running_costs.csv and data/road_tax.csv",

@@ -5,7 +5,7 @@ brand,Brand,,Identity,text,,
 model,Model,,Identity,text,,"Model without brand and variant (e.g. Seal); variants of one model sit together in the car list. Blank = the name"
 variant,Variant,,Identity,text,,"Version of the model (e.g. low, high, ER); blank = the base version"
 market,Market,,Identity,text,,"Code of the market the price applies to, from data/markets.csv (e.g. TH). One row per car per market; blank = listed only under All markets"
-currency,Currency,,Costs,text,,"Currency of price, energy price and maintenance (THB, EUR, …)"
+currency,Currency,,Costs,text,,"Currency of price and the cost overrides (THB, EUR, …)"
 price,Price,currency,Costs,number,lower,Purchase price in the car's currency
 powertrain,Powertrain,,Identity,enum:BEV|ICE,,"BEV = battery electric. ICE cars are modelled like an EV (approximation, as in the spreadsheet)"
 body_type,Body type,,Identity,enum:hatchback|sedan|SUV|MPV,,Selects default drag coefficient and frontal area when those are missing (see body_types.csv)
@@ -47,8 +47,11 @@ airbags,Airbags,,Comfort,text,,
 adjustable_headrest,Adjustable headrest,,Comfort,text,,
 acc,ACC,,Comfort,text,,Adaptive cruise control (yes / no)
 cameras,Cameras,,Comfort,text,,
-energy_price,Energy price override,currency/kWh,Costs,number,lower,Per kWh (or per litre for ICE) in the car's currency. Blank = assumption
-maintenance_per_year,Maintenance override,currency/year,Costs,number,lower,In the car's currency. Blank = assumption
+energy_price,Energy price override,currency/kWh,Costs,number,lower,"Per kWh (or per litre for ICE) in the car's currency. Blank = the electricity price of the Cost page"
+maintenance_per_year,Servicing override,currency/year,Costs,number,lower,"Scheduled servicing per year in the car's currency. Blank = the market's value for the powertrain (data/running_costs.csv)"
+insurance_per_year,Insurance override,currency/year,Costs,number,lower,"Voluntary (class-1) insurance per year in the car's currency, e.g. a quote. Blank = % of the car's value (data/running_costs.csv)"
+tyre_set_price,Tyre set price,currency,Costs,number,lower,"Four tyres fitted, in the car's currency. Blank = the market's price for the car class (data/running_costs.csv)"
+engine_cc,Engine size,cc,Costs,number,lower,"Petrol cars: engine displacement, for the road tax. Electric cars are taxed by weight"
 source_url,Source,,Notes,text,,
 notes,Notes,,Notes,text,,
 updated,Last updated,,Notes,text,,Date of the last check of this row

@@ -1,4 +1,5 @@
 // Shared types of the calculation engine. The engine is pure TypeScript: no UI, no browser APIs.
+import type { RoadTaxRow, RunningCostRow } from '../data/types';
 
 export type BatteryModel = 'chemistry' | 'ideal';
 export type ThermalMode = 'managed' | 'ambient' | 'preconditioned';
@@ -69,9 +70,13 @@ export interface Assumptions {
   testPayloadKg: number;
   testTemperatureC: number;
   defaultBasis: string;
-  electricityPrice: number;
-  maintenancePerYear: number;
   displayCurrency: string;
+  /** Market whose running costs apply (data/running_costs.csv): the chosen market, else cost_default_market. */
+  costMarket: string;
+  /** All markets' running costs and road tax, and each market's currency (from the dataset). */
+  runningCosts: RunningCostRow[];
+  roadTax: RoadTaxRow[];
+  marketCurrencies: Record<string, string>;
   /** Exchange rates: units of display currency (THB) per unit of the given currency. */
   fx: Record<string, number>;
 }
@@ -171,11 +176,37 @@ export interface SprintInputs {
   climbM: number;
 }
 
+/**
+ * The cost of ownership's inputs. Amounts are in the display currency; the standard of each comes from the market
+ * (data/running_costs.csv). Cars can override energy price, servicing, insurance and tyre price in cars.csv.
+ */
 export interface CostInputs extends LifeDriving {
-  /** Price per kWh from the grid, in the display currency. Cars can override it (energy_price column). */
+  /** Price per kWh paid for charging. */
   energyPrice: number;
-  /** Maintenance per year, in the display currency. Cars can override it (maintenance_per_year column). */
-  maintenancePerYear: number;
+  /** Scheduled servicing per year, electric / petrol cars. */
+  servicingBev: number;
+  servicingIce: number;
+  /** Voluntary (class-1) insurance per year, % of the car's value at the start of the year. */
+  insuranceRateBev: number;
+  insuranceRateIce: number;
+  /** Lowest voluntary insurance premium per year (once the car's value is low). */
+  insuranceMin: number;
+  /** Compulsory insurance per year. */
+  compulsoryInsurance: number;
+  /** Four tyres fitted, regular / premium cars. */
+  tyreSetRegular: number;
+  tyreSetPremium: number;
+  /** Life of a set of tyres at the reference mass (km). */
+  tyreLifeKm: number;
+  /** Repairs per year after the warranty (% of the purchase price), and the warranty (years). */
+  repairsPct: number;
+  warrantyYears: number;
+  /** 12 V battery: price and years between replacements. */
+  battery12vPrice: number;
+  battery12vYears: number;
+  /** Loss of value per year (% of the value at the start of the year), electric / petrol cars. */
+  depreciationBev: number;
+  depreciationIce: number;
 }
 
 export interface Scenario {
@@ -274,11 +305,27 @@ export interface BatteryLifeResult {
   warnings: string[];
 }
 
+/** The parts of the cost of ownership, in the order of the chart. */
+export type CostPartKey = 'depreciation' | 'energy' | 'insurance' | 'tax' | 'servicing' | 'tyres';
+
+export interface CostPart {
+  key: CostPartKey;
+  label: string;
+  /** Over the years of use, in the display currency (depreciation: null without a price). */
+  value: number | null;
+}
+
 export interface CostResult {
   currency: string;
   purchase: number | null;
+  /** Value of the car at the end of the years of use. */
+  resale: number | null;
+  /** Depreciation, energy, insurance, tax, servicing & repairs, tyres. */
+  parts: CostPart[];
   energyCost: number;
-  maintenanceCost: number;
+  /** Everything except the purchase and resale. */
+  runningCost: number;
+  /** Purchase − resale + running costs (null without a price). */
   tco: number | null;
   costPerKm: number | null;
   /** Energy per km paid for (grid kWh or litres per km). */

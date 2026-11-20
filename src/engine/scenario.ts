@@ -4,6 +4,8 @@ import type { Assumptions, Conditions, Scenario } from './types';
 
 /** Tyre pressure in bar that older versions of the app treated as "as recommended" for every car. */
 const LEGACY_REFERENCE_BAR = 2.5;
+/** The one "maintenance per year" of older versions (THB, the spreadsheet's Battery Sizing row 74). */
+const LEGACY_MAINTENANCE = 8000;
 
 type Loose = Record<string, unknown>;
 
@@ -91,7 +93,7 @@ function isPerTest(c: unknown): c is Partial<Record<TestKey, Loose>> {
  * converts older shapes:
  * - one set of conditions for all tests → the same conditions in each test (filled up to the old defaults, the
  *   "all" rows), so an old scenario gives the same results;
- * - Cost without its own years / distance / driving → Battery life's;
+ * - Cost without its own years / distance / driving → Battery life's; one maintenance per year → servicing;
  * - absolute tyre pressure (bar) → % of the recommended pressure; heating / AC usage % → a cabin temperature.
  */
 export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario {
@@ -127,6 +129,16 @@ export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario
   if (s.cost && !('years' in cost)) {
     // Older versions: the cost used Battery life's years, distance and driving.
     for (const k of ['years', 'kmPerYear', 'speedKmh', 'cabinC', 'profile'] as const) cost[k] = life[k];
+  }
+  if ('maintenancePerYear' in cost) {
+    // Older versions had one maintenance per year; a value the user had changed becomes the servicing of both
+    // powertrains, the old standard gives way to the market's servicing.
+    const old = cost.maintenancePerYear;
+    delete cost.maintenancePerYear;
+    if (typeof old === 'number' && old !== LEGACY_MAINTENANCE) {
+      cost.servicingBev ??= old;
+      cost.servicingIce ??= old;
+    }
   }
   return {
     ...s,

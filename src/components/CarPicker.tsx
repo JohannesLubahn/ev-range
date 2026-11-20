@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { DerivedCar } from '../engine/derive';
+import { marketCostInputs } from '../engine/inputs';
 import { compact } from '../format';
 import {
   ALL_MARKETS,
@@ -144,8 +145,7 @@ export function CarPickerContent() {
             value={marketId}
             onChange={(e) => {
               const id = e.target.value;
-              const m = assumptionsFor(id);
-              setMarket(id, { energyPrice: m.electricityPrice, maintenancePerYear: m.maintenancePerYear });
+              setMarket(id, marketCostInputs(assumptionsFor(id)));
             }}
           >
             {ds.markets.map((m) => (

@@ -42,7 +42,14 @@ export interface Car {
   heatPump: boolean | null;
   powerKw: number | null;
   energyPrice: number | null;
+  /** Scheduled servicing per year (column maintenance_per_year), in the car's currency; null = the market's. */
   maintenancePerYear: number | null;
+  /** Voluntary insurance per year, in the car's currency; null = % of the car's value. */
+  insurancePerYear: number | null;
+  /** Four tyres fitted, in the car's currency; null = the market's price for the car class. */
+  tyreSetPrice: number | null;
+  /** Petrol cars: engine displacement (cc), for the road tax. */
+  engineCc: number | null;
   notes: string;
   /** Every column of the CSV row as text, including columns the app does not know (shown on the Cars page). */
   raw: Record<string, string>;
@@ -68,17 +75,42 @@ export interface AssumptionDef {
   source: string;
 }
 
-/** A market (data/markets.csv): the currency and running costs that apply there. Prices in the market's currency. */
+/** A market (data/markets.csv): its currency. Its running costs are in data/running_costs.csv and data/road_tax.csv. */
 export interface Market {
   id: string;
   name: string;
   currency: string;
-  /** Per kWh from the grid; null = the assumption, converted. */
-  electricityPrice: number | null;
-  /** Per year; null = the assumption, converted. */
-  maintenancePerYear: number | null;
   description: string;
   source: string;
+}
+
+/** One row of data/running_costs.csv: one running-cost value of a market, for all cars or one powertrain. */
+export interface RunningCostRow {
+  market: string;
+  item: string;
+  powertrain: 'all' | 'BEV' | 'ICE';
+  value: number;
+  unit: string;
+  /** Why this value; "Judgement" when no source backs it. */
+  why: string;
+  /** Ids in data/sources.csv; empty for judgement values. */
+  sources: string[];
+}
+
+/** One row of data/road_tax.csv: a band or rate of the yearly road tax of a market. */
+export interface RoadTaxRow {
+  market: string;
+  powertrain: 'BEV' | 'ICE';
+  /** What the tax depends on: curb weight, engine size, or (discount rows) the car's age in years. */
+  basis: 'weight_kg' | 'engine_cc' | 'age_years';
+  /** The row applies above this value, up to and including `upTo` (null = no limit). */
+  above: number;
+  upTo: number | null;
+  /** band: the tax for the whole band; per_unit: per kg or cc within the band; discount_pct: % off the tax. */
+  amount: number;
+  kind: 'band' | 'per_unit' | 'discount_pct';
+  sources: string[];
+  why: string;
 }
 
 export interface BodyType {
@@ -252,6 +284,9 @@ export interface Dataset {
   cycles: Record<string, Cycle>;
   /** The standard inputs of every test (data/standard.csv). */
   standard: StandardRow[];
+  /** Running costs per market (data/running_costs.csv) and road tax (data/road_tax.csv). */
+  runningCosts: RunningCostRow[];
+  roadTax: RoadTaxRow[];
   /** Problems found while reading the files (e.g. a non-numeric value in a number column). */
   loadWarnings: string[];
 }

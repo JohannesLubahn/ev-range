@@ -4,6 +4,8 @@ import { bundledFiles, loadBundledDataset } from '../src/data/bundled';
 import { parseDataset, parseMarkets } from '../src/data/parse';
 import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { deriveAll, type DerivedCar } from '../src/engine/derive';
+import { marketCosts } from '../src/engine/costs';
+import { marketCostInputs } from '../src/engine/inputs';
 import { runEngine } from '../src/engine/run';
 import { spreadsheetScenario } from '../src/engine/scenario';
 import {
@@ -27,8 +29,8 @@ const ids = (cars: DerivedCar[]) => cars.map((d) => d.car.id);
 
 describe('data/markets.csv and the market', () => {
   it('reads the markets; every market of cars.csv is listed or blank', () => {
-    expect(th).toMatchObject({ name: 'Thailand', currency: 'THB', electricityPrice: 7.5, maintenancePerYear: 8000 });
-    expect(th.source).not.toBe('');
+    expect(th).toMatchObject({ name: 'Thailand', currency: 'THB' });
+    expect(ds.runningCosts.some((r) => r.market === 'TH')).toBe(true);
     expect(ds.loadWarnings.filter((w) => w.includes('markets.csv'))).toEqual([]);
     for (const c of ds.cars) expect(c.market === '' || ds.markets.some((m) => m.id === c.market), c.id).toBe(true);
   });
@@ -44,14 +46,18 @@ describe('data/markets.csv and the market', () => {
     expect(byId('byd-dolphin').car).toMatchObject({ model: 'Dolphin', variant: null });
     expect(byId('byd-atto-3').car.model).toBeNull();
   });
-  it('sets the currency and running costs; a blank market value is the assumption, converted', () => {
+  it("sets the currency and running costs; a market without its own running costs uses the default market's, converted", () => {
     const at = applyMarket(a, th);
     expect(at.displayCurrency).toBe('THB');
-    expect(at.electricityPrice).toBe(7.5);
-    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR', electricityPrice: 0.3, maintenancePerYear: null });
+    expect(at.costMarket).toBe('TH');
+    expect(marketCosts(at).value('electricity_price', 'BEV')).toBe(7.5);
+    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR' });
     expect(eu.displayCurrency).toBe('EUR');
-    expect(eu.electricityPrice).toBe(0.3);
-    expect(eu.maintenancePerYear).toBeCloseTo(a.maintenancePerYear / a.fx.EUR, 6);
+    expect(eu.costMarket).toBe('TH');
+    expect(marketCosts(eu).value('electricity_price', 'BEV')).toBeCloseTo(7.5 / a.fx.EUR, 6);
+    expect(marketCosts(eu).value('servicing_per_year', 'ICE')).toBeCloseTo(17500 / a.fx.EUR, 6);
+    // Rates, years and km are not converted.
+    expect(marketCosts(eu).value('insurance_rate_pct', 'BEV')).toBe(3);
     expect(applyMarket(a, null)).toBe(a);
     // Prices follow the market's currency.
     const dEu = deriveAll(ds, eu).find((d) => d.car.id === 'hyundai-inster')!;
@@ -66,12 +72,14 @@ describe('data/markets.csv and the market', () => {
   });
   it('switching the market resets the cost inputs to its defaults and the price filter', () => {
     const scenario = spreadsheetScenario(ds, a);
-    useStore.setState({ scenario: { ...scenario, cost: { ...scenario.cost, energyPrice: 99, maintenancePerYear: 99, years: 7 } }, filters: { ...EMPTY_FILTERS, priceMax: 1e6 } });
-    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR', electricityPrice: 0.3, maintenancePerYear: 500 });
-    useStore.getState().setMarket('EU', { energyPrice: eu.electricityPrice, maintenancePerYear: eu.maintenancePerYear });
+    useStore.setState({ scenario: { ...scenario, cost: { ...scenario.cost, energyPrice: 99, servicingBev: 99, years: 7 } }, filters: { ...EMPTY_FILTERS, priceMax: 1e6 } });
+    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR' });
+    useStore.getState().setMarket('EU', marketCostInputs(eu));
     const s = useStore.getState();
     expect(s.market).toBe('EU');
-    expect(s.scenario?.cost).toMatchObject({ energyPrice: 0.3, maintenancePerYear: 500, years: 7 });
+    expect(s.scenario?.cost.energyPrice).toBeCloseTo(7.5 / a.fx.EUR, 6);
+    expect(s.scenario?.cost.servicingBev).toBeCloseTo(5346 / a.fx.EUR, 6);
+    expect(s.scenario?.cost.years).toBe(7);
     expect(s.filters.priceMax).toBeNull();
   });
 });

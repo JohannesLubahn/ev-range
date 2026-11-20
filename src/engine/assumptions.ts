@@ -47,8 +47,6 @@ export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
   drivetrain_efficiency_default_pct: 'drivetrainEfficiencyDefaultPct',
   test_payload_kg: 'testPayloadKg',
   test_temperature_c: 'testTemperatureC',
-  electricity_price: 'electricityPrice',
-  maintenance_per_year: 'maintenancePerYear',
 };
 
 /** Fallbacks used only if a key is missing from assumptions.csv. */
@@ -98,9 +96,11 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   testPayloadKg: 100,
   testTemperatureC: 23,
   defaultBasis: 'WLTP',
-  electricityPrice: 7.5,
-  maintenancePerYear: 8000,
   displayCurrency: 'THB',
+  costMarket: 'TH',
+  runningCosts: [],
+  roadTax: [],
+  marketCurrencies: {},
   fx: { THB: 1 },
 };
 
@@ -113,6 +113,10 @@ export function assumptionsFromDataset(ds: Dataset): Assumptions {
   }
   if (ds.assumptions.default_basis?.value) a.defaultBasis = ds.assumptions.default_basis.value.toUpperCase();
   if (ds.assumptions.display_currency?.value) a.displayCurrency = ds.assumptions.display_currency.value.toUpperCase();
+  if (ds.assumptions.cost_default_market?.value) a.costMarket = ds.assumptions.cost_default_market.value.toUpperCase();
+  a.runningCosts = ds.runningCosts;
+  a.roadTax = ds.roadTax;
+  a.marketCurrencies = Object.fromEntries(ds.markets.map((m) => [m.id, m.currency]));
   for (const def of Object.values(ds.assumptions)) {
     const m = /^fx_([A-Za-z]{3})$/.exec(def.key);
     const v = parseNumber(def.value);
@@ -133,15 +137,12 @@ export function toDisplayCurrency(amount: number, currency: string, a: Assumptio
 }
 
 /**
- * The assumptions for one market (data/markets.csv): its currency becomes the display currency, and its electricity
- * price and maintenance replace the assumptions. A blank market value keeps the assumption, converted to the market's
- * currency. No market (All markets) leaves the assumptions as they are.
+ * The assumptions for one market (data/markets.csv): its currency becomes the display currency, and its running costs
+ * (data/running_costs.csv) apply. A market without rows of its own keeps cost_default_market's, converted. No market
+ * (All markets) leaves the assumptions as they are.
  */
 export function applyMarket(a: Assumptions, market: Market | null | undefined): Assumptions {
   if (!market) return a;
-  const out: Assumptions = { ...a, displayCurrency: market.currency };
-  const convert = (v: number) => toDisplayCurrency(v, a.displayCurrency, out) ?? v;
-  out.electricityPrice = market.electricityPrice ?? convert(a.electricityPrice);
-  out.maintenancePerYear = market.maintenancePerYear ?? convert(a.maintenancePerYear);
-  return out;
+  const hasCosts = a.runningCosts.some((r) => r.market === market.id);
+  return { ...a, displayCurrency: market.currency, costMarket: hasCosts ? market.id : a.costMarket };
 }

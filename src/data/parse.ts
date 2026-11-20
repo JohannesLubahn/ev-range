@@ -13,11 +13,14 @@ import type {
   Market,
   OnboardClass,
   OnboardMeasurement,
+  RoadTaxRow,
+  RunningCostRow,
   Source,
   StandardRow,
 } from './types';
 import { BASES } from './types';
 import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, type InputKind, type TestKey } from '../engine/inputs';
+import { COST_ITEMS } from '../engine/costItems';
 
 /** The raw text of every data file. Used for the bundled /data files and for CSV files loaded in the browser. */
 export interface RawFiles {
@@ -32,6 +35,9 @@ export interface RawFiles {
   sources: string;
   /** data/markets.csv; optional so a cars file loaded on its own still works. */
   markets?: string;
+  /** data/running_costs.csv and data/road_tax.csv (optional like markets). */
+  runningCosts?: string;
+  roadTax?: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -148,6 +154,9 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       powerKw: num(row, 'power_kw', warnings, where),
       energyPrice: num(row, 'energy_price', warnings, where),
       maintenancePerYear: num(row, 'maintenance_per_year', warnings, where),
+      insurancePerYear: num(row, 'insurance_per_year', warnings, where),
+      tyreSetPrice: num(row, 'tyre_set_price', warnings, where),
+      engineCc: num(row, 'engine_cc', warnings, where),
       notes: row.notes ?? '',
       raw: { ...row },
     });
@@ -155,7 +164,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
   return { cars, columns };
 }
 
-/** data/markets.csv: one row per market (currency, electricity price, maintenance). */
+/** data/markets.csv: one row per market (its currency). */
 export function parseMarkets(text: string, warnings: string[]): Market[] {
   const seen = new Set<string>();
   const out: Market[] = [];
@@ -167,13 +176,10 @@ export function parseMarkets(text: string, warnings: string[]): Market[] {
       continue;
     }
     seen.add(id);
-    const where = `markets.csv, ${id}`;
     out.push({
       id,
       name: r.name || id,
       currency: (r.currency || 'THB').toUpperCase(),
-      electricityPrice: num(r, 'electricity_price', warnings, where),
-      maintenancePerYear: num(r, 'maintenance_per_year', warnings, where),
       description: r.description ?? '',
       source: r.source ?? '',
     });
@@ -396,6 +402,12 @@ export function parseDataset(files: RawFiles): Dataset {
   }
 
   const standard = parseStandard(files.standard, warnings);
+  const runningCosts = parseRunningCosts(files.runningCosts ?? '', warnings);
+  const roadTax = parseRoadTax(files.roadTax ?? '', warnings);
+  const sourceIds = new Set(sources.map((s) => s.id));
+  for (const r of [...runningCosts, ...roadTax]) {
+    for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`${'item' in r ? 'running_costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
+  }
 
   return {
     cars,
@@ -414,6 +426,8 @@ export function parseDataset(files: RawFiles): Dataset {
     capacityNotes,
     cycles,
     standard,
+    runningCosts,
+    roadTax,
     loadWarnings: warnings,
   };
 }
@@ -453,6 +467,90 @@ export function parseStandard(text: string, warnings: string[]): StandardRow[] {
   for (const key of Object.keys(CONDITION_INPUTS)) if (!seen.has(`all|${key}`)) warnings.push(`standard.csv: no "all" row for the condition ${key}`);
   for (const t of TEST_KEYS) {
     for (const key of Object.keys(TRIP_INPUTS[t])) if (!seen.has(`${t}|${key}`)) warnings.push(`standard.csv: no row for ${t} ${key}`);
+  }
+  return rows;
+}
+
+const ids = (v: string | undefined) => (v ?? '').split(/[;,\s]+/).filter(Boolean);
+
+/**
+ * data/running_costs.csv: one value per market, item and powertrain ('all' = both). Unknown items, bad numbers and
+ * duplicates are reported; a market must give every item for both powertrains.
+ */
+export function parseRunningCosts(text: string, warnings: string[]): RunningCostRow[] {
+  const rows: RunningCostRow[] = [];
+  const seen = new Set<string>();
+  for (const r of parseCsv(text).rows) {
+    const market = (r.market ?? '').trim().toUpperCase();
+    const item = (r.item ?? '').trim();
+    const pt = (r.powertrain ?? '').trim();
+    const where = `running_costs.csv, ${market} ${item} ${pt}`;
+    if (!market) continue;
+    if (!(COST_ITEMS as readonly string[]).includes(item)) {
+      warnings.push(`${where}: unknown item "${item}" (use ${COST_ITEMS.join(', ')})`);
+      continue;
+    }
+    const powertrain = pt === 'BEV' || pt === 'ICE' ? pt : pt.toLowerCase() === 'all' || pt === '' ? 'all' : null;
+    if (!powertrain) {
+      warnings.push(`${where}: powertrain must be all, BEV or ICE`);
+      continue;
+    }
+    const value = parseNumber(r.value);
+    if (value === null || value < 0) {
+      warnings.push(`${where}: "${r.value}" is not a number ≥ 0`);
+      continue;
+    }
+    const key = `${market}|${item}|${powertrain}`;
+    if (seen.has(key)) warnings.push(`${where}: listed twice; the last row counts`);
+    seen.add(key);
+    rows.push({ market, item, powertrain, value, unit: r.unit ?? '', why: r.why ?? '', sources: ids(r.source) });
+  }
+  for (const market of new Set(rows.map((r) => r.market))) {
+    for (const item of COST_ITEMS) {
+      for (const pt of ['BEV', 'ICE']) {
+        if (!seen.has(`${market}|${item}|${pt}`) && !seen.has(`${market}|${item}|all`)) warnings.push(`running_costs.csv: ${market} has no ${item} for ${pt}`);
+      }
+    }
+  }
+  return rows;
+}
+
+/** data/road_tax.csv: bands and rates of the yearly road tax per market and powertrain. */
+export function parseRoadTax(text: string, warnings: string[]): RoadTaxRow[] {
+  const rows: RoadTaxRow[] = [];
+  for (const r of parseCsv(text).rows) {
+    const market = (r.market ?? '').trim().toUpperCase();
+    if (!market) continue;
+    const where = `road_tax.csv, ${market} ${r.powertrain} ${r.basis} ${r.above}–${r.up_to}`;
+    const powertrain = r.powertrain === 'BEV' || r.powertrain === 'ICE' ? r.powertrain : null;
+    const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'age_years' ? r.basis : null;
+    const kind = r.kind === 'band' || r.kind === 'per_unit' || r.kind === 'discount_pct' ? r.kind : null;
+    const above = parseNumber(r.above);
+    const upTo = parseNumber(r.up_to);
+    const amount = parseNumber(r.amount);
+    if (!powertrain || !basis || !kind || above === null || amount === null || (upTo !== null && upTo <= above)) {
+      warnings.push(`${where}: needs powertrain BEV/ICE, basis weight_kg/engine_cc/age_years, kind band/per_unit/discount_pct, numbers with up_to > above`);
+      continue;
+    }
+    if ((basis === 'age_years') !== (kind === 'discount_pct')) {
+      warnings.push(`${where}: age_years rows are discount_pct rows, and only they are`);
+      continue;
+    }
+    rows.push({ market, powertrain, basis, above, upTo, amount, kind, sources: ids(r.source), why: r.why ?? '' });
+  }
+  // Rows of one market, powertrain and basis must not overlap.
+  const groups = new Map<string, RoadTaxRow[]>();
+  for (const r of rows) {
+    const k = `${r.market} ${r.powertrain} ${r.basis}`;
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  for (const [k, g] of groups) {
+    const s = [...g].sort((x, y) => x.above - y.above);
+    for (let i = 1; i < s.length; i++) {
+      const prev = s[i - 1].upTo;
+      if (prev === null || prev > s[i].above) warnings.push(`road_tax.csv, ${k}: rows overlap above ${s[i].above}`);
+      else if (prev < s[i].above) warnings.push(`road_tax.csv, ${k}: gap between ${prev} and ${s[i].above}`);
+    }
   }
   return rows;
 }

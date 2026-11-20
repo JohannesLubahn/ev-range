@@ -1,5 +1,6 @@
 // The stress cases of the spreadsheet (Battery Sizing tab) and the cost of ownership, on top of the physics car model.
 import { toDisplayCurrency } from './assumptions';
+import { PART_ORDER, marketCosts, ownership, sumParts, type OwnershipLine } from './costs';
 import { kmUntilSoh, type AgeingResult } from './battery/ageing';
 import type { BatteryView, CarModel, SegmentEnergy, SegmentSpec } from './model';
 import type { CabinClimate } from './onboard/climate';
@@ -528,31 +529,60 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
   const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
   const energyPerKm = totalKm > 0 ? energy / totalKm / eff : 0;
   const basisNote = d.isIce ? 'litres over the life ÷ km' : `battery energy over the life ÷ ${fx(eff * 100, 0)} % charging efficiency`;
-  const convert = (v: number) => toDisplayCurrency(v, d.car.currency, a);
-  let unitPrice = ci.energyPrice;
-  if (d.car.energyPrice !== null) {
-    const c = convert(d.car.energyPrice);
-    if (c === null) warnings.push(`No exchange rate for ${d.car.currency}`);
-    else unitPrice = c;
-  }
-  let maintenance = ci.maintenancePerYear;
-  if (d.car.maintenancePerYear !== null) {
-    const c = convert(d.car.maintenancePerYear);
-    if (c !== null) maintenance = c;
-  }
+  let noRate = false;
+  const convert = (v: number | null) => {
+    if (v === null) return null;
+    const c = toDisplayCurrency(v, d.car.currency, a);
+    if (c === null) noRate = true;
+    return c;
+  };
+  const unitPrice = convert(d.car.energyPrice) ?? ci.energyPrice;
   const purchase = d.priceDisplay.value;
   if (purchase === null) warnings.push('Price missing');
   const energyCost = unitPrice * energyPerKm * totalKm;
-  const maintenanceCost = maintenance * ci.years;
-  const tco = purchase === null ? null : purchase + energyCost + maintenanceCost;
+  // Insurance, tax, servicing, repairs, tyres and the value at the end (src/engine/costs.ts).
+  const own = ownership(
+    {
+      price: purchase,
+      powertrain: d.isIce ? 'ICE' : 'BEV',
+      carClass: d.car.carClass,
+      curbKg: d.curbMassKg.value,
+      massKg: d.curbMassKg.value + m.ctx.conditions.payloadKg,
+      engineCc: d.car.engineCc,
+      servicingPerYear: convert(d.car.maintenancePerYear),
+      insurancePerYear: convert(d.car.insurancePerYear),
+      tyreSetPrice: convert(d.car.tyreSetPrice),
+    },
+    ci,
+    ci.years,
+    totalKm,
+    marketCosts(a),
+    currency,
+  );
+  if (noRate) warnings.push(`No exchange rate for ${d.car.currency}`);
+  warnings.push(...own.warnings);
   const u = d.energyUnit;
+  const lines: OwnershipLine[] = [
+    { part: 'energy', label: 'Energy', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} ${u}/km × ${fx(totalKm, 0)} km`, value: energyCost },
+    ...own.lines,
+  ];
+  const parts = sumParts(lines);
+  const runningCost = parts.filter((p) => p.key !== 'depreciation').reduce((sum, p) => sum + (p.value ?? 0), 0);
+  const tco = purchase === null || own.resale === null ? null : purchase - own.resale + runningCost;
+  const partSteps = PART_ORDER.filter((k) => k !== 'depreciation').flatMap((k): Step[] => {
+    const ls = lines.filter((l) => l.part === k);
+    const part = parts.find((p) => p.key === k);
+    const head: Step[] = ls.length > 1 ? [{ label: part?.label ?? k, formula: '', value: part?.value ?? null, unit: currency, kind: 'subtotal' }] : [];
+    return [...head, ...ls.map((l): Step => ({ label: l.label, formula: l.formula, value: l.value, unit: currency }))];
+  });
   const steps: Step[] = [
     { label: 'Purchase price', formula: d.car.currency !== currency && purchase !== null ? `${d.car.price} ${d.car.currency} converted` : '', value: purchase, unit: currency },
+    { label: 'Value at the end', formula: lines.find((l) => l.part === 'depreciation')?.formula ?? '', value: own.resale, unit: currency },
     { label: 'Energy per km', formula: basisNote, value: energyPerKm, unit: `${u}/km` },
-    { label: 'Energy cost', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} × ${fx(totalKm, 0)} km`, value: energyCost, unit: currency },
-    { label: 'Maintenance', formula: `${fx(maintenance, 0)} ${currency} × ${fx(ci.years, 0)} years`, value: maintenanceCost, unit: currency },
-    { label: 'Total cost of ownership', formula: '', value: tco, unit: currency, kind: 'result' },
+    ...partSteps,
+    { label: 'Running costs', formula: 'energy + insurance + tax + servicing & repairs + tyres', value: runningCost, unit: currency, kind: 'subtotal' },
+    { label: 'Total cost of ownership', formula: 'purchase − value at the end + running costs', value: tco, unit: currency, kind: 'result' },
     { label: 'Cost per km', formula: `÷ ${fx(totalKm, 0)} km`, value: tco === null ? null : tco / totalKm, unit: `${currency}/km`, kind: 'result' },
   ];
-  return { currency, purchase, energyCost, maintenanceCost, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings };
+  return { currency, purchase, resale: own.resale, parts, energyCost, runningCost, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings };
 }

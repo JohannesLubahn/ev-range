@@ -1,0 +1,18 @@
+market,powertrain,basis,above,up_to,amount,kind,source,why
+TH,BEV,weight_kg,0,500,150,band,thansettakij-ev-tax,"Annual tax of a private electric car (up to 7 seats) by curb weight, Motor Vehicle Act rates. The 80 % first-year cut for EVs registered Oct 2022 – Sep 2025 expired on 10 Nov 2025 and is not included"
+TH,BEV,weight_kg,500,750,300,band,thansettakij-ev-tax;motorist-tax-2026,
+TH,BEV,weight_kg,750,1000,450,band,thansettakij-ev-tax,
+TH,BEV,weight_kg,1000,1250,800,band,thansettakij-ev-tax,
+TH,BEV,weight_kg,1250,1500,1000,band,thansettakij-ev-tax,
+TH,BEV,weight_kg,1500,1750,1300,band,thansettakij-ev-tax,
+TH,BEV,weight_kg,1750,2000,1600,band,thansettakij-ev-tax;motorist-tax-2026,
+TH,BEV,weight_kg,2000,2500,1900,band,thansettakij-ev-tax;motorist-tax-2026,
+TH,BEV,weight_kg,2500,3000,2200,band,thansettakij-ev-tax,
+TH,ICE,engine_cc,0,600,0.5,per_unit,motorist-tax-2026,"Annual tax of a private petrol car (up to 7 seats) per cc of engine size, progressive: 0.50 THB/cc up to 600 cc, 1.50 THB/cc from 601 to 1,800 cc, 4.00 THB/cc above"
+TH,ICE,engine_cc,600,1800,1.5,per_unit,motorist-tax-2026,
+TH,ICE,engine_cc,1800,,4.0,per_unit,motorist-tax-2026,
+TH,ICE,age_years,5,6,10,discount_pct,motorist-tax-2026,"Older petrol cars pay less: −10 % in the 6th year, −20 % in the 7th, … −50 % from the 10th year"
+TH,ICE,age_years,6,7,20,discount_pct,motorist-tax-2026,
+TH,ICE,age_years,7,8,30,discount_pct,motorist-tax-2026,
+TH,ICE,age_years,8,9,40,discount_pct,motorist-tax-2026,
+TH,ICE,age_years,9,,50,discount_pct,motorist-tax-2026,

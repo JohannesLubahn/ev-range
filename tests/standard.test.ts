@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { assumptionsFromDataset } from '../src/engine/assumptions';
 import { loadBundledDataset } from '../src/data/bundled';
 import { parseStandard } from '../src/data/parse';
-import { TEST_KEYS, getInput, linkedInputs, setInputs, testInputs } from '../src/engine/inputs';
+import { TEST_KEYS, getInput, linkedInputs, marketCostInputs, setInputs, testInputs } from '../src/engine/inputs';
 import { runEngine } from '../src/engine/run';
 import { baseConditions, spreadsheetScenario, standardScenario, withDefaults } from '../src/engine/scenario';
 import type { Conditions, Scenario } from '../src/engine/types';
@@ -35,7 +35,7 @@ const OLD_TRIPS = {
   longTrip: { distanceKm: 800, speedKmh: 60, cabinC: c, climateWhileCharging: true, chargeFromPct: 20, chargeToPct: 80, profile: 'rural' },
   batteryLife: { years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed', dcSharePct: a.careTypicalDcSharePct, highSocTimePct: a.careTypicalHighSocTimePct },
   sprint: { distanceKm: 140, startPct: 95, endPct: 5, speedKmh: 120, cabinC: c, profile: 'steady', climbM: 0 },
-  cost: { energyPrice: a.electricityPrice, maintenancePerYear: a.maintenancePerYear },
+  cost: { energyPrice: 7.5, maintenancePerYear: 8000 },
 };
 
 /** A scenario as an older version saved it: one set of conditions, cost without its own years and driving. */
@@ -65,7 +65,9 @@ describe('data/standard.csv', () => {
     expect(baseConditions(ds)).toEqual(OLD_CONDITIONS);
     for (const t of TEST_KEYS) expect(s.conditions[t]).toEqual(OLD_CONDITIONS);
     for (const t of ['trafficJam', 'noCharger', 'longTrip', 'batteryLife', 'sprint'] as const) expect(s[t]).toEqual(OLD_TRIPS[t]);
-    expect(s.cost).toEqual({ ...OLD_TRIPS.cost, years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed' });
+    // Cost: the life's driving and the market's running costs (the old one maintenance per year is gone).
+    expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 40, cabinC: c, profile: 'mixed' });
+    expect(s.cost.energyPrice).toBe(OLD_TRIPS.cost.energyPrice);
   });
   it('the standard fits the conditions to each test', () => {
     const s = standardScenario(ds, a);
@@ -132,7 +134,8 @@ describe('each test has its own inputs', () => {
   });
   it('cost has its own years', () => {
     const r = run(setInputs(base, [{ test: 'cost', group: 'trip', key: 'years' }], 10));
-    expect(r['byd-atto-3'].cost.maintenanceCost).toBeCloseTo(r0['byd-atto-3'].cost.maintenanceCost / 2, 6);
+    const tax = (x: typeof r) => x['byd-atto-3'].cost.parts.find((p) => p.key === 'tax')?.value as number;
+    expect(tax(r)).toBeCloseTo(tax(r0) / 2, 6);
     expect(r['byd-atto-3'].batteryLife.energyKwh).toBe(r0['byd-atto-3'].batteryLife.energyKwh);
   });
   it('tests with the same conditions share one model; every model shares one calibration', () => {

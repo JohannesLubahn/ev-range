@@ -15,6 +15,8 @@ import temperature from '../../data/battery/temperature.csv?raw';
 import calendarSoc from '../../data/battery/calendar_soc.csv?raw';
 import cyclesIndex from '../../data/cycles/index.csv?raw';
 import standard from '../../data/standard.csv?raw';
+import runningCosts from '../../data/running_costs.csv?raw';
+import roadTax from '../../data/road_tax.csv?raw';
 import { parseDataset, type RawFiles } from './parse';
 import type { Dataset } from './types';
 
@@ -41,6 +43,8 @@ export const bundledFiles: RawFiles = {
   calendarSoc,
   cyclesIndex,
   standard,
+  runningCosts,
+  roadTax,
   cycles: Object.fromEntries(Object.entries(cycleFiles).map(([path, text]) => [path.split('/').pop() as string, text])),
 };
 

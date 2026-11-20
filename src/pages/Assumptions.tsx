@@ -2,6 +2,7 @@ import { IconExternal } from '../components/Icons';
 import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
 import type { Assumptions } from '../engine/types';
+import { RunningCosts } from '../components/RunningCosts';
 import { num } from '../format';
 import { ALL_MARKETS } from '../state/carList';
 import { useEngine } from '../state/engine';
@@ -175,8 +176,7 @@ export function AssumptionsPage() {
         <div>
           <h2>Markets</h2>
           <p className="muted">
-            The market picked in the car list sets the cars listed, the currency and these running costs (in the market&rsquo;s currency). A
-            blank value uses the assumption above, converted. All markets uses the assumptions as they are. Kept in{' '}
+            The market picked in the car list sets the cars listed, the currency and the running costs below. Kept in{' '}
             <span className="mono">data/markets.csv</span>; the <span className="mono">market</span> column of cars.csv refers to its ids.
           </p>
         </div>
@@ -186,9 +186,7 @@ export function AssumptionsPage() {
               <tr>
                 <th>Market</th>
                 <th>Currency</th>
-                <th className="r">Electricity (per kWh)</th>
-                <th className="r">Maintenance (per year)</th>
-                <th>Source</th>
+                <th>Running costs</th>
               </tr>
             </thead>
             <tbody>
@@ -198,15 +196,15 @@ export function AssumptionsPage() {
                     {m.name} <span className="faint mono">{m.id}</span>
                   </td>
                   <td>{m.currency}</td>
-                  <td className="r num">{m.electricityPrice === null ? 'assumption' : num(m.electricityPrice, 2)}</td>
-                  <td className="r num">{m.maintenancePerYear === null ? 'assumption' : num(m.maintenancePerYear, 0)}</td>
-                  <td className="muted">{m.source}</td>
+                  <td className="muted">{ds.runningCosts.some((r) => r.market === m.id) ? 'own (below)' : `${baseAssumptions.costMarket}'s, converted`}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+
+      <RunningCosts />
 
       <section className="panel stack" id="sources">
         <div>

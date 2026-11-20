@@ -111,7 +111,8 @@ export interface AppState extends SharedState {
   toggleCar: (id: string, allIds: string[]) => void;
   setFilters: (p: Partial<Filters>) => void;
   /** Switches the market. The cost inputs are in the market's currency, so they go back to its defaults. */
-  setMarket: (id: string, costDefaults: Pick<CostInputs, 'energyPrice' | 'maintenancePerYear'>) => void;
+  /** Picks a market; `costDefaults` = its running costs (marketCostInputs), which replace the cost inputs. */
+  setMarket: (id: string, costDefaults: Partial<CostInputs>) => void;
   setListSort: (s: ListSort) => void;
   setListGroup: (g: ListGroupKey) => void;
   setPickerOpen: (open: boolean) => void;

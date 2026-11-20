@@ -28,7 +28,9 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | File | What it holds |
 |---|---|
 | `data/cars.csv` | **One row per car and market.** Blank cell = unknown (the app estimates it and marks it, or flags it as missing). |
-| `data/markets.csv` | One row per market: name, currency, electricity price and maintenance per year (in that currency), with source. |
+| `data/markets.csv` | One row per market: name and currency. |
+| `data/running_costs.csv` | **Running costs per market** (in its currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). |
+| `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): `all` rows = the conditions every test starts from, test rows = its trip inputs and its own conditions (e.g. the traffic jam at 35 °C), each with the reason. Blank = from an assumption or the market. |
 | `data/assumptions.csv` | Every constant the model uses, with description and source. |
@@ -42,7 +44,8 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 
 - **Add a car:** add a line to `cars.csv`. Fill `brand`, and `model` / `variant` when a model comes in several
   versions (e.g. BYD · Seal · low): variants then sit together under their model in the car list.
-- **Add a market:** add a line to `markets.csv` (blank prices = the assumption, converted), then a line per car sold
+- **Add a market:** add a line to `markets.csv`, its running costs to `running_costs.csv` and `road_tax.csv` (without
+  them it uses `cost_default_market`'s, converted), then a line per car sold
   there in `cars.csv` with that `market` code, its `currency` and `price`, and a unique `id` (e.g. `byd-atto-3-de`).
   A car sold in two markets has two rows.
 - **Add a spec:** add a column to `cars.csv` and a line to `fields.csv`; it appears on the Cars page.
@@ -57,8 +60,8 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 
 On Compare the car list is the left column; on the other pages the **Cars** button opens it.
 
-- **Market:** lists only the cars sold there. Prices and costs are shown in its currency, with its electricity
-  price and maintenance. **All markets** lists every car, converted to `display_currency`.
+- **Market:** lists only the cars sold there. Prices and costs are shown in its currency, with its running costs.
+  **All markets** lists every car, converted to `display_currency`, with `cost_default_market`'s running costs.
 - **Sort:** model (A–Z), price, rated range, battery size, rated consumption, 0–100 km/h or seats; the arrow
   reverses the order. Cars without the value go last.
 - **Group:** none, brand, body type or price band (round steps). Sort and group combine, e.g. body type sorted by
@@ -85,6 +88,27 @@ On Compare the car list is the left column; on the other pages the **Cars** butt
 
 See [docs/model.md](docs/model.md): the physics, the calibration, the battery model, the sources, and how the
 results compare with the spreadsheet.
+
+## Cost of ownership
+
+Total = purchase − value at the end + running costs, over the years of use (user request 2026-11-20). The chart
+splits it into **depreciation** (purchase − value at the end), **energy**, **insurance** (voluntary + compulsory),
+**road tax**, **servicing & repairs** (servicing, repairs after the warranty, 12 V battery) and **tyres**. The inputs
+sit in groups on the Cost page; their standard is the market's row in `data/running_costs.csv`. What depends on the
+car:
+
+- **Road tax:** electric cars by curb weight, petrol cars by engine size (`engine_cc`), less for older petrol cars.
+- **Voluntary insurance:** % of the car's value at the start of each year (electric 3.0 %, petrol 2.5 % in
+  Thailand), at least the lowest premium.
+- **Loss of value:** % per year by powertrain (Thailand: electric 6.5 %, petrol 3.4 %, from 3 years of Krungsri data).
+- **Servicing:** by powertrain (Thailand: 5,346 / 17,500 THB per year).
+- **Tyres:** a set per tyre life; the life shrinks with the mass on the tyres (curb weight + the cost's load), premium
+  cars use the dearer set.
+- **Repairs:** % of the purchase price per year after the warranty.
+
+Cars can override servicing (`maintenance_per_year`), insurance (`insurance_per_year`), the tyre set
+(`tyre_set_price`) and the energy price in `cars.csv`. The electricity standard is the public DC price (7.5 THB/kWh);
+set it lower when you charge at home. A battery replacement is not included (user's choice).
 
 ## Inputs
 

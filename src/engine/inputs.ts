@@ -1,6 +1,8 @@
 // The user inputs of every test: what kind of value each one holds, its allowed range, which inputs mean the same
 // thing in several tests (for "use in all tests"), and reading / writing them in a scenario. Pure code, no UI.
-import { PROFILES, type Assumptions, type Conditions, type Scenario } from './types';
+import type { CostItem } from './costItems';
+import { marketCosts, type Powertrain } from './costs';
+import { PROFILES, type Assumptions, type Conditions, type CostInputs, type Scenario } from './types';
 
 /** The six tests that each keep their own inputs. */
 export type TestKey = 'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost';
@@ -27,6 +29,13 @@ export type InputKind =
 
 const n = (min: number, max: number, fallback?: (a: Assumptions) => number): InputKind => ({ type: 'number', min, max, fallback });
 const PROFILE: InputKind = { type: 'profile' };
+/** Cost inputs whose standard is the market's value (data/running_costs.csv). */
+const marketKinds = new WeakSet<InputKind>();
+const market = (min: number, max: number, item: CostItem, pt: Powertrain = 'BEV'): InputKind => {
+  const k = n(min, max, (a) => marketCosts(a).value(item, pt));
+  marketKinds.add(k);
+  return k;
+};
 const CABIN: InputKind = { type: 'cabin' };
 
 export const CONDITION_INPUTS: Record<keyof Conditions, InputKind> = {
@@ -82,8 +91,22 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
   },
   cost: {
     ...LIFE_DRIVING,
-    energyPrice: n(0, 1000, (a) => a.electricityPrice),
-    maintenancePerYear: n(0, 1_000_000, (a) => a.maintenancePerYear),
+    energyPrice: market(0, 1000, 'electricity_price'),
+    servicingBev: market(0, 1_000_000, 'servicing_per_year', 'BEV'),
+    servicingIce: market(0, 1_000_000, 'servicing_per_year', 'ICE'),
+    insuranceRateBev: market(0, 20, 'insurance_rate_pct', 'BEV'),
+    insuranceRateIce: market(0, 20, 'insurance_rate_pct', 'ICE'),
+    insuranceMin: market(0, 1_000_000, 'insurance_min'),
+    compulsoryInsurance: market(0, 1_000_000, 'compulsory_insurance'),
+    tyreSetRegular: market(0, 10_000_000, 'tyre_set_regular'),
+    tyreSetPremium: market(0, 10_000_000, 'tyre_set_premium'),
+    tyreLifeKm: market(5000, 200_000, 'tyre_life_km'),
+    repairsPct: market(0, 20, 'repairs_pct'),
+    warrantyYears: market(0, 40, 'warranty_years'),
+    battery12vPrice: market(0, 1_000_000, 'battery_12v_price'),
+    battery12vYears: market(1, 20, 'battery_12v_years'),
+    depreciationBev: market(0, 50, 'depreciation_pct', 'BEV'),
+    depreciationIce: market(0, 50, 'depreciation_pct', 'ICE'),
   },
 };
 
@@ -97,6 +120,15 @@ export interface InputRef {
 export function inputKind(ref: InputRef): InputKind | undefined {
   const table = (ref.group === 'conditions' ? CONDITION_INPUTS : TRIP_INPUTS[ref.test]) as Record<string, InputKind>;
   return table[ref.key];
+}
+
+/** The cost inputs whose standard is the market's value, at the market of `a` (switching the market sets them). */
+export function marketCostInputs(a: Assumptions): Partial<CostInputs> {
+  const out: Record<string, number> = {};
+  for (const [key, kind] of Object.entries(TRIP_INPUTS.cost) as [string, InputKind][]) {
+    if (marketKinds.has(kind) && kind.type === 'number' && kind.fallback) out[key] = kind.fallback(a);
+  }
+  return out as Partial<CostInputs>;
 }
 
 /**
