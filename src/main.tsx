@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { EngineProvider } from './state/engine';
 import { applySharedFromUrl } from './state/store';
+import './fonts.css';
 import './styles.css';
 
 applySharedFromUrl();

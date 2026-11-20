@@ -15,7 +15,7 @@ the model behaves, checked against measurements) and **Assumptions** (every cons
 - **Languages:** TypeScript (the calculations and the pages, with React for the user interface), CSS (the look),
   HTML (one page shell), CSV (all data), Python (the scripts that import the spreadsheet and rebuild the reference
   tables) and Markdown (these docs).
-- **Libraries:** React (pages), Zustand (app state), Recharts (charts), Papa Parse (reading CSV). Tools for
+- **Libraries:** React (pages), Zustand (app state), Recharts (charts), Papa Parse (reading CSV), Fontsource (the fonts). Tools for
   building and testing: Vite, TypeScript, Vitest. Installed by `npm install` into `node_modules/` (not part of the
   project's own code).
 - **No server and no account:** everything is calculated in the browser. Your inputs and saved scenarios are kept
@@ -24,8 +24,9 @@ the model behaves, checked against measurements) and **Assumptions** (every cons
   nothing is public). The only copy outside this computer is the private preview on claude.ai, a single HTML file
   built by `npm run build:single` that contains the whole app and its data; it is visible only to people you share
   the link with.
-- **Outside requests:** the page loads its fonts (IBM Plex Sans / Mono, Space Grotesk) from Google Fonts. Links in
-  the source list open only when you click them.
+- **Outside requests:** none. The fonts (IBM Plex Sans / Mono, Space Grotesk, SIL Open Font License) come with the
+  app (`src/fonts.css`, from the `@fontsource` packages; Latin characters, others use the system font). Links in the
+  source list open only when you click them.
 
 ## Run it
 
