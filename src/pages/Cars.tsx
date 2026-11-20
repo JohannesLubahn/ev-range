@@ -8,6 +8,7 @@ import { fixed, num } from '../format';
 import { EMBEDDED } from '../embedded';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
+import { TEST_LABELS } from '../engine/inputs';
 import { IconDownload, IconInfo, IconUpload, IconWarning } from '../components/Icons';
 
 interface Cell {
@@ -46,6 +47,10 @@ function unitFor(f: FieldDef, d: DerivedCar): string {
 
 function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecRow[] }[] {
   const { ds, derivedById, out, a, scenario } = useEngine();
+  // Each test has its own conditions: the calculated rows use those of the test chosen on the Physics page.
+  const refTest = useStore((s) => s.refTest);
+  const cond = scenario.conditions[refTest];
+  const of = ` (${TEST_LABELS[refTest]} conditions)`;
   return useMemo(() => {
     const groups = new Map<string, SpecRow[]>();
     const add = (group: string, row: SpecRow) => {
@@ -89,13 +94,13 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
         add(group, { key, label, unit, better, calc: true, cells });
       };
       const n = (v: number | null, digits?: number, prov?: Provenance): Cell => ({ text: v === null ? '' : num(v, digits ?? digitsFor(v)), value: v, prov });
-      const kmText = num(scenario.conditions.batteryKm, 0);
-      calc('Battery & charging', 'c_soh', `Capacity left after ${kmText} km`, '%', 'higher', (d) => {
-        const g = out.models[d.car.id]?.ageing();
+      const kmText = num(cond.batteryKm, 0);
+      calc('Battery & charging', 'c_soh', `Capacity left after ${kmText} km${of}`, '%', 'higher', (d) => {
+        const g = out.models[d.car.id]?.[refTest].ageing();
         return g ? n(g.sohPct, 1) : { text: '', value: null };
       });
-      calc('Battery & charging', 'c_capacity', `Capacity after ${kmText} km`, 'kWh', 'higher', (d) => {
-        const g = out.models[d.car.id]?.ageing();
+      calc('Battery & charging', 'c_capacity', `Capacity after ${kmText} km${of}`, 'kWh', 'higher', (d) => {
+        const g = out.models[d.car.id]?.[refTest].ageing();
         return g ? n(g.capacityKwh, 1) : { text: '', value: null };
       });
       calc('Battery & charging', 'c_fastkw', 'Fast charging power', 'kW', 'higher', (d) => n(d.fastKw, 1));
@@ -103,21 +108,21 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
       calc('Consumption & range', 'c_basis', 'Consumption standard', '', '', (d) => ({ text: d.basis.value, value: null, prov: d.basis.provenance }));
       calc('Consumption & range', 'c_implied', 'Battery ÷ rated range', 'kWh/km', 'lower', (d) => n(d.impliedConsumption, 3));
       calc('Consumption & range', 'c_eta', 'Drivetrain efficiency (calibrated)', '%', 'higher', (d) => {
-        const m = out.models[d.car.id];
+        const m = out.models[d.car.id]?.[refTest];
         if (!m || d.consumption.value === null || d.isIce) return { text: '', value: null };
         const cal = m.calibration();
         return { text: `${fixed(cal.etaDrive * 100, 1)}${cal.clamped ? ' (limited)' : ''}`, value: cal.etaDrive * 100 };
       });
       for (const speed of [90, 120]) {
-        calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)`, `${'kWh'}/100 km`, 'lower', (d) => {
-          const m = out.models[d.car.id];
+        calc('Consumption & range', `c_v${speed}`, `Driving at ${speed} km/h (steady, no AC)${of}`, `${'kWh'}/100 km`, 'lower', (d) => {
+          const m = out.models[d.car.id]?.[refTest];
           if (!m || d.consumption.value === null) return { text: '', value: null };
           const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: speed, profile: 'steady', cabinC: null });
           return n(seg.driveKwh, 1);
         });
       }
-      calc('Physics', 'c_onboard', `Onboard power at ${num(scenario.conditions.airTemperatureC, 0)} °C, heating/AC holding ${num(a.cabinSetpointC, 0)} °C`, 'kW', 'lower', (d) => {
-        const m = out.models[d.car.id];
+      calc('Physics', 'c_onboard', `Onboard power at ${num(cond.airTemperatureC, 0)} °C, heating/AC holding ${num(a.cabinSetpointC, 0)} °C${of}`, 'kW', 'lower', (d) => {
+        const m = out.models[d.car.id]?.[refTest];
         if (!m || d.isIce) return { text: '', value: null };
         return n(m.onboard(a.cabinSetpointC).totalKw, 2);
       });
@@ -129,7 +134,7 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
     return [...groups.entries()]
       .sort((x, y) => (order.indexOf(x[0]) + 99 * +(order.indexOf(x[0]) < 0)) - (order.indexOf(y[0]) + 99 * +(order.indexOf(y[0]) < 0)))
       .map(([group, rows]) => ({ group, rows }));
-  }, [ds, derivedById, out, ids, showCalc, a.displayCurrency, scenario.conditions.airTemperatureC]);
+  }, [ds, derivedById, out, ids, showCalc, a.displayCurrency, cond, refTest, of]);
 }
 
 function download(name: string, text: string) {

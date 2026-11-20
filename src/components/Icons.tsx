@@ -92,3 +92,20 @@ export const IconUpload = (p: P) => (
     <path d="M8 10.5V2.5M4.8 5.5L8 2.3l3.2 3.2M2.5 13.5h11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+/** ↺ Back to the standard value. */
+export const IconReset = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3.2 6.4A5 5 0 1 1 3 9.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M2.6 2.8v3.8h3.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** ⇉ Use this value in the other tests too. */
+export const IconApplyAll = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M2 5h8M2 11h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M8 2.6L10.4 5 8 7.4M8 8.6l2.4 2.4L8 13.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13.5 2.5v11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);

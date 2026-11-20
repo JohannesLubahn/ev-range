@@ -1,29 +1,54 @@
 import type { Dataset } from '../data/types';
 import { batteryLife, cost, longTrip, noCharger, sprint, trafficJam } from './cases';
 import { deriveAll, type DerivedCar } from './derive';
+import { TEST_KEYS, type TestKey } from './inputs';
 import { CarModel } from './model';
 import type { Assumptions, CarResults, ModelSettings, Scenario } from './types';
 
+/** A car's models, one per test (tests with the same conditions share one). */
+export type TestModels = Record<TestKey, CarModel>;
+
 export interface EngineOutput {
   derived: DerivedCar[];
-  models: Record<string, CarModel>;
+  models: Record<string, TestModels>;
   results: Record<string, CarResults>;
 }
 
-export function evaluateCar(m: CarModel, scenario: Scenario): CarResults {
-  const tj = trafficJam(m, scenario.trafficJam);
-  const nc = noCharger(m, scenario.noCharger);
-  const sp = sprint(m, scenario.sprint);
-  const bl = batteryLife(m, scenario.batteryLife);
+/**
+ * The models of one car for every test. Each test has its own conditions; tests with equal conditions share a
+ * model (and its caches). All share one calibration, and the battery's past (for the wear after the km driven)
+ * comes from the Battery-life model.
+ */
+export function testModels(d: DerivedCar, ctx: { ds: Dataset; a: Assumptions; settings: ModelSettings }, scenario: Scenario): TestModels {
+  const shared = {};
+  const byConditions = new Map<string, CarModel>();
+  const make = (t: TestKey, history?: CarModel) => {
+    const key = JSON.stringify(scenario.conditions[t]);
+    let m = byConditions.get(key);
+    if (!m) {
+      m = new CarModel(d, { ...ctx, conditions: scenario.conditions[t], life: scenario.batteryLife, shared, history });
+      byConditions.set(key, m);
+    }
+    return m;
+  };
+  const life = make('batteryLife');
+  return Object.fromEntries(TEST_KEYS.map((t) => [t, t === 'batteryLife' ? life : make(t, life)])) as TestModels;
+}
+
+export function evaluateCar(m: TestModels, scenario: Scenario): CarResults {
+  const tj = trafficJam(m.trafficJam, scenario.trafficJam);
+  const nc = noCharger(m.noCharger, scenario.noCharger);
+  const sp = sprint(m.sprint, scenario.sprint);
+  const bl = batteryLife(m.batteryLife, scenario.batteryLife);
   const checks = [tj.pass, nc.pass, sp.pass, bl.pass];
   return {
-    carId: m.d.car.id,
+    carId: m.noCharger.d.car.id,
     trafficJam: tj,
     noCharger: nc,
     sprint: sp,
-    longTrip: longTrip(m, scenario.longTrip),
+    longTrip: longTrip(m.longTrip, scenario.longTrip),
     batteryLife: bl,
-    cost: cost(m, scenario.batteryLife, scenario.cost),
+    cost: cost(m.cost, scenario.cost),
     passCount: checks.filter((c) => c === true).length,
     checkCount: checks.filter((c) => c !== null).length,
   };
@@ -36,7 +61,7 @@ export function evaluateCar(m: CarModel, scenario: Scenario): CarResults {
 export interface EngineCache {
   key: [Dataset, Assumptions, Scenario, ModelSettings];
   derived: DerivedCar[];
-  models: Record<string, CarModel>;
+  models: Record<string, TestModels>;
   results: Record<string, CarResults>;
 }
 
@@ -57,14 +82,14 @@ export function runEngine(
   const reuse = cache && cache.key.every((k, i) => k === key[i]) ? cache : null;
   const derived = reuse ? reuse.derived : deriveAll(ds, a);
   const wanted = carIds ? new Set(carIds) : null;
-  const allModels: Record<string, CarModel> = reuse ? reuse.models : {};
+  const allModels: Record<string, TestModels> = reuse ? reuse.models : {};
   const allResults: Record<string, CarResults> = reuse ? reuse.results : {};
-  const models: Record<string, CarModel> = {};
+  const models: Record<string, TestModels> = {};
   const results: Record<string, CarResults> = {};
   for (const d of derived) {
     const id = d.car.id;
     if (wanted && !wanted.has(id)) continue;
-    const m = (allModels[id] ??= new CarModel(d, { ds, a, conditions: scenario.conditions, settings, life: scenario.batteryLife }));
+    const m = (allModels[id] ??= testModels(d, { ds, a, settings }, scenario));
     models[id] = m;
     if (d.consumption.value === null || d.batteryKwh === null) continue;
     results[id] = allResults[id] ??= evaluateCar(m, scenario);

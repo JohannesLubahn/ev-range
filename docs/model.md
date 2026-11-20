@@ -17,6 +17,10 @@ ownership have their own pages, the other four are tabs of the Stress tests page
   over a short distance. Petrol cars: litres per 100 km. The cost of ownership uses the same energy from the grid,
   i.e. ÷ the charging efficiency and including the battery's own losses.
 
+Each test has its own inputs and its own Conditions (user request 20 Nov 2026); the standard values are in
+`data/standard.csv`. The engine builds one car model per test (tests with equal conditions share one) with one
+shared calibration (`src/engine/run.ts`).
+
 The spreadsheet's own model (constant consumption, 2.5× at high speed, onboard kW × usage %, ideal battery) was
 available as the *Simple* model until 18 Nov 2026 and was then removed at your request; it is in the git history
 (up to commit 6ba5808).
@@ -180,8 +184,11 @@ battery. Code: `src/engine/battery/ageing.ts`.
 
 - **Driving and age** come from the battery-life inputs: the energy per km is the battery-life test's (its speed,
   profile and cabin temperature, with onboard systems, cabin start, battery heating/cooling and losses), and the
-  age is km ÷ km per year (100,000 km at 15,000 km/year = 6.7 years). T is the Conditions' air temperature: a
-  parked car spends most of its life at the air temperature.
+  age is km ÷ km per year (100,000 km at 15,000 km/year = 6.7 years). T is the air temperature of the **Battery
+  life page's** Conditions: a parked car spends most of its life at the air temperature. Each test has its own
+  conditions, so the battery's past (climate and driving style) comes from the Battery life page and the km driven
+  from the test's own Conditions; the weather of a stress test (e.g. the traffic jam at 35 °C) is the trip's, not
+  the battery's past. Until 20 Nov 2026 all tests shared one set of conditions, so the two were the same.
 - **Full cycles** count full discharges of the ageing battery (dE ÷ capacity at that point, integrated over the
   km), the way rated cycles are measured. The battery-life test counts its cycles the same way, so it needs fewer
   cycles than with the old division by 80 % of nominal (BYD Atto 3: 872 → 798; the Hyundai Inster, which was at

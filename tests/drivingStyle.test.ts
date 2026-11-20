@@ -9,16 +9,16 @@ import { CarModel } from '../src/engine/model';
 import { profileTrace } from '../src/engine/physics/profiles';
 import { simulate } from '../src/engine/physics/simulate';
 import { rdeBounds, styleTrace, traceDynamics } from '../src/engine/physics/style';
-import { spreadsheetDefaults, withDefaults } from '../src/engine/scenario';
-import type { Assumptions, Conditions, Profile, Scenario } from '../src/engine/types';
+import { spreadsheetScenario, withDefaults } from '../src/engine/scenario';
+import type { Assumptions, Profile, Scenario } from '../src/engine/types';
 
 const ds = loadBundledDataset();
 const a = assumptionsFromDataset(ds);
-const sc = spreadsheetDefaults(a);
+const sc = spreadsheetScenario(ds, a);
 const derived = Object.fromEntries(deriveAll(ds, a).map((d) => [d.car.id, d]));
 const W = a.drivingStyleWindowS;
 const model = (id: string, stylePct: number, assumptions: Assumptions = a) =>
-  new CarModel(derived[id], { ds, a: assumptions, conditions: { ...sc.conditions, drivingStylePct: stylePct }, settings: { battery: 'chemistry' } });
+  new CarModel(derived[id], { ds, a: assumptions, conditions: { ...sc.conditions.noCharger, drivingStylePct: stylePct }, settings: { battery: 'chemistry' } });
 const wltp = ds.cycles.WLTP;
 const phases = (...p: string[]) => wltp.speedsKmh.filter((_, i) => p.includes(wltp.phases[i]));
 const sum = (x: number[]) => x.reduce((s, v) => s + v, 0);
@@ -189,7 +189,7 @@ describe('driving style reaches every stress test and the cost', () => {
       sp: sprint(m, s.sprint).energyKwh,
       lt: longTrip(m, s.longTrip).energyKwh,
       bl: batteryLife(m, s.batteryLife).energyKwh,
-      cost: cost(m, s.batteryLife, s.cost).energyCost,
+      cost: cost(m, s.cost).energyCost,
       soh: m.ageing()?.sohPct ?? 0,
     };
   };
@@ -216,9 +216,9 @@ describe('driving style reaches every stress test and the cost', () => {
     expect(steps.some((st) => /friction brakes/.test(st.formula))).toBe(true);
   });
   it('old saved scenarios get Normal driving', () => {
-    const { drivingStylePct: _d, ...old } = sc.conditions;
-    const s = withDefaults({ ...sc, conditions: old as Conditions }, a);
-    expect(s.conditions.drivingStylePct).toBe(100);
+    const { drivingStylePct: _d, ...old } = sc.conditions.noCharger;
+    const s = withDefaults({ ...sc, conditions: old as never }, ds, a);
+    expect(s.conditions.noCharger.drivingStylePct).toBe(100);
   });
   it('the trace description names the style', () => {
     expect(profileTrace(ds, 'city', 30, 1.7, W).description).toMatch(/harder/);

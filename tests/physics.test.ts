@@ -14,9 +14,10 @@ import { airDensity, pressureAtAltitude } from '../src/engine/physics/air';
 import { wheelForces } from '../src/engine/physics/roadLoad';
 import { rollingCoefficient } from '../src/engine/physics/rolling';
 import { simulate } from '../src/engine/physics/simulate';
-import { DEFAULT_CONDITIONS, spreadsheetDefaults, withDefaults } from '../src/engine/scenario';
+import { baseConditions, spreadsheetScenario, withDefaults } from '../src/engine/scenario';
 
 const ds = loadBundledDataset();
+const DEFAULT_CONDITIONS = baseConditions(ds);
 const a = assumptionsFromDataset(ds);
 const derived = deriveAll(ds, a);
 
@@ -64,16 +65,16 @@ describe('rolling resistance', () => {
   });
   it('converts the tyre pressure in bar of older saved scenarios to % of the recommended pressure', () => {
     const a0 = assumptionsFromDataset(loadBundledDataset());
-    const base = spreadsheetDefaults(a0);
+    const base = spreadsheetScenario(ds, a0);
     const legacy = (bar: number) => {
-      const { tyrePressurePct: _drop, ...rest } = base.conditions;
-      return withDefaults({ ...base, conditions: { ...rest, tyrePressureBar: bar } as never }, a0).conditions;
+      const { tyrePressurePct: _drop, ...rest } = base.conditions.noCharger;
+      return withDefaults({ ...base, conditions: { ...rest, tyrePressureBar: bar } as never }, ds, a0).conditions.noCharger;
     };
     expect(legacy(2.0).tyrePressurePct).toBe(80);
     expect(legacy(2.5).tyrePressurePct).toBe(100);
     expect(legacy(1.0).tyrePressurePct).toBe(60);
     expect('tyrePressureBar' in legacy(2.0)).toBe(false);
-    expect(withDefaults(base, a0).conditions.tyrePressurePct).toBe(100);
+    expect(withDefaults(base, ds, a0).conditions.noCharger.tyrePressurePct).toBe(100);
   });
 });
 
@@ -167,7 +168,7 @@ describe('cabin climate physics', () => {
     expect(off.totalKw).toBeCloseTo(onboardPower(ds, a, hot, 'regular', false, 22).baseKw, 9);
   });
   it('converts the heating / AC usage % of older saved scenarios to a cabin temperature', () => {
-    const sc = spreadsheetDefaults(a);
+    const sc = spreadsheetScenario(ds, a);
     const legacy = {
       ...sc,
       trafficJam: { ...sc.trafficJam, cabinOutsideC: undefined, cabinJamC: undefined, usageOutsidePct: 0, usageJamPct: 90 },
@@ -177,7 +178,7 @@ describe('cabin climate physics', () => {
     for (const t of ['trafficJam', 'noCharger', 'longTrip'] as const) {
       for (const k of Object.keys(legacy[t])) if ((legacy[t] as Record<string, unknown>)[k] === undefined) delete (legacy[t] as Record<string, unknown>)[k];
     }
-    const s = withDefaults(legacy, a);
+    const s = withDefaults(legacy, ds, a);
     expect(s.trafficJam.cabinOutsideC).toBeNull();
     expect(s.trafficJam.cabinJamC).toBe(a.cabinSetpointC);
     expect(s.noCharger.cabinC).toBe(a.cabinSetpointC);
@@ -185,7 +186,7 @@ describe('cabin climate physics', () => {
     expect(s.longTrip.climateWhileCharging).toBe(false);
     expect('usagePct' in s.noCharger).toBe(false);
     expect('usageChargingPct' in s.longTrip).toBe(false);
-    expect(withDefaults(sc, a)).toEqual(sc);
+    expect(withDefaults(sc, ds, a)).toEqual(sc);
   });
   it('preconditioned cars start without heating or cooling the cabin', () => {
     const hot = { ...DEFAULT_CONDITIONS, airTemperatureC: 35, solarWm2: 800 };
@@ -325,8 +326,8 @@ describe('battery ageing (capacity after the km driven)', () => {
   });
   it('the stress tests use nominal × capacity left; battery life and cost ignore the km driven', () => {
     const d = derived.find((x) => x.car.id === 'byd-atto-3')!;
-    const sc = spreadsheetDefaults(a);
-    const at = (km: number) => new CarModel(d, { ds, a, conditions: { ...sc.conditions, batteryKm: km }, settings: { battery: 'chemistry' }, life: sc.batteryLife });
+    const sc = spreadsheetScenario(ds, a);
+    const at = (km: number) => new CarModel(d, { ds, a, conditions: { ...sc.conditions.noCharger, batteryKm: km }, settings: { battery: 'chemistry' }, life: sc.batteryLife });
     const m0 = at(0);
     const m1 = at(100000);
     const g = m1.ageing()!;
@@ -339,7 +340,7 @@ describe('battery ageing (capacity after the km driven)', () => {
     expect(nc1.margin).toBeLessThan(nc0.margin);
     expect(nc1.energyKwh).toBeCloseTo(nc0.energyKwh, 6);
     expect(batteryLife(m1, sc.batteryLife).cyclesRequired).toBeCloseTo(batteryLife(m0, sc.batteryLife).cyclesRequired, 9);
-    expect(cost(m1, sc.batteryLife, sc.cost).costPerKm).toBeCloseTo(cost(m0, sc.batteryLife, sc.cost).costPerKm as number, 9);
+    expect(cost(m1, sc.cost).costPerKm).toBeCloseTo(cost(m0, sc.cost).costPerKm as number, 9);
     expect(batteryLife(m1, sc.batteryLife).capacityEndPct).toBeLessThan(g.sohPct);
   });
   it('petrol cars do not age; old saved scenarios get the default km', () => {
@@ -347,10 +348,10 @@ describe('battery ageing (capacity after the km driven)', () => {
     const m = new CarModel(honda, { ds, a, conditions: DEFAULT_CONDITIONS, settings: { battery: 'chemistry' } });
     expect(m.ageing()).toBeNull();
     expect(m.capacityKwh()).toBe(honda.batteryKwh);
-    const base0 = spreadsheetDefaults(a);
-    const { batteryKm, ...old } = base0.conditions;
+    const base0 = spreadsheetScenario(ds, a);
+    const { batteryKm, ...old } = base0.conditions.noCharger;
     expect(batteryKm).toBe(100000);
-    expect(withDefaults({ ...base0, conditions: old as never }, a).conditions.batteryKm).toBe(100000);
+    expect(withDefaults({ ...base0, conditions: old as never }, ds, a).conditions.noCharger.batteryKm).toBe(100000);
   });
 });
 
@@ -411,11 +412,11 @@ describe('battery care (fast charging, time parked full)', () => {
     expect(soh('geotab-soc-medium')).toBeGreaterThan(soh('geotab-soc-high'));
   });
   it('battery life passes when the capacity at the end stays at or above the end-of-life capacity', () => {
-    const sc = spreadsheetDefaults(a);
+    const sc = spreadsheetScenario(ds, a);
     let passes = 0;
     let fails = 0;
     for (const d of derived) {
-      const m = new CarModel(d, { ds, a, conditions: sc.conditions, settings: { battery: 'chemistry' }, life: sc.batteryLife });
+      const m = new CarModel(d, { ds, a, conditions: sc.conditions.noCharger, settings: { battery: 'chemistry' }, life: sc.batteryLife });
       const b = batteryLife(m, sc.batteryLife);
       if (b.pass === null) continue;
       expect(b.pass).toBe((b.capacityEndPct as number) >= b.eolPct);
@@ -432,24 +433,24 @@ describe('battery care (fast charging, time parked full)', () => {
   });
   it('care changes the km-driven wear of the stress tests and the battery-life verdict, not the cost', () => {
     const d = derived.find((x) => x.car.id === 'zeekr-x')!;
-    const sc = spreadsheetDefaults(a);
+    const sc = spreadsheetScenario(ds, a);
     const presets = carePresets(a);
     const at = (h: { dcSharePct: number; highSocTimePct: number }) => {
       const life = { ...sc.batteryLife, ...h };
-      return { life, m: new CarModel(d, { ds, a, conditions: sc.conditions, settings: { battery: 'chemistry' }, life }) };
+      return { life, m: new CarModel(d, { ds, a, conditions: sc.conditions.noCharger, settings: { battery: 'chemistry' }, life }) };
     };
     const gentle = at(presets.gentle);
     const hard = at(presets.hard);
     expect(hard.m.ageing()!.sohPct).toBeLessThan(gentle.m.ageing()!.sohPct);
     expect(hard.m.capacityKwh()).toBeLessThan(gentle.m.capacityKwh());
     expect(batteryLife(hard.m, hard.life).capacityEndPct as number).toBeLessThan(batteryLife(gentle.m, gentle.life).capacityEndPct as number);
-    expect(cost(hard.m, hard.life, sc.cost).costPerKm).toBeCloseTo(cost(gentle.m, gentle.life, sc.cost).costPerKm as number, 9);
+    expect(cost(hard.m, sc.cost).costPerKm).toBeCloseTo(cost(gentle.m, sc.cost).costPerKm as number, 9);
   });
   it('old saved scenarios get the typical habits', () => {
-    const base0 = spreadsheetDefaults(a);
+    const base0 = spreadsheetScenario(ds, a);
     const { dcSharePct, highSocTimePct, ...old } = base0.batteryLife;
     expect([dcSharePct, highSocTimePct]).toEqual([a.careTypicalDcSharePct, a.careTypicalHighSocTimePct]);
-    const s = withDefaults({ ...base0, batteryLife: old as never }, a);
+    const s = withDefaults({ ...base0, batteryLife: old as never }, ds, a);
     expect(s.batteryLife.dcSharePct).toBe(a.careTypicalDcSharePct);
     expect(s.batteryLife.highSocTimePct).toBe(a.careTypicalHighSocTimePct);
   });

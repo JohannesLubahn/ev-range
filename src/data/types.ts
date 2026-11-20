@@ -224,6 +224,16 @@ export interface Cycle {
   phases: string[];
 }
 
+/** One row of data/standard.csv: the standard value of one input of one test ('all' = every test's conditions). */
+export interface StandardRow {
+  test: string;
+  input: string;
+  /** As written in the file; blank = from an assumption or the market. */
+  value: string;
+  unit: string;
+  why: string;
+}
+
 export interface Dataset {
   cars: Car[];
   carColumns: string[];
@@ -240,6 +250,8 @@ export interface Dataset {
   capacityTemps: number[];
   capacityNotes: string[];
   cycles: Record<string, Cycle>;
+  /** The standard inputs of every test (data/standard.csv). */
+  standard: StandardRow[];
   /** Problems found while reading the files (e.g. a non-numeric value in a number column). */
   loadWarnings: string[];
 }

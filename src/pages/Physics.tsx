@@ -11,6 +11,7 @@ import { factsTabPower, onboardPower } from '../engine/onboard/loads';
 import { packHeatCapacity, packThermal } from '../engine/onboard/thermal';
 import { CarModel } from '../engine/model';
 import { checkMeasurement } from '../engine/onboard/validation';
+import { TEST_KEYS, TEST_LABELS, type TestKey } from '../engine/inputs';
 import type { Profile } from '../engine/types';
 import { fixed, num } from '../format';
 import { useEngine } from '../state/engine';
@@ -64,6 +65,10 @@ const KMS = Array.from({ length: 31 }, (_, i) => i * 10000);
 export function PhysicsPage() {
   const { out, selectedIds, derivedById, ds, a, scenario } = useEngine();
   const physicsCars = useStore((s) => s.physicsCars);
+  const refTest = useStore((s) => s.refTest);
+  const setRefTest = useStore((s) => s.setRefTest);
+  // Each test has its own conditions: the page shows the physics at those of one test (Battery life: the battery's past).
+  const cond = scenario.conditions[refTest];
   const setPhysicsCars = useStore((s) => s.setPhysicsCars);
   const c = useThemeColors();
   const series = [c['--series-1'], c['--series-2'], c['--series-3']];
@@ -78,12 +83,12 @@ export function PhysicsPage() {
       SPEEDS.map((v) => {
         const row: Record<string, number> = { speed: v };
         for (const id of chosen) {
-          const m = out.models[id];
+          const m = out.models[id][refTest];
           row[id] = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: null }).driveKwh;
         }
         return row;
       }),
-    [chosen, out],
+    [chosen, out, refTest],
   );
 
   const chosenKey = chosen.join(',');
@@ -92,19 +97,19 @@ export function PhysicsPage() {
       KMS.map((k) => {
         const row: Record<string, number> = { km: k };
         for (const id of chosenKey.split(',').filter(Boolean)) {
-          const g = out.models[id]?.ageing(k);
+          const g = out.models[id]?.[refTest].ageing(k);
           if (g) row[id] = g.sohPct;
         }
         return row;
       }),
-    [chosenKey, out],
+    [chosenKey, out, refTest],
   );
-  const wearNow = chosen.map((id) => ({ id, g: out.models[id]?.ageing() ?? null }));
+  const wearNow = chosen.map((id) => ({ id, g: out.models[id]?.[refTest].ageing() ?? null }));
   const fleetChecks = useMemo(() => ds.degradationMeasurements.map((m) => checkDegradation(ds, a, m)), [ds, a]);
   const sourceById = Object.fromEntries(ds.sources.map((s) => [s.id, s]));
 
   // Driving style: driving energy per 100 km on a speed profile for the presets (and the current style).
-  const stylePcts = [...new Set([a.drivingStyleGentlePct, 100, a.drivingStyleSportyPct, scenario.conditions.drivingStylePct])].sort((x, y) => x - y);
+  const stylePcts = [...new Set([a.drivingStyleGentlePct, 100, a.drivingStyleSportyPct, cond.drivingStylePct])].sort((x, y) => x - y);
   const styleRows = useMemo(() => {
     const runs: { profile: Profile; speed: number; label: string }[] = [
       { profile: 'city', speed: 30, label: 'City, 30 km/h' },
@@ -114,26 +119,26 @@ export function PhysicsPage() {
       .split(',')
       .filter(Boolean)
       .flatMap((id) => {
-        const m = out.models[id];
+        const m = out.models[id]?.[refTest];
         if (!m) return [];
         return runs.map((r) => ({
           id,
           label: r.label,
           values: stylePcts.map((pct) => {
-            const mm = pct === scenario.conditions.drivingStylePct ? m : new CarModel(m.d, { ...m.ctx, conditions: { ...m.ctx.conditions, drivingStylePct: pct } });
+            const mm = pct === cond.drivingStylePct ? m : new CarModel(m.d, { ...m.ctx, conditions: { ...m.ctx.conditions, drivingStylePct: pct } });
             const seg = mm.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: r.speed, profile: r.profile, cabinC: null });
             return { kwh: seg.driveKwh, friction: seg.physics.frictionPerKm * 100 };
           }),
         }));
       });
-  }, [chosenKey, out, stylePcts.join(','), scenario.conditions.drivingStylePct]);
+  }, [chosenKey, out, stylePcts.join(','), cond.drivingStylePct, refTest]);
   const styleName = (pct: number) =>
     pct === 100 ? 'Normal' : pct === a.drivingStyleGentlePct ? 'Gentle' : pct === a.drivingStyleSportyPct ? 'Sporty' : 'Yours';
 
   const first = chosen[0];
   const breakdown: StackedRow[] = useMemo(() => {
     if (!first) return [];
-    const m = out.models[first];
+    const m = out.models[first][refTest];
     return [30, 60, 90, 120, 150].map((v) => {
       const seg = m.segment({ label: 'x', distanceKm: 100, avgSpeedKmh: v, profile: 'steady', cabinC: cabin });
       const p = seg.physics;
@@ -158,9 +163,8 @@ export function PhysicsPage() {
         ),
       };
     });
-  }, [first, out, cabin, cabinText, derivedById, c]);
+  }, [first, out, cabin, cabinText, derivedById, c, refTest]);
 
-  const cond = scenario.conditions;
   const thermal = cond.thermalMode;
   const tempData = useMemo(() => {
     const loadKw = 20;
@@ -244,11 +248,23 @@ export function PhysicsPage() {
         <div className="stack" style={{ gap: 4 }}>
           <h1>Physics</h1>
           <p className="muted">
-            How speed, weather and battery chemistry change consumption, at the current conditions ({num(scenario.conditions.airTemperatureC, 1)} °C,
-            +{scenario.conditions.payloadKg} kg). Each car is calibrated so that its own test cycle reproduces its rated consumption.
+            How speed, weather and battery chemistry change consumption, at the conditions of one test ({num(cond.airTemperatureC, 1)} °C,
+            +{cond.payloadKg} kg). Each car is calibrated so that its own test cycle reproduces its rated consumption.
           </p>
         </div>
-        <CarsButton />
+        <div className="row">
+          <label htmlFor="ref-test" className="muted">
+            Conditions of
+          </label>
+          <select id="ref-test" value={refTest} onChange={(e) => setRefTest(e.target.value as TestKey)}>
+            {TEST_KEYS.map((t) => (
+              <option key={t} value={t}>
+                {TEST_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          <CarsButton />
+        </div>
       </div>
 
       <div className="grid-2">
@@ -488,10 +504,10 @@ export function PhysicsPage() {
           <div>
             <h2>Battery wear vs. km driven</h2>
             <p className="muted">
-              Capacity left from charge cycles and age, at {num(cond.airTemperatureC, 0)} °C and the battery-life driving ({num(scenario.batteryLife.kmPerYear, 0)}{' '}
+              Capacity left from charge cycles and age, at {num(scenario.conditions.batteryLife.airTemperatureC, 0)} °C (the battery's past: Battery life page) and the battery-life driving ({num(scenario.batteryLife.kmPerYear, 0)}{' '}
               km a year, {num(scenario.batteryLife.speedKmh, 0)} km/h) and battery care ({num(scenario.batteryLife.dcSharePct, 0)} % fast charging,{' '}
-              {num(scenario.batteryLife.highSocTimePct, 0)} % of the time parked above 80 %). The stress tests use the value at {num(cond.batteryKm, 0)} km
-              (Conditions).
+              {num(scenario.batteryLife.highSocTimePct, 0)} % of the time parked above 80 %). {TEST_LABELS[refTest]} uses the value at {num(cond.batteryKm, 0)} km
+              (its Conditions; battery life and cost start from new).
             </p>
           </div>
           <div className="chart-box">
@@ -760,7 +776,7 @@ export function PhysicsPage() {
               <tbody>
                 {selectedIds.map((id) => {
                   const d = derivedById[id];
-                  const m = out.models[id];
+                  const m = out.models[id][refTest];
                   const cal = d.consumption.value !== null ? m.calibration() : null;
                   return (
                     <tr key={d.car.id}>

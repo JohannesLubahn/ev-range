@@ -5,7 +5,7 @@ import { parseDataset, parseMarkets } from '../src/data/parse';
 import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { deriveAll, type DerivedCar } from '../src/engine/derive';
 import { runEngine } from '../src/engine/run';
-import { spreadsheetDefaults } from '../src/engine/scenario';
+import { spreadsheetScenario } from '../src/engine/scenario';
 import {
   ALL_MARKETS,
   EMPTY_FILTERS,
@@ -65,13 +65,13 @@ describe('data/markets.csv and the market', () => {
     expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(true);
   });
   it('switching the market resets the cost inputs to its defaults and the price filter', () => {
-    const scenario = spreadsheetDefaults(a);
-    useStore.setState({ scenario: { ...scenario, cost: { energyPrice: 99, maintenancePerYear: 99 } }, filters: { ...EMPTY_FILTERS, priceMax: 1e6 } });
+    const scenario = spreadsheetScenario(ds, a);
+    useStore.setState({ scenario: { ...scenario, cost: { ...scenario.cost, energyPrice: 99, maintenancePerYear: 99, years: 7 } }, filters: { ...EMPTY_FILTERS, priceMax: 1e6 } });
     const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR', electricityPrice: 0.3, maintenancePerYear: 500 });
-    useStore.getState().setMarket('EU', spreadsheetDefaults(eu).cost);
+    useStore.getState().setMarket('EU', { energyPrice: eu.electricityPrice, maintenancePerYear: eu.maintenancePerYear });
     const s = useStore.getState();
     expect(s.market).toBe('EU');
-    expect(s.scenario?.cost).toEqual({ energyPrice: 0.3, maintenancePerYear: 500 });
+    expect(s.scenario?.cost).toMatchObject({ energyPrice: 0.3, maintenancePerYear: 500, years: 7 });
     expect(s.filters.priceMax).toBeNull();
   });
 });
@@ -164,7 +164,7 @@ describe('sorting and grouping', () => {
 
 describe('calculation only for the ticked cars', () => {
   const at = applyMarket(a, th);
-  const sc = spreadsheetDefaults(at);
+  const sc = spreadsheetScenario(ds, at);
   const settings = { battery: 'chemistry' as const };
   it('builds models and results only for the cars asked for; every car is still derived', () => {
     const r = runEngine(ds, at, sc, settings, ['byd-atto-3', 'neta-v']);
@@ -177,7 +177,7 @@ describe('calculation only for the ticked cars', () => {
     const r2 = runEngine(ds, at, sc, settings, ['byd-atto-3', 'neta-v'], r1.cache);
     expect(r2.results['byd-atto-3']).toBe(r1.results['byd-atto-3']);
     expect(Object.keys(r2.results).sort()).toEqual(['byd-atto-3', 'neta-v']);
-    const sc2 = { ...sc, conditions: { ...sc.conditions, airTemperatureC: 0 } };
+    const sc2 = { ...sc, conditions: { ...sc.conditions, noCharger: { ...sc.conditions.noCharger, airTemperatureC: 0 } } };
     const r3 = runEngine(ds, at, sc2, settings, ['byd-atto-3'], r2.cache);
     expect(r3.results['byd-atto-3']).not.toBe(r1.results['byd-atto-3']);
     expect(Object.keys(r3.results)).toEqual(['byd-atto-3']);

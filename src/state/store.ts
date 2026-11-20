@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { NUMERIC_KEYS } from '../engine/assumptions';
-import { spreadsheetDefaults } from '../engine/scenario';
-import type { Assumptions, Conditions, ModelSettings, Scenario } from '../engine/types';
+import type { Dataset } from '../data/types';
+import { TEST_KEYS, type TestKey } from '../engine/inputs';
+import { spreadsheetScenario, standardScenario } from '../engine/scenario';
+import type { Assumptions, Conditions, CostInputs, ModelSettings, Scenario } from '../engine/types';
 import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from './carList';
 import { load, save } from './storage';
 
@@ -16,7 +18,7 @@ export const VIEWS: { id: View; label: string }[] = [
   { id: 'assumptions', label: 'Assumptions' },
 ];
 
-export type CaseKey = 'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost';
+export type CaseKey = TestKey;
 /** The tests with a battery-needed result and an average consumption; cost of ownership has its own page. */
 export type StressKey = Exclude<CaseKey, 'cost'>;
 /** The tabs of the Stress tests page; battery life has its own page. */
@@ -33,24 +35,42 @@ export interface BuiltInPreset {
   id: string;
   label: string;
   description: string;
+  /** Weather set in every test, on top of the standard (none = the standard or the spreadsheet as they are). */
   conditions: Partial<Conditions>;
 }
 
 export const BUILT_IN_PRESETS: BuiltInPreset[] = [
-  { id: 'spreadsheet', label: 'Spreadsheet defaults', description: 'The inputs of your Battery Sizing tab, at 25 °C', conditions: {} },
+  {
+    id: 'standard',
+    label: 'Standard (fitted to each test)',
+    description: 'Your spreadsheet inputs, with conditions fitted to each test (data/standard.csv): traffic jam on a hot afternoon, long trip fully loaded, …',
+    conditions: {},
+  },
+  { id: 'spreadsheet', label: 'Spreadsheet values (25 °C everywhere)', description: 'The inputs of your Battery Sizing tab, with the same conditions in every test', conditions: {} },
   {
     id: 'thai-hot',
     label: 'Hot sunny day (35 °C)',
-    description: 'Spreadsheet inputs on a hot, sunny, humid day: more AC and battery cooling',
+    description: 'Standard inputs on a hot, sunny, humid day in every test: more AC and battery cooling',
     conditions: { airTemperatureC: 35, solarWm2: 800, humidityPct: 60 },
   },
   {
     id: 'cold',
     label: 'Cold day (−10 °C)',
-    description: 'Spreadsheet inputs in winter: heating, cold battery, denser air',
+    description: 'Standard inputs in winter in every test: heating, cold battery, denser air',
     conditions: { airTemperatureC: -10, solarWm2: 100, humidityPct: 80 },
   },
 ];
+
+/** The scenario of a built-in preset (null = the standard itself). */
+export function builtInScenario(id: string, ds: Dataset, a: Assumptions): Scenario | null | undefined {
+  const p = BUILT_IN_PRESETS.find((x) => x.id === id);
+  if (!p) return undefined;
+  if (id === 'standard') return null;
+  if (id === 'spreadsheet') return structuredClone(spreadsheetScenario(ds, a));
+  const base = standardScenario(ds, a);
+  const conditions = Object.fromEntries(TEST_KEYS.map((t) => [t, { ...base.conditions[t], ...p.conditions }])) as Scenario['conditions'];
+  return { ...structuredClone(base), conditions };
+}
 
 interface SharedState {
   scenario: Scenario | null;
@@ -78,10 +98,12 @@ export interface AppState extends SharedState {
   drawer: { carId: string; caseKey: CaseKey } | null;
   stressTab: StressTab;
   physicsCars: string[];
+  /** The test whose conditions the Physics page and the Cars page's calculated rows use. */
+  refTest: TestKey;
 
   setScenario: (s: Scenario) => void;
   resetScenario: () => void;
-  applyPreset: (id: string, a: Assumptions) => void;
+  applyPreset: (id: string, ds: Dataset, a: Assumptions) => void;
   savePreset: (name: string, s: Scenario) => void;
   deletePreset: (name: string) => void;
   setSettings: (p: Partial<ModelSettings>) => void;
@@ -89,7 +111,7 @@ export interface AppState extends SharedState {
   toggleCar: (id: string, allIds: string[]) => void;
   setFilters: (p: Partial<Filters>) => void;
   /** Switches the market. The cost inputs are in the market's currency, so they go back to its defaults. */
-  setMarket: (id: string, costDefaults: Scenario['cost']) => void;
+  setMarket: (id: string, costDefaults: Pick<CostInputs, 'energyPrice' | 'maintenancePerYear'>) => void;
   setListSort: (s: ListSort) => void;
   setListGroup: (g: ListGroupKey) => void;
   setPickerOpen: (open: boolean) => void;
@@ -100,6 +122,7 @@ export interface AppState extends SharedState {
   closeDrawer: () => void;
   setStressTab: (t: StressTab) => void;
   setPhysicsCars: (ids: string[]) => void;
+  setRefTest: (t: TestKey) => void;
   setAssumption: (key: Exclude<keyof Assumptions, 'fx'>, value: number | string | undefined) => void;
   setFx: (cur: string, value: number | undefined) => void;
   resetAssumptions: () => void;
@@ -125,6 +148,15 @@ function knownOverrides(raw: unknown): AssumptionOverrides {
   return Object.fromEntries(Object.entries(raw).filter(([k]) => ASSUMPTION_KEYS.has(k))) as AssumptionOverrides;
 }
 
+/**
+ * Without a saved scenario the app shows the standard. Older versions called that 'spreadsheet' (the spreadsheet's
+ * inputs were the default then).
+ */
+function initialPresetId(): string {
+  const id = load<string>('preset', 'standard');
+  return id === 'spreadsheet' && load<Scenario | null>('scenario', null) === null ? 'standard' : id;
+}
+
 /** A saved tab that no longer exists (battery life moved to its own page) falls back to No charger. */
 function parseStressTab(v: unknown): StressTab {
   return STRESS_TABS.includes(v as StressTab) ? (v as StressTab) : 'noCharger';
@@ -138,7 +170,7 @@ export const useStore = create<AppState>((set, get) => ({
   fxOverrides: load<Record<string, number>>('fx', {}),
   carsCsv: load<string | null>('carsCsv', null),
   carsCsvName: load<string | null>('carsCsvName', null),
-  presetId: load<string>('preset', 'spreadsheet'),
+  presetId: initialPresetId(),
   savedPresets: load<Record<string, Scenario>>('presets', {}),
   market: load<string | null>('market', null),
   filters: migrateFilters(load<unknown>('filters', {})),
@@ -151,17 +183,14 @@ export const useStore = create<AppState>((set, get) => ({
   drawer: null,
   stressTab: parseStressTab(load<unknown>('stressTab', 'noCharger')),
   physicsCars: load<string[]>('physicsCars', []),
+  refTest: ((t: unknown) => (TEST_KEYS.includes(t as TestKey) ? (t as TestKey) : 'noCharger'))(load<unknown>('refTest', 'noCharger')),
 
   setScenario: (s) => set({ scenario: s, presetId: 'custom' }),
-  resetScenario: () => set({ scenario: null, presetId: 'spreadsheet' }),
-  applyPreset: (id, a) => {
-    const builtIn = BUILT_IN_PRESETS.find((p) => p.id === id);
-    if (builtIn) {
-      const base = spreadsheetDefaults(a);
-      set({
-        scenario: id === 'spreadsheet' ? null : { ...base, conditions: { ...base.conditions, ...builtIn.conditions } },
-        presetId: id,
-      });
+  resetScenario: () => set({ scenario: null, presetId: 'standard' }),
+  applyPreset: (id, ds, a) => {
+    const builtIn = builtInScenario(id, ds, a);
+    if (builtIn !== undefined) {
+      set({ scenario: builtIn, presetId: id });
       return;
     }
     const saved = get().savedPresets[id];
@@ -187,7 +216,7 @@ export const useStore = create<AppState>((set, get) => ({
       market: id,
       // Price filters are in the old market's currency.
       filters: { ...filters, priceMin: null, priceMax: null },
-      ...(scenario ? { scenario: { ...scenario, cost: { ...costDefaults } } } : {}),
+      ...(scenario ? { scenario: { ...scenario, cost: { ...scenario.cost, ...costDefaults } } } : {}),
     });
   },
   setListSort: (s) => set({ listSort: s }),
@@ -203,6 +232,7 @@ export const useStore = create<AppState>((set, get) => ({
   closeDrawer: () => set({ drawer: null }),
   setStressTab: (t) => set({ stressTab: t }),
   setPhysicsCars: (ids) => set({ physicsCars: ids }),
+  setRefTest: (t) => set({ refTest: t }),
   setAssumption: (key, value) => {
     const next = { ...get().assumptionOverrides };
     if (value === undefined || value === '') delete next[key];
@@ -233,7 +263,7 @@ useStore.subscribe((s, prev) => {
     ['scenario', 'scenario'], ['settings', 'settings'], ['selectedIds', 'selected'], ['assumptionOverrides', 'assumptions'],
     ['fxOverrides', 'fx'], ['carsCsv', 'carsCsv'], ['carsCsvName', 'carsCsvName'], ['presetId', 'preset'],
     ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'],
-    ['stressTab', 'stressTab'], ['physicsCars', 'physicsCars'],
+    ['stressTab', 'stressTab'], ['physicsCars', 'physicsCars'], ['refTest', 'refTest'],
   ];
   for (const [k, storageKey] of pairs) if (s[k] !== prev[k]) save(storageKey, s[k]);
 });

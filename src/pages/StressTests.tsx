@@ -8,17 +8,19 @@ import { PassFail } from '../components/Status';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
-import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile, type Scenario } from '../engine/types';
+import { PROFILES, type AverageConsumption, type CapacityCheck, type CarResults, type Profile } from '../engine/types';
 import { capacityLeft, fixed, hours, lifeYears, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
+import { useInputs, type InputProps } from '../state/inputs';
 import { useStore, type StressKey } from '../state/store';
 
 const profileOptions = PROFILES.filter((p) => p.id !== 'jam').map((p) => ({ id: p.id, label: p.label, description: p.description }));
 const CABIN = 'Cabin heating / AC';
 
 /** Battery care: a preset (Gentle / Typical / Hard) or the two habits set by hand. */
-function CareFields({ value, onChange }: { value: CareHabits; onChange: (p: CareHabits) => void }) {
+function CareFields({ dc, highSoc, setBoth }: { dc: InputProps<number>; highSoc: InputProps<number>; setBoth: (h: CareHabits) => void }) {
   const { a } = useEngine();
+  const value: CareHabits = { dcSharePct: dc.value, highSocTimePct: highSoc.value };
   const presets = carePresets(a);
   const current = matchPreset(a, value) ?? 'custom';
   const describe = (h: CareHabits) => `${num(h.dcSharePct, 0)} % fast charging, ${num(h.highSocTimePct, 0)} % of the time parked above 80 %`;
@@ -35,106 +37,106 @@ function CareFields({ value, onChange }: { value: CareHabits; onChange: (p: Care
         value={current}
         options={options}
         onChange={(v: CarePreset | 'custom') => {
-          if (v !== 'custom') onChange(presets[v]);
+          if (v !== 'custom') setBoth(presets[v]);
         }}
       />
-      <NumberField
-        label="Charging at DC fast chargers"
-        unit="%"
-        min={0}
-        max={100}
-        step={5}
-        value={value.dcSharePct}
-        onChange={(v) => onChange({ ...value, dcSharePct: v })}
-      />
-      <NumberField
-        label="Time parked above 80 % charge"
-        unit="%"
-        min={0}
-        max={100}
-        step={5}
-        value={value.highSocTimePct}
-        onChange={(v) => onChange({ ...value, highSocTimePct: v })}
-      />
+      <NumberField label="Charging at DC fast chargers" unit="%" min={0} max={100} step={5} {...dc} />
+      <NumberField label="Time parked above 80 % charge" unit="%" min={0} max={100} step={5} {...highSoc} />
     </>
   );
 }
 
-function Inputs({ tab, scenario, set }: { tab: StressKey; scenario: Scenario; set: (s: Scenario) => void }) {
+function Inputs({ tab }: { tab: StressKey }) {
+  const { trip, setTrip } = useInputs(tab);
+  const num = (key: string) => trip<number>(key);
+  const profile = (key: string) => trip<Profile>(key);
+  const cabin = (key: string) => trip<number | null>(key);
   switch (tab) {
-    case 'trafficJam': {
-      const i = scenario.trafficJam;
-      const u = (p: Partial<typeof i>) => set({ ...scenario, trafficJam: { ...i, ...p } });
+    case 'trafficJam':
       return (
         <div className="fields">
-          <NumberField label="Charge at the start" unit="%" min={5} max={100} value={i.startPct} onChange={(v) => u({ startPct: v })} />
-          <NumberField label="Charge left at the end" unit="%" min={0} max={50} value={i.endPct} onChange={(v) => u({ endPct: v })} />
-          <NumberField label="Time in the jam" unit="h" min={0.5} max={24} step={0.5} value={i.timeJamH} onChange={(v) => u({ timeJamH: v })} />
-          <NumberField label="Distance in the jam" unit="km" min={0} max={50} value={i.distJamKm} onChange={(v) => u({ distJamKm: v })} />
-          <NumberField label="Distance before the jam" unit="km" min={0} max={200} value={i.distBeforeKm} onChange={(v) => u({ distBeforeKm: v })} />
-          <NumberField label="Distance after the jam" unit="km" min={0} max={200} value={i.distAfterKm} onChange={(v) => u({ distAfterKm: v })} />
-          <NumberField label="Average speed outside the jam" unit="km/h" min={10} max={130} value={i.speedOutsideKmh} onChange={(v) => u({ speedOutsideKmh: v })} />
-          <SelectField label="Driving outside the jam" value={i.profileOutside} options={profileOptions} onChange={(v: Profile) => u({ profileOutside: v })} />
-          <CabinField label={`${CABIN} outside the jam`} value={i.cabinOutsideC} onChange={(v) => u({ cabinOutsideC: v })} />
-          <CabinField label={`${CABIN} in the jam`} value={i.cabinJamC} onChange={(v) => u({ cabinJamC: v })} />
+          <NumberField label="Charge at the start" unit="%" min={5} max={100} {...num('startPct')} />
+          <NumberField label="Charge left at the end" unit="%" min={0} max={50} {...num('endPct')} />
+          <NumberField label="Time in the jam" unit="h" min={0.5} max={24} step={0.5} {...num('timeJamH')} />
+          <NumberField label="Distance in the jam" unit="km" min={0} max={50} {...num('distJamKm')} />
+          <NumberField label="Distance before the jam" unit="km" min={0} max={200} {...num('distBeforeKm')} />
+          <NumberField label="Distance after the jam" unit="km" min={0} max={200} {...num('distAfterKm')} />
+          <NumberField label="Average speed outside the jam" unit="km/h" min={10} max={130} {...num('speedOutsideKmh')} />
+          <SelectField label="Driving outside the jam" options={profileOptions} {...profile('profileOutside')} />
+          <CabinField label={`${CABIN} outside the jam`} {...cabin('cabinOutsideC')} />
+          <CabinField label={`${CABIN} in the jam`} {...cabin('cabinJamC')} />
         </div>
       );
-    }
     case 'noCharger':
-    case 'sprint': {
-      const i = scenario[tab];
-      const u = (p: Partial<typeof i>) => set({ ...scenario, [tab]: { ...i, ...p } });
+    case 'sprint':
       return (
         <div className="fields">
-          <NumberField label="Distance between chargers" unit="km" min={10} max={1000} sliderMax={600} step={5} value={i.distanceKm} onChange={(v) => u({ distanceKm: v })} />
-          <NumberField label="Average speed" unit="km/h" min={10} max={200} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
-          <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} value={i.climbM} onChange={(v) => u({ climbM: v })} />
-          <NumberField label="Charge at the start" unit="%" min={10} max={100} value={i.startPct} onChange={(v) => u({ startPct: v })} />
-          <NumberField label="Charge on arrival" unit="%" min={0} max={50} value={i.endPct} onChange={(v) => u({ endPct: v })} />
-          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
+          <NumberField label="Distance between chargers" unit="km" min={10} max={1000} sliderMax={600} step={5} {...num('distanceKm')} />
+          <NumberField label="Average speed" unit="km/h" min={10} max={200} {...num('speedKmh')} />
+          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <NumberField label="Net climb (negative = descent)" unit="m" min={-2000} max={3000} step={50} {...num('climbM')} />
+          <NumberField label="Charge at the start" unit="%" min={10} max={100} {...num('startPct')} />
+          <NumberField label="Charge on arrival" unit="%" min={0} max={50} {...num('endPct')} />
+          <CabinField label={CABIN} {...cabin('cabinC')} />
         </div>
       );
-    }
     case 'longTrip': {
-      const i = scenario.longTrip;
-      const u = (p: Partial<typeof i>) => set({ ...scenario, longTrip: { ...i, ...p } });
+      const climate = trip<boolean>('climateWhileCharging');
+      const cab = cabin('cabinC');
       return (
         <div className="fields">
-          <NumberField label="Trip distance" unit="km" min={50} max={3000} sliderMax={2000} step={10} value={i.distanceKm} onChange={(v) => u({ distanceKm: v })} />
-          <NumberField label="Average speed" unit="km/h" min={20} max={150} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
-          <NumberField label="Charge from" unit="%" min={0} max={90} value={i.chargeFromPct} onChange={(v) => u({ chargeFromPct: v })} />
-          <NumberField label="Charge to" unit="%" min={20} max={100} value={i.chargeToPct} onChange={(v) => u({ chargeToPct: v })} />
-          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
-          {i.cabinC !== null && (
+          <NumberField label="Trip distance" unit="km" min={50} max={3000} sliderMax={2000} step={10} {...num('distanceKm')} />
+          <NumberField label="Average speed" unit="km/h" min={20} max={150} {...num('speedKmh')} />
+          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <NumberField label="Charge from" unit="%" min={0} max={90} {...num('chargeFromPct')} />
+          <NumberField label="Charge to" unit="%" min={20} max={100} {...num('chargeToPct')} />
+          <CabinField label={CABIN} {...cab} />
+          {cab.value !== null && (
             <label className="check">
-              <input type="checkbox" checked={i.climateWhileCharging} onChange={(e) => u({ climateWhileCharging: e.target.checked })} /> Heating / AC on
-              while charging (waiting in the car)
+              <input type="checkbox" checked={climate.value} onChange={(e) => climate.onChange(e.target.checked)} /> Heating / AC on while charging
+              (waiting in the car)
             </label>
           )}
         </div>
       );
     }
-    case 'batteryLife': {
-      const i = scenario.batteryLife;
-      const u = (p: Partial<typeof i>) => set({ ...scenario, batteryLife: { ...i, ...p } });
+    case 'batteryLife':
       return (
         <div className="fields">
-          <NumberField label="Years of use" unit="years" min={1} max={40} value={i.years} onChange={(v) => u({ years: v })} />
-          <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} value={i.kmPerYear} onChange={(v) => u({ kmPerYear: v })} />
-          <NumberField label="Average speed" unit="km/h" min={10} max={120} value={i.speedKmh} onChange={(v) => u({ speedKmh: v })} />
-          <SelectField label="Driving profile" value={i.profile} options={profileOptions} onChange={(v: Profile) => u({ profile: v })} />
-          <CabinField label={CABIN} value={i.cabinC} onChange={(v) => u({ cabinC: v })} />
-          <CareFields value={i} onChange={u} />
+          <NumberField label="Years of use" unit="years" min={1} max={40} {...num('years')} />
+          <NumberField label="Distance per year" unit="km" min={1000} max={80000} sliderMax={50000} step={500} {...num('kmPerYear')} />
+          <NumberField label="Average speed" unit="km/h" min={10} max={120} {...num('speedKmh')} />
+          <SelectField label="Driving profile" options={profileOptions} {...profile('profile')} />
+          <CabinField label={CABIN} {...cabin('cabinC')} />
+          <CareFields dc={num('dcSharePct')} highSoc={num('highSocTimePct')} setBoth={(h) => setTrip({ ...h })} />
           <p className="faint">
-            The <a href="#cost">cost of ownership</a> uses the same years, distance and driving. The battery wear in the stress
-            tests (Conditions: km driven) uses the same driving and battery care.
+            The battery wear in the stress tests (Conditions: km driven) uses this driving, battery care and the air temperature and driving
+            style of this page. The <a href="#cost">cost of ownership</a> has its own years and driving; ⇉ copies a value there.
           </p>
         </div>
       );
-    }
   }
+}
+
+/** The inputs panel of a test: title, question, "Reset this test" and the fields. */
+export function InputsPanel({ test, title, question, children }: { test: StressKey | 'cost'; title: string; question: string; children: ReactNode }) {
+  const { changed, resetTest } = useInputs(test);
+  return (
+    <div className="panel stack">
+      <div className="panel-title">
+        <div>
+          <h2>{title}</h2>
+          <p className="muted">{question}</p>
+        </div>
+        {changed && (
+          <button type="button" className="btn small" onClick={resetTest} title="Every input and condition of this test back to its standard">
+            Reset this test
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 const CONSUMPTION_SERIES: StackSeries[] = [
@@ -231,7 +233,6 @@ function HowFar({ items }: { items: { id: string; name: string; value: string }[
  */
 function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressKey; meta: CaseMeta; title: string; intro: string; tabs?: ReactNode; inputsTitle: string }) {
   const { scenario, out, selectedIds, derivedById, stale, a } = useEngine();
-  const setScenario = useStore((s) => s.setScenario);
   const openDrawer = useStore((s) => s.openDrawer);
   const names = Object.fromEntries(Object.values(derivedById).map((d) => [d.car.id, d.car.name]));
   const ids = selectedIds.filter((id) => out.results[id]);
@@ -372,14 +373,10 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
       {tabs}
       <div className="case-grid">
         <div className="stack">
-          <div className="panel stack">
-            <div>
-              <h2>{inputsTitle}</h2>
-              <p className="muted">{meta.question}</p>
-            </div>
-            <Inputs tab={tab} scenario={scenario} set={setScenario} />
-          </div>
-          <ConditionsPanel showBatteryKm={tab !== 'batteryLife'} />
+          <InputsPanel test={tab} title={inputsTitle} question={meta.question}>
+            <Inputs tab={tab} />
+          </InputsPanel>
+          <ConditionsPanel test={tab} />
         </div>
         <div className={`panel stack ${stale ? 'stale' : ''}`} style={{ minWidth: 0 }}>
           {ids.length === 0 ? (

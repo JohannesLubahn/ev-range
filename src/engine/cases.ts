@@ -517,12 +517,12 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
   };
 }
 
-export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs): CostResult {
+export function cost(m: CarModel, ci: CostInputs): CostResult {
   const d = m.d;
   const a = m.ctx.a;
   const currency = a.displayCurrency;
   const warnings: string[] = [];
-  const { totalKm, energy } = m.lifeEnergy(life);
+  const { totalKm, energy } = m.lifeEnergy(ci);
   // Energy paid for per km: the battery's energy over the life (driving, onboard systems, battery heating /
   // cooling and losses) plus the charging losses. Petrol: litres.
   const eff = d.isIce ? 1 : a.chargingEfficiencyPct / 100;
@@ -543,14 +543,14 @@ export function cost(m: CarModel, life: BatteryLifeInputs, ci: CostInputs): Cost
   const purchase = d.priceDisplay.value;
   if (purchase === null) warnings.push('Price missing');
   const energyCost = unitPrice * energyPerKm * totalKm;
-  const maintenanceCost = maintenance * life.years;
+  const maintenanceCost = maintenance * ci.years;
   const tco = purchase === null ? null : purchase + energyCost + maintenanceCost;
   const u = d.energyUnit;
   const steps: Step[] = [
     { label: 'Purchase price', formula: d.car.currency !== currency && purchase !== null ? `${d.car.price} ${d.car.currency} converted` : '', value: purchase, unit: currency },
     { label: 'Energy per km', formula: basisNote, value: energyPerKm, unit: `${u}/km` },
     { label: 'Energy cost', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} × ${fx(totalKm, 0)} km`, value: energyCost, unit: currency },
-    { label: 'Maintenance', formula: `${fx(maintenance, 0)} ${currency} × ${fx(life.years, 0)} years`, value: maintenanceCost, unit: currency },
+    { label: 'Maintenance', formula: `${fx(maintenance, 0)} ${currency} × ${fx(ci.years, 0)} years`, value: maintenanceCost, unit: currency },
     { label: 'Total cost of ownership', formula: '', value: tco, unit: currency, kind: 'result' },
     { label: 'Cost per km', formula: `÷ ${fx(totalKm, 0)} km`, value: tco === null ? null : tco / totalKm, unit: `${currency}/km`, kind: 'result' },
   ];

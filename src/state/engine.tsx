@@ -5,7 +5,7 @@ import type { Dataset, Market } from '../data/types';
 import { applyMarket, assumptionsFromDataset } from '../engine/assumptions';
 import { deriveAll, type DataFlag, type DerivedCar } from '../engine/derive';
 import { runEngine, type EngineCache, type EngineOutput } from '../engine/run';
-import { spreadsheetDefaults, withDefaults } from '../engine/scenario';
+import { standardScenario, withDefaults } from '../engine/scenario';
 import type { Assumptions, Scenario } from '../engine/types';
 import { ALL_MARKETS, inMarket, shownIds as computeShownIds } from './carList';
 import { useStore, type AssumptionOverrides } from './store';
@@ -22,6 +22,8 @@ export interface EngineState {
   /** Assumptions as they would be in another market (for its cost defaults when switching). */
   assumptionsFor: (marketId: string) => Assumptions;
   scenario: Scenario;
+  /** The standard inputs (data/standard.csv) that ↺ goes back to. */
+  standard: Scenario;
   /** Results and models of the selected cars only (every car is in `out.derived`). */
   out: EngineOutput;
   derivedById: Record<string, DerivedCar>;
@@ -68,8 +70,10 @@ export function EngineProvider({ children }: { children: ReactNode }) {
     marketState === ALL_MARKETS || (marketState && ds.markets.some((m) => m.id === marketState)) ? marketState : (ds.markets[0]?.id ?? ALL_MARKETS);
   const market = ds.markets.find((m) => m.id === marketId) ?? null;
   const a = useMemo(() => applyMarket(userA, market), [userA, market]);
-  // Scenarios saved by an older version may lack newer fields (e.g. sunshine): fill them with defaults.
-  const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState, a) : spreadsheetDefaults(a)), [scenarioState, a]);
+  // Without a saved scenario: the standard. Scenarios saved by an older version may lack newer fields (e.g. sunshine)
+  // or have one set of conditions for all tests: withDefaults fills and converts them.
+  const standard = useMemo(() => standardScenario(ds, a), [ds, a]);
+  const scenario = useMemo(() => (scenarioState ? withDefaults(scenarioState, ds, a) : standard), [scenarioState, ds, a, standard]);
 
   const dScenario = useDeferredValue(scenario);
   const dSettings = useDeferredValue(settings);
@@ -98,7 +102,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
     const flagsById: Record<string, DataFlag[]> = {};
     for (const d of out.derived) {
       const m = out.models[d.car.id];
-      flagsById[d.car.id] = [...d.flags, ...(m ? m.calibrationFlags() : [])];
+      flagsById[d.car.id] = [...d.flags, ...(m ? m.noCharger.calibrationFlags() : [])];
     }
     const allIds = out.derived.map((d) => d.car.id);
     const { shownIds, hiddenSelectedCount } = list;
@@ -113,6 +117,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       market,
       assumptionsFor: (id: string) => applyMarket(userA, ds.markets.find((m) => m.id === id) ?? null),
       scenario,
+      standard,
       out,
       derivedById,
       flagsById,
@@ -123,7 +128,7 @@ export function EngineProvider({ children }: { children: ReactNode }) {
       hiddenSelectedCount,
       stale: dScenario !== scenario || dSettings !== settings || dA !== a || dSelectedIds !== list.selectedIds,
     };
-  }, [ds, baseAssumptions, a, userA, marketId, market, list, scenario, out, dScenario, dSettings, dA, dSelectedIds, settings]);
+  }, [ds, baseAssumptions, a, userA, marketId, market, list, scenario, standard, out, dScenario, dSettings, dA, dSelectedIds, settings]);
 
   return <EngineContext.Provider value={value}>{children}</EngineContext.Provider>;
 }

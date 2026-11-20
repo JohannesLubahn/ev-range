@@ -14,8 +14,10 @@ import type {
   OnboardClass,
   OnboardMeasurement,
   Source,
+  StandardRow,
 } from './types';
 import { BASES } from './types';
+import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, type InputKind, type TestKey } from '../engine/inputs';
 
 /** The raw text of every data file. Used for the bundled /data files and for CSV files loaded in the browser. */
 export interface RawFiles {
@@ -37,6 +39,8 @@ export interface RawFiles {
   cyclesIndex: string;
   /** Cycle trace files by file name (e.g. "wltc3b.csv"). */
   cycles: Record<string, string>;
+  /** data/standard.csv: the standard inputs of every test. */
+  standard: string;
 }
 
 export type Row = Record<string, string>;
@@ -391,6 +395,8 @@ export function parseDataset(files: RawFiles): Dataset {
     };
   }
 
+  const standard = parseStandard(files.standard, warnings);
+
   return {
     cars,
     carColumns: columns,
@@ -407,8 +413,48 @@ export function parseDataset(files: RawFiles): Dataset {
     capacityTemps,
     capacityNotes,
     cycles,
+    standard,
     loadWarnings: warnings,
   };
+}
+
+/**
+ * data/standard.csv: one row per input and test. Rows of an unknown test or input, or with a value the input does
+ * not accept, are reported and left out; inputs without a row are reported too (the scenario then lacks them).
+ */
+export function parseStandard(text: string, warnings: string[]): StandardRow[] {
+  const rows: StandardRow[] = [];
+  const seen = new Set<string>();
+  for (const r of parseCsv(text).rows) {
+    const test = (r.test ?? '').trim();
+    const input = (r.input ?? '').trim();
+    const where = `standard.csv, ${test} ${input}`;
+    const isTest = TEST_KEYS.includes(test as TestKey);
+    if (test !== 'all' && !isTest) {
+      warnings.push(`${where}: unknown test "${test}" (use all, ${TEST_KEYS.join(', ')})`);
+      continue;
+    }
+    const conditions = CONDITION_INPUTS as Record<string, InputKind>;
+    const kind = conditions[input] ?? (isTest ? (TRIP_INPUTS[test as TestKey] as Record<string, InputKind>)[input] : undefined);
+    if (!kind) {
+      warnings.push(`${where}: unknown input "${input}"${test === 'all' ? ' (the all rows hold conditions only)' : ''}`);
+      continue;
+    }
+    const { error } = parseInputValue(kind, r.value ?? '');
+    if (error) {
+      warnings.push(`${where}: ${error}`);
+      continue;
+    }
+    const id = `${test}|${input}`;
+    if (seen.has(id)) warnings.push(`${where}: listed twice; the last row counts`);
+    seen.add(id);
+    rows.push({ test, input, value: r.value ?? '', unit: r.unit ?? '', why: r.why ?? '' });
+  }
+  for (const key of Object.keys(CONDITION_INPUTS)) if (!seen.has(`all|${key}`)) warnings.push(`standard.csv: no "all" row for the condition ${key}`);
+  for (const t of TEST_KEYS) {
+    for (const key of Object.keys(TRIP_INPUTS[t])) if (!seen.has(`${t}|${key}`)) warnings.push(`standard.csv: no row for ${t} ${key}`);
+  }
+  return rows;
 }
 
 /** Linear interpolation over NaN gaps in an index-addressed table. */

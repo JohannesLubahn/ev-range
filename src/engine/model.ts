@@ -11,8 +11,8 @@ import { profileTrace } from './physics/profiles';
 import { wheelForces, type Environment, type VehiclePhysics } from './physics/roadLoad';
 import { simulate, type SimResult } from './physics/simulate';
 import type { TraceDynamics } from './physics/style';
-import { spreadsheetDefaults } from './scenario';
-import type { Assumptions, BatteryLifeInputs, Conditions, ModelSettings, Profile } from './types';
+import { standardScenario } from './scenario';
+import type { Assumptions, BatteryLifeInputs, Conditions, LifeDriving, ModelSettings, Profile } from './types';
 import { clamp } from './util';
 
 export interface SegmentSpec {
@@ -98,8 +98,15 @@ export interface ModelContext {
   a: Assumptions;
   conditions: Conditions;
   settings: ModelSettings;
-  /** Battery-life inputs: years, km per year and the daily drive that set the battery ageing (default: spreadsheet). */
+  /** Battery-life inputs: years, km per year and the daily drive that set the battery ageing (default: the standard). */
   life?: BatteryLifeInputs;
+  /**
+   * The model with the Battery-life page's conditions: the battery's past (climate, driving style) for the wear after
+   * the km driven. Without it, this model's own conditions are the past (the Battery-life model itself).
+   */
+  history?: CarModel;
+  /** Shared by the car's models of the different tests: the calibration does not depend on the conditions. */
+  shared?: { calibration?: Calibration };
 }
 
 /** Energy taken from the battery over the battery-life test's distance (new battery). */
@@ -118,7 +125,7 @@ export interface LifeEnergy {
 export class CarModel {
   readonly d: DerivedCar;
   readonly ctx: ModelContext;
-  private calibrationCache: Calibration | null = null;
+  private readonly shared: { calibration?: Calibration };
   private simCache = new Map<string, SimResult>();
   private onboardCache = new Map<string, OnboardPower>();
   /** The pack when new (state of health 100 %). */
@@ -132,6 +139,7 @@ export class CarModel {
   constructor(d: DerivedCar, ctx: ModelContext) {
     this.d = d;
     this.ctx = ctx;
+    this.shared = ctx.shared ?? {};
     const chem = d.chemistry ? ctx.ds.chemistries[d.chemistry] : undefined;
     if (chem && d.batteryKwh) {
       this.pack = new Pack({
@@ -198,13 +206,13 @@ export class CarModel {
    * the braking energy within the regeneration limits × η_regen. The test cycle is driven as is (no driving style).
    */
   calibration(): Calibration {
-    if (this.calibrationCache) return this.calibrationCache;
+    if (this.shared.calibration) return this.shared.calibration;
     const { ds, a } = this.ctx;
     const d = this.d;
     const fallback = a.drivetrainEfficiencyDefaultPct / 100;
     const rated = d.consumption.value;
     if (rated === null) {
-      return (this.calibrationCache = { etaDrive: fallback, cycle: '-', clamped: false, ratedBatteryPerKm: 0, note: 'no consumption: default efficiency' });
+      return (this.shared.calibration = { etaDrive: fallback, cycle: '-', clamped: false, ratedBatteryPerKm: 0, note: 'no consumption: default efficiency' });
     }
     // The electronics run during the official tests too (climate control off).
     const auxKw = d.isIce ? 0 : baseLoadKw(onboardClass(ds, d.car.carClass));
@@ -235,7 +243,7 @@ export class CarModel {
       avgSpeedKmh += weight * (sim.distanceKm / (sim.timeS / 3600));
     }
     if (posPerKm <= 0) {
-      return (this.calibrationCache = { etaDrive: fallback, cycle: d.calibrationCycle, clamped: false, ratedBatteryPerKm: 0, note: 'cycle missing' });
+      return (this.shared.calibration = { etaDrive: fallback, cycle: d.calibrationCycle, clamped: false, ratedBatteryPerKm: 0, note: 'cycle missing' });
     }
     let battPerKm = rated * labFactor * chargeEff;
     // Remove the pack's own losses at test conditions, so they are not counted twice. Test cycles are highly
@@ -258,7 +266,7 @@ export class CarModel {
       : clamped
         ? `${d.calibrationCycle} consumption would need a drivetrain efficiency of ${Number.isFinite(raw) && raw > 0 ? `${(raw * 100).toFixed(0)} %` : 'over 100 %'} with this weight, Cd and frontal area - limited to ${(eta * 100).toFixed(0)} %. Check the consumption (is it really ${d.calibrationCycle}?), weight and Cd`
         : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}`;
-    return (this.calibrationCache = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
+    return (this.shared.calibration = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
   }
 
   /** Data-check messages that come from the physics calibration. */
@@ -331,14 +339,14 @@ export class CarModel {
   // ------------------------------------------------------------------------------------------ battery ageing
   /** Battery-life inputs that set the ageing (the scenario's, or the spreadsheet defaults). */
   get life(): BatteryLifeInputs {
-    return this.ctx.life ?? spreadsheetDefaults(this.ctx.a).batteryLife;
+    return this.ctx.life ?? standardScenario(this.ctx.ds, this.ctx.a).batteryLife;
   }
 
   /**
    * Energy taken from the battery over `i.years × i.kmPerYear` with a new battery (incl. losses). The daily drive
    * (km per year ÷ 365 at the average speed) is one trip: it starts with a parked cabin and battery each day.
    */
-  lifeEnergy(i: BatteryLifeInputs): LifeEnergy {
+  lifeEnergy(i: LifeDriving): LifeEnergy {
     const totalKm = i.years * i.kmPerYear;
     const seg = this.segment({ label: 'Life', distanceKm: totalKm, avgSpeedKmh: i.speedKmh, profile: i.profile, cabinC: i.cabinC });
     const days = Math.max(0, i.years * 365);
@@ -376,14 +384,16 @@ export class CarModel {
     const d = this.d;
     const chem = d.chemistry ? this.ctx.ds.chemistries[d.chemistry] : undefined;
     if (d.isIce || !chem || !d.batteryKwh) return null;
+    // The battery's past: the Battery-life page's conditions (climate, driving style), not this test's.
+    const h = this.ctx.history ?? this;
     // Energy per km of the battery-life driving (the same for any number of years).
     const { years: _y, dcSharePct, highSocTimePct, ...driving } = life;
     const key = JSON.stringify(driving);
-    let perKm = this.lifePerKmCache.get(key);
+    let perKm = h.lifePerKmCache.get(key);
     if (perKm === undefined) {
-      const perYear = this.lifeEnergy({ ...life, years: 1 });
+      const perYear = h.lifeEnergy({ ...life, years: 1 });
       perKm = perYear.totalKm > 0 ? perYear.energy / perYear.totalKm : 0;
-      this.lifePerKmCache.set(key, perKm);
+      h.lifePerKmCache.set(key, perKm);
     }
     const p = careParams(this.ctx.a);
     return {
@@ -394,7 +404,7 @@ export class CarModel {
       kwhPerKm: perKm,
       km,
       kmPerYear: life.kmPerYear,
-      temperatureC: this.ctx.conditions.airTemperatureC,
+      temperatureC: h.ctx.conditions.airTemperatureC,
       cycleWearFactor: cycleWearFactor(p, dcSharePct ?? p.typical.dcSharePct, this.fastChargeCRate()),
       calendarFactor: calendarCareFactor(chem, p, highSocTimePct ?? p.typical.highSocTimePct),
     };

@@ -143,13 +143,17 @@ export interface LongTripInputs {
   profile: Profile;
 }
 
-export interface BatteryLifeInputs {
+/** The driving over the years of use: Battery life and Cost of ownership each have their own. */
+export interface LifeDriving {
   years: number;
   kmPerYear: number;
   speedKmh: number;
   /** Cabin temperature the heating / AC holds (°C); null = off. */
   cabinC: number | null;
   profile: Profile;
+}
+
+export interface BatteryLifeInputs extends LifeDriving {
   /** Battery care: share of the charging done at DC fast chargers (%). */
   dcSharePct: number;
   /** Battery care: share of the time parked above 80 % charge (%). */
@@ -167,7 +171,7 @@ export interface SprintInputs {
   climbM: number;
 }
 
-export interface CostInputs {
+export interface CostInputs extends LifeDriving {
   /** Price per kWh from the grid, in the display currency. Cars can override it (energy_price column). */
   energyPrice: number;
   /** Maintenance per year, in the display currency. Cars can override it (maintenance_per_year column). */
@@ -181,7 +185,8 @@ export interface Scenario {
   batteryLife: BatteryLifeInputs;
   sprint: SprintInputs;
   cost: CostInputs;
-  conditions: Conditions;
+  /** Each test's own conditions (user's choice 2026-11-20: the inputs of the tests are no longer connected). */
+  conditions: Record<'trafficJam' | 'noCharger' | 'sprint' | 'longTrip' | 'batteryLife' | 'cost', Conditions>;
 }
 
 /** One line of a calculation explanation shown in the drawer. */

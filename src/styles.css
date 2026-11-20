@@ -1000,10 +1000,55 @@ table {
   gap: 4px 8px;
   align-items: center;
 }
-.field > label {
+.field > label,
+.field-head label {
   grid-column: 1 / -1;
   font-size: 13px;
   color: var(--ink-2);
+}
+/* Label with the input's ↺ (back to standard) and ⇉ (use in all tests) buttons. */
+.field-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+.field-actions {
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.field-note {
+  grid-column: 1 / -1;
+  font-size: 12px;
+}
+.panel-title {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
 }
 .field .unit {
   color: var(--ink-3);

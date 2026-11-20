@@ -102,7 +102,7 @@ export function ComparePage() {
             </button>
           </div>
         </div>
-        {editing && <ConditionsPanel />}
+        {editing && <ConditionsPanel test={null} />}
         {ids.length === 0 ? (
           <div className="panel">
             <p className="muted">No cars selected. Tick cars in the list, or clear the filters.</p>
