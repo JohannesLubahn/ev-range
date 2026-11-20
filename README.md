@@ -2,13 +2,30 @@
 
 A website that compares electric cars in the stress tests of `EV Calculations.ods` (traffic jam, no charger,
 sprint, long trip, battery life) and in their cost of ownership. Consumption is calculated from first principles (air
-drag, rolling resistance, slope, acceleration, heating and AC from a heat balance of the cabin, battery chemistry and
-temperature) and calibrated per car to its rated consumption.
+drag, rolling resistance, hills with their regeneration losses, acceleration and braking, heating and AC from a heat
+balance of the cabin, battery chemistry, temperature and wear) and calibrated per car to its rated consumption.
 
 Pages: **Compare** (all results in one table), **Stress tests** (one tab per test: traffic jam, no charger, sprint,
 long trip; battery needed vs. available and the average consumption in kWh/100 km), **Battery life** (capacity left
 after the years of use), **Cost of ownership**, **Cars** (specs and data check), **Physics** (how
 the model behaves, checked against measurements) and **Assumptions** (every constant, with sources).
+
+## What it is made of and where it runs
+
+- **Languages:** TypeScript (the calculations and the pages, with React for the user interface), CSS (the look),
+  HTML (one page shell), CSV (all data), Python (the scripts that import the spreadsheet and rebuild the reference
+  tables) and Markdown (these docs).
+- **Libraries:** React (pages), Zustand (app state), Recharts (charts), Papa Parse (reading CSV). Tools for
+  building and testing: Vite, TypeScript, Vitest. Installed by `npm install` into `node_modules/` (not part of the
+  project's own code).
+- **No server and no account:** everything is calculated in the browser. Your inputs and saved scenarios are kept
+  in the browser's local storage on your computer.
+- **Where the code is:** in this folder, in a local git repository with **no remote** (nothing is pushed anywhere,
+  nothing is public). The only copy outside this computer is the private preview on claude.ai, a single HTML file
+  built by `npm run build:single` that contains the whole app and its data; it is visible only to people you share
+  the link with.
+- **Outside requests:** the page loads its fonts (IBM Plex Sans / Mono, Space Grotesk) from Google Fonts. Links in
+  the source list open only when you click them.
 
 ## Run it
 
@@ -18,7 +35,7 @@ npm run dev        # then open http://localhost:5173
 ```
 
 Without a server: `npm run build:single` writes `dist-single/ev-compare.html`, a single file you can open
-directly in a browser.
+directly in a browser (and `dist-single/artifact.html`, the same app for the hosted preview).
 
 ## Edit the data
 
@@ -79,7 +96,7 @@ On Compare the car list is the left column; on the other pages the **Cars** butt
 | Command | What it does |
 |---|---|
 | `npm run dev` | Development server with hot reload |
-| `npm test` | Engine tests: physics, onboard measurements, spreadsheet fixes, average consumption, sources (Vitest) |
+| `npm test` | Engine tests (Vitest): physics, onboard measurements, spreadsheet fixes, average consumption, cost of ownership, hills, driving style, standard inputs, car list, sources |
 | `npm run build` | Type check + production build into `dist/` |
 | `npm run build:single` | One self-contained HTML file in `dist-single/` |
 | `npm run import-ods` | Re-import from `~/Documents/Tools/EV Calculations.ods` (never overwrites existing data files without `--force`) |
@@ -132,6 +149,11 @@ on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30
 - The Physics page and the Cars page's calculated rows show one test's conditions ("Conditions of", default No
   charger).
 
+**Battery wear** (Conditions: km driven, default 100,000 km) sets the capacity the stress tests start from:
+cycle wear up to the car's rated cycles plus calendar ageing, per chemistry. **Battery care** (Battery life page:
+Gentle / Typical / Hard, or % of charging at DC fast chargers and % of the time parked above 80 %) speeds the wear
+up or slows it down. Battery life passes when the capacity left after the years is at least 80 %.
+
 **Hills** (every test): a **Terrain** choice (Flat / Rolling / Hilly / Mountain, `data/terrain.csv`) fills in the
 hills, which you can then change. The trip tests take the **altitude change start → finish**, the **total climb**
 (all uphill metres; the descent is the total climb minus the altitude change) and the **typical slope**. The traffic
@@ -149,10 +171,16 @@ in `data/assumptions.csv`) is lost to the friction brakes. The Physics page comp
 
 ```
 data/                  the CSV files above
-src/engine/            calculations only (no UI): physics/, battery/, onboard/, cases.ts, model.ts, derive.ts
-src/data/              CSV parsing
-src/state/             app state (Zustand) and the engine provider
+src/engine/            calculations only (no UI)
+  physics/             air, rolling, road load, speed profiles, driving style, hills (terrain.ts), simulation
+  battery/, onboard/   battery pack and ageing; electronics, cabin climate and battery temperature
+  model.ts, cases.ts   one car's model; the six tests and their calculation steps
+  costs.ts, inputs.ts  cost of ownership; the inputs of every test, their standards and links
+  run.ts, derive.ts    runs the ticked cars (with a cache); specs and estimates per car
+src/data/              CSV parsing and checks
+src/state/             app state (Zustand), saved settings, car list, the engine provider
 src/components, pages/ the UI (React)
-tests/                 physics, fixes and source tests
+tests/                 Vitest tests (see Scripts)
 scripts/               ods_to_csv.py, build_reference_data.py, inline_build.mjs
+docs/model.md          the model in detail, with sources
 ```

@@ -362,39 +362,43 @@ Each cell: **spreadsheet** · **Physics model**. Percentages are the spare (+) o
 spreadsheet ran the heating/AC 50–90 % of the time; the Physics model holds the cabin at 22 °C in every test. The
 spreadsheet used 80 % of nominal as the battery; the Physics model uses the capacity after 100,000 km (85–91 %).
 The battery-life column shows the full cycles needed; the verdict itself is now the capacity left after 20 years
-(section 4, battery care).
+(section 4, battery care). The Physics values were recalculated on 20 Nov 2026, after the cost categories, the
+hills (flat in every standard, so they change nothing here) and the Honda City's weight (1,150 kg instead of an
+estimate of about 1,780 kg). The cost column compares two different totals: the spreadsheet's purchase + energy +
+one maintenance figure, against today's full cost of ownership (depreciation, energy, insurance, road tax, servicing
+& repairs, tyres).
 
 | Car | Traffic jam | No charger | Sprint | Long trip (h) | Battery life (cycles) | Cost (THB/km) |
 |---|---|---|---|---|---|---|
-| Neta V | +26 % · **+68 %** | −29 % · **−25 %** | −41 % · **+19 %** | 16.8 · **15.6** | 1308 · **1212** | 3.21 · **3.53** |
-| Ora Good Cat | −25 % · **+67 %** | −87 % · **−43 %** | −100 % · **+12 %** | 18.4 · **15.8** | 1941 · **1375** | 4.51 · **4.66** |
-| BYD Atto 3 | +12 % · **+79 %** | −4 % · **+16 %** | −8 % · **+46 %** | 15.5 · **14.3** | 1134 · **798** | 4.32 · **4.57** |
-| Tesla Model 3 2021 | −34 % · **+71 %** | −34 % · **+9 %** | −35 % · **+48 %** | 15.4 · **14.1** | 1513 · **896** | 6.93 · **7.11** |
-| Nio ET7 75kW | −13 % · **+74 %** | −29 % · **+9 %** | −34 % · **+51 %** | 15.8 · **14.3** | 1415 · **881** | 7.75 · **7.93** |
-| Neta S | +42 % · **+84 %** | +25 % · **+36 %** | +21 % · **+64 %** | 15.5 · **14.3** | 801 · **602** | 7.61 · **7.94** |
-| Neta X | +13 % · **+78 %** | −6 % · **+7 %** | −11 % · **+41 %** | 16.3 · **14.8** | 1143 · **875** | 4.17 · **4.51** |
-| Aion Y Plus | +12 % · **+77 %** | −13 % · **−0 %** | −19 % · **+37 %** | 16.8 · **15.1** | 1209 · **945** | 4.91 · **5.27** |
-| Aion Hyptec HT | +7 % · **+79 %** | +4 % · **+25 %** | +3 % · **+57 %** | 14.3 · **13.8** | 1074 · **724** | 6.49 · **6.85** |
-| Deepal L07 | +20 % · **+78 %** | +5 % · **+19 %** | +2 % · **+53 %** | 16.4 · **14.8** | 1027 · **789** | 5.89 · **6.20** |
-| BYD Seal low | +9 % · **+73 %** | −27 % · **−11 %** | −35 % · **+40 %** | 17.0 · **15.3** | 1337 · **1057** | 5.06 · **5.42** |
-| BYD Seal high | +30 % · **+78 %** | −9 % · **+4 %** | −17 % · **+51 %** | 16.3 · **14.9** | 1124 · **903** | 5.94 · **6.33** |
-| Zeekr X | +15 % · **+74 %** | −25 % · **−16 %** | −34 % · **+31 %** | 15.4 · **14.5** | 1304 · **1130** | 5.83 · **6.24** |
-| Xpeng G6 | −20 % · **+71 %** | −38 % · **−14 %** | −42 % · **+33 %** | 15.0 · **14.2** | 1506 · **1095** | 6.65 · **7.06** |
-| Avatar 11 | +31 % · **+82 %** | +17 % · **+30 %** | +13 % · **+60 %** | 15.2 · **14.1** | 900 · **665** | 8.96 · **9.38** |
-| Ora 07 | +31 % · **+78 %** | −6 % · **+4 %** | −14 % · **+48 %** | 16.7 · **15.2** | 1096 · **922** | 6.25 · **6.64** |
-| Honda City | +35 % · **+91 %** | +56 % · **+63 %** | +60 % · **+84 %** | 13.3 · **13.3** | 550 · **337** | 4.28 · **4.90** |
-| Deepal S05 | +1 % · **+72 %** | −39 % · **−23 %** | −47 % · **+27 %** | 15.3 · **14.5** | 1457 · **1175** | 4.38 · **4.76** |
-| BYD Dolphin | +35 % · **+69 %** | −38 % · **−34 %** | −53 % · **+20 %** | 16.0 · **15.2** | 1358 · **1279** | 3.34 · **3.72** |
-| Dolphin ER | +45 % · **+74 %** | −19 % · **−15 %** | −33 % · **+32 %** | 15.3 · **14.7** | 1172 · **1091** | 3.73 · **4.11** |
-| Hyundai Inster | +32 % · **+62 %** | −43 % · **−52 %** | −59 % · **+5 %** | 15.6 · **15.1** | 1408 · **1565** | 1.76 · **4.94** |
-| MG Windsor LG | +42 % · **+75 %** | −4 % · **+2 %** | −14 % · **+37 %** | 15.7 · **14.8** | 1048 · **939** | – · **–** |
-| MG Windsor | +22 % · **+67 %** | −40 % · **−31 %** | −53 % · **+15 %** | 16.7 · **15.5** | 1415 · **1268** | – · **–** |
+| Neta V | +26 % · **+68 %** | −29 % · **−26 %** | −41 % · **+19 %** | 16.8 · **15.6** | 1308 · **1216** | 3.21 · **4.45** |
+| Ora Good Cat | −25 % · **+67 %** | −87 % · **−43 %** | −100 % · **+12 %** | 18.4 · **15.8** | 1941 · **1375** | 4.51 · **5.71** |
+| BYD Atto 3 | +12 % · **+79 %** | −4 % · **+16 %** | −8 % · **+46 %** | 15.5 · **14.3** | 1134 · **801** | 4.32 · **5.70** |
+| Tesla Model 3 2021 | −34 % · **+71 %** | −34 % · **+9 %** | −35 % · **+48 %** | 15.4 · **14.1** | 1513 · **896** | 6.93 · **9.28** |
+| Nio ET7 75kW | −13 % · **+74 %** | −29 % · **+9 %** | −34 % · **+51 %** | 15.8 · **14.3** | 1415 · **881** | 7.75 · **10.36** |
+| Neta S | +42 % · **+84 %** | +25 % · **+37 %** | +21 % · **+65 %** | 15.5 · **14.3** | 801 · **595** | 7.61 · **9.83** |
+| Neta X | +13 % · **+78 %** | −6 % · **+9 %** | −11 % · **+42 %** | 16.3 · **14.8** | 1143 · **866** | 4.17 · **5.58** |
+| Aion Y Plus | +12 % · **+77 %** | −13 % · **+1 %** | −19 % · **+38 %** | 16.8 · **15.1** | 1209 · **935** | 4.91 · **6.47** |
+| Aion Hyptec HT | +7 % · **+79 %** | +4 % · **+26 %** | +3 % · **+57 %** | 14.3 · **13.8** | 1074 · **717** | 6.49 · **8.94** |
+| Deepal L07 | +20 % · **+78 %** | +5 % · **+20 %** | +2 % · **+53 %** | 16.4 · **14.8** | 1027 · **780** | 5.89 · **7.67** |
+| BYD Seal low | +9 % · **+74 %** | −27 % · **−10 %** | −35 % · **+41 %** | 17.0 · **15.3** | 1337 · **1048** | 5.06 · **6.69** |
+| BYD Seal high | +30 % · **+78 %** | −9 % · **+5 %** | −17 % · **+51 %** | 16.3 · **14.9** | 1124 · **894** | 5.94 · **7.86** |
+| Zeekr X | +15 % · **+74 %** | −25 % · **−15 %** | −34 % · **+31 %** | 15.4 · **14.5** | 1304 · **1121** | 5.83 · **7.65** |
+| Xpeng G6 | −20 % · **+71 %** | −38 % · **−13 %** | −42 % · **+33 %** | 15.0 · **14.1** | 1506 · **1086** | 6.65 · **9.05** |
+| Avatar 11 | +31 % · **+82 %** | +17 % · **+31 %** | +13 % · **+61 %** | 15.2 · **14.1** | 900 · **658** | 8.96 · **11.97** |
+| Ora 07 | +31 % · **+78 %** | −6 % · **+5 %** | −14 % · **+49 %** | 16.7 · **15.2** | 1096 · **914** | 6.25 · **8.13** |
+| Honda City | +35 % · **+89 %** | +56 % · **+61 %** | +60 % · **+80 %** | 13.3 · **13.3** | 550 · **361** | 4.28 · **6.16** |
+| Deepal S05 | +1 % · **+72 %** | −39 % · **−22 %** | −47 % · **+28 %** | 15.3 · **14.4** | 1457 · **1165** | 4.38 · **5.88** |
+| BYD Dolphin | +35 % · **+69 %** | −38 % · **−32 %** | −53 % · **+20 %** | 16.0 · **15.1** | 1358 · **1268** | 3.34 · **4.64** |
+| Dolphin ER | +45 % · **+74 %** | −19 % · **−14 %** | −33 % · **+32 %** | 15.3 · **14.7** | 1172 · **1081** | 3.73 · **5.11** |
+| Hyundai Inster | +32 % · **+62 %** | −43 % · **−52 %** | −59 % · **+6 %** | 15.6 · **15.1** | 1408 · **1568** | 1.76 · **6.10** |
+| MG Windsor LG | +42 % · **+75 %** | −4 % · **+2 %** | −14 % · **+37 %** | 15.7 · **14.8** | 1048 · **942** | – · **–** |
+| MG Windsor | +22 % · **+67 %** | −40 % · **−31 %** | −53 % · **+15 %** | 16.7 · **15.5** | 1415 · **1272** | – · **–** |
 
 What drives the differences:
 
 - **Onboard systems** are now about 0.6–1.0 kW at the default 25 °C (electronics + AC holding 22 °C with some sun)
   instead of 3.8–5.8 kW from the Facts-tab curves, in line with the measurements in section 3. That is why the
-  **traffic jam** now passes for every car (+62 to +91 %; with the Facts-tab loads the physics model gave −38 to
+  **traffic jam** now passes for every car (+62 to +89 %; with the Facts-tab loads the physics model gave −38 to
   +71 %), and why **no charger**, **battery life** and **long trip** improved. In the 5-hour jam the onboard systems now
   use about 3.5–5 kWh instead of 19–29 kWh.
 - **Sprint** improves for almost every car: the spreadsheet's 2.5× high-speed factor is much more pessimistic than
@@ -404,4 +408,6 @@ What drives the differences:
 - **Hot or cold days** (presets): at 35 °C with strong sun the AC needs about 1.1 kW (premium 1.3 kW) plus 0.6 kWh
   to cool the parked cabin; at −10 °C a resistive heater needs about 2.4 kW plus up to 4 kWh to warm the battery
   in a long jam, so the traffic jam fails for the smallest batteries.
-- **Cost** changes slightly: onboard systems and charging losses are included, and EUR prices are converted.
+- **Cost** is higher for every car (by about 1–4 THB/km): it now counts the loss of value, insurance, road tax,
+  servicing, repairs and tyres instead of one maintenance figure, plus the onboard systems and charging losses. The
+  Hyundai Inster rises most because its EUR price is now converted to THB. The MG Windsors have no price.
