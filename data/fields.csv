@@ -10,7 +10,7 @@ price,Price,currency,Costs,number,lower,Purchase price in the car's currency
 powertrain,Powertrain,,Identity,enum:BEV|ICE,,"BEV = battery electric. ICE cars are modelled like an EV (approximation, as in the spreadsheet)"
 body_type,Body type,,Identity,enum:hatchback|sedan|SUV|MPV,,Selects default drag coefficient and frontal area when those are missing (see body_types.csv)
 car_class,Car class,,Identity,enum:regular|premium,,"Onboard electronics (incl. driver-assistance computer) and cabin size for heating/AC, see data/onboard/classes.csv"
-battery_kwh,Nominal battery capacity,kWh,Battery & charging,number,higher,
+battery_kwh,Battery capacity,kWh,Battery & charging,number,higher,"Usable (net) capacity where the source gives it (EV Database), else the maker's figure (Chinese makers usually state the usable capacity)"
 end_of_life_capacity_pct,Capacity at the rated cycles,%,Battery & charging,number,higher,Capacity left when the rated cycles are used up (% of nominal); battery life must keep at least this much. Blank = assumption (80 %)
 battery_type,Battery type,,Battery & charging,enum:LFP|NMC,,Cell chemistry; selects the temperature-dependent discharge curves
 battery_cycles,Battery cycles,full cycles,Battery & charging,number,higher,Rated full charge cycles
@@ -29,7 +29,7 @@ drag_coefficient,Drag coefficient (Cd),,Physics,number,lower,Blank = body-type d
 frontal_area_m2,Frontal area,m²,Physics,number,lower,"Blank = 0.85 × width × height, or body-type default"
 width_mm,Width,mm,Physics,number,,Without mirrors
 height_mm,Height,mm,Physics,number,,
-weight_kg,Curb weight,kg,Physics,number,lower,Blank = estimated from battery size
+weight_kg,Curb weight,kg,Physics,number,lower,"Without driver. EU figures (mass in running order) include a 75 kg driver: subtract it. Blank = estimated from battery size"
 tyre_rr,Tyre rolling resistance,N/kN,Physics,number,lower,EU tyre label value (e.g. 7.0). Blank = assumption
 heat_pump,Heat pump,,Physics,enum:yes|no,,"yes = the cabin is heated by a heat pump (2–3× less power in mild cold), no = resistive heater only. Blank = no (resistive heater assumed). Only matters below about 15 °C"
 accel_0_100_s,0–100 km/h,s,Performance,number,lower,

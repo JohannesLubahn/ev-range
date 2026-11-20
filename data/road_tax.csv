@@ -16,3 +16,7 @@ TH,ICE,age_years,6,7,20,discount_pct,motorist-tax-2026,
 TH,ICE,age_years,7,8,30,discount_pct,motorist-tax-2026,
 TH,ICE,age_years,8,9,40,discount_pct,motorist-tax-2026,
 TH,ICE,age_years,9,,50,discount_pct,motorist-tax-2026,
+DE,BEV,weight_kg,0,2000,0.028125,per_unit,kraftstg-9,"Kfz-Steuer of an electric car once its exemption ends: per started 200 kg of the permitted gross weight 11.25 EUR up to 2,000 kg, 12.02 EUR up to 3,000 kg, 12.78 EUR up to 3,500 kg, halved for electric cars (§ 9 KraftStG) = 0.028–0.032 EUR per kg. The app applies it to the curb weight: the gross weight is about 450–550 kg more, so the law asks about 15 EUR per year more"
+DE,BEV,weight_kg,2000,3000,0.03005,per_unit,kraftstg-9,
+DE,BEV,weight_kg,3000,,0.03195,per_unit,kraftstg-9,
+DE,BEV,age_years,0,10,100,discount_pct,bundestag-kfz-2025,"Electric cars first registered by the end of 2030 pay no Kfz-Steuer for up to 10 years, at most until 31 Dec 2035 (Bundestag, 4 Dec 2025). A car bought in 2026 is free for about 9–10 years; the app counts 10"

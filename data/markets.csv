@@ -1,2 +1,3 @@
 id,name,currency,description,source
 TH,Thailand,THB,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/running_costs.csv and data/road_tax.csv",
+DE,Germany,EUR,"List prices in EUR including 19 % VAT, before any purchase subsidy; running costs (electricity, insurance, Kfz-Steuer, servicing, tyres, resale) in data/running_costs.csv and data/road_tax.csv",

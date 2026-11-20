@@ -42,7 +42,7 @@ describe('data/markets.csv and the market', () => {
     expect(d2.loadWarnings.some((x) => x.includes('"XX" is not in markets.csv'))).toBe(true);
   });
   it('reads model and variant', () => {
-    expect(byId('byd-seal-low').car).toMatchObject({ brand: 'BYD', model: 'Seal', variant: 'low' });
+    expect(byId('byd-seal-low').car).toMatchObject({ brand: 'BYD', model: 'Seal', variant: 'Dynamic' });
     expect(byId('byd-dolphin').car).toMatchObject({ model: 'Dolphin', variant: null });
     expect(byId('byd-atto-3').car.model).toBeNull();
   });
@@ -61,14 +61,18 @@ describe('data/markets.csv and the market', () => {
     expect(applyMarket(a, null)).toBe(a);
     // Prices follow the market's currency.
     const dEu = deriveAll(ds, eu).find((d) => d.car.id === 'hyundai-inster')!;
-    expect(dEu.priceDisplay.value).toBe(24400);
+    expect(dEu.priceDisplay.value).toBe(24650);
   });
   it('lists only the cars of the market; All markets lists every car', () => {
     const shown = shownIds(derived, 'TH', EMPTY_FILTERS);
     expect(shown).not.toContain('hyundai-inster');
     expect(shown).toContain('byd-atto-3');
+    const de = shownIds(derived, 'DE', EMPTY_FILTERS);
+    expect(de).toContain('hyundai-inster');
+    expect(de).not.toContain('byd-atto-3');
     expect(shownIds(derived, ALL_MARKETS, EMPTY_FILTERS)).toHaveLength(ds.cars.length);
-    expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(true);
+    expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(false);
+    expect(byId('mg-windsor').flags.some((f) => f.field === 'market')).toBe(true);
   });
   it('switching the market resets the cost inputs to its defaults and the price filter', () => {
     const scenario = spreadsheetScenario(ds, a);
@@ -93,7 +97,7 @@ describe('filters', () => {
     expect(f({ chemistries: ['ICE'] })).toEqual(['honda-city']);
     const mid = f({ priceMin: 800000, priceMax: 1200000 });
     expect(mid.every((id) => (byId(id).priceDisplay.value ?? 0) >= 800000 && (byId(id).priceDisplay.value ?? 0) <= 1200000)).toBe(true);
-    expect(mid).toContain('byd-seal-high');
+    expect(mid).toContain('byd-atto-3');
     // A car without a price drops out once a lower price bound is set.
     expect(f({ priceMin: 1 })).not.toContain('mg-windsor-lg');
     expect(f({ search: 'byd seal' })).toEqual(['byd-seal-low', 'byd-seal-high']);
@@ -130,13 +134,14 @@ describe('sorting and grouping', () => {
     const labels = groups[0].models.map((m) => m.label);
     expect(labels).toEqual([...labels].sort((x, y) => x.localeCompare(y)));
     const seal = groups[0].models.find((m) => m.label === 'BYD Seal')!;
-    expect(ids(seal.cars)).toEqual(['byd-seal-high', 'byd-seal-low']);
+    expect(ids(seal.cars)).toEqual(['byd-seal-low', 'byd-seal-high']); // Dynamic, Performance AWD
     expect(groups[0].models.find((m) => m.label === 'BYD Dolphin')!.cars).toHaveLength(2);
   });
   it('by price, both directions, blanks last; a model ranks by its best variant', () => {
     const up = flat(listCars(thCars, { key: 'price', dir: 1 }, 'none', 'THB'));
-    expect(up[0]).toBe('byd-dolphin');
-    expect(up[1]).toBe('dolphin-er'); // kept with its model
+    expect(up[0]).toBe('neta-v');
+    expect(up[1]).toBe('byd-dolphin');
+    expect(up[2]).toBe('dolphin-er'); // kept with its model
     expect(up[up.length - 1]).toBe('mg-windsor-lg'); // no price
     const down = flat(listCars(thCars, { key: 'price', dir: -1 }, 'none', 'THB'));
     expect(down[0]).toBe('avatar-11');
@@ -165,7 +170,7 @@ describe('sorting and grouping', () => {
     expect(edges.length).toBeGreaterThan(1);
     expect(edges.length).toBeLessThanOrEqual(5);
     const g = listCars(thCars, { key: 'price', dir: 1 }, 'priceBand', 'THB');
-    expect(g[0].label).toBe(`Under 1 M THB`);
+    expect(g[0].label).toBe(`Under 500 k THB`);
     expect(g[g.length - 1].label).toBe('No price');
   });
 });

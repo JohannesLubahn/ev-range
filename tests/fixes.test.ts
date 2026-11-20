@@ -50,11 +50,11 @@ describe('4: total cost includes the onboard systems and the charging losses', (
 });
 
 describe('5 + 6: horsepower and currencies', () => {
-  it('Aion Y Plus horsepower comes from kW (273.6 HP, not 301.7)', () => {
-    expect(derived['aion-y-plus'].powerHp).toBeCloseTo(204 * 1.341, 6);
+  it('Aion Y Plus horsepower comes from kW (150 kW = 201 HP)', () => {
+    expect(derived['aion-y-plus'].powerHp).toBeCloseTo(150 * 1.341, 6);
   });
   it('Hyundai Inster price is converted from EUR with your exchange rate', () => {
-    expect(derived['hyundai-inster'].priceDisplay.value).toBeCloseTo(24400 * a.fx.EUR, 6);
+    expect(derived['hyundai-inster'].priceDisplay.value).toBeCloseTo(24650 * a.fx.EUR, 6);
   });
 });
 

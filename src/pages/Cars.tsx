@@ -39,6 +39,30 @@ function digitsFor(v: number) {
   return a >= 1000 ? 0 : a >= 100 ? 1 : a >= 1 ? 2 : 4;
 }
 
+/** Text cells longer than this wrap (notes, source lists). */
+const LONG_TEXT = 40;
+
+/** The source column of cars.csv: links separated by ";" (or spaces), anything else as text. */
+function SourceLinks({ text }: { text: string }) {
+  const parts = text.split(/\s*;\s*|\s+/).filter(Boolean);
+  return (
+    <>
+      {parts.map((p, i) => (
+        <span key={i}>
+          {i > 0 && ' · '}
+          {/^https?:\/\//.test(p) ? (
+            <a href={p} target="_blank" rel="noreferrer">
+              {p.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
+            </a>
+          ) : (
+            p
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function unitFor(f: FieldDef, d: DerivedCar): string {
   if (f.unit === 'currency') return d.car.currency;
   if (f.unit.startsWith('currency/')) return `${d.car.currency}/${f.unit.split('/')[1]}`;
@@ -266,9 +290,11 @@ export function CarsPage() {
                         {ids.map((id) => {
                           const c = r.cells[id];
                           const isBest = bestVal !== null && c?.value === bestVal;
+                          // Notes and source lists wrap instead of widening the column.
+                          const long = !!c && c.value === null && c.text.length > LONG_TEXT;
                           return (
-                            <td key={id} className={`num ${isBest ? 'best' : ''}`}>
-                              {c && c.text !== '' ? c.text : <span className="faint">–</span>}
+                            <td key={id} className={`num ${isBest ? 'best' : ''}${long ? ' long' : ''}`}>
+                              {c && c.text !== '' ? r.key === 'source_url' ? <SourceLinks text={c.text} /> : c.text : <span className="faint">–</span>}
                               {c?.prov === 'estimated' && c.text !== '' && (
                                 <span className="chip est" style={{ marginLeft: 6 }}>
                                   est.

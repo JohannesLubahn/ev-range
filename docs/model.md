@@ -334,6 +334,9 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 | Hills, regeneration efficiency | Terrain slopes: steepest grades of main roads by terrain (AASHTO Green Book, via WSDOT Design Manual M 22-01, ch. 1220); climbs per 100 km: judgement; regeneration round trip near 70 %: Boretti 2013, SAE 2013-01-2872; Honda City weight 1,150 kg: Thai spec sheet (IndianAutosBlog 2020) |
 | Running costs (Thailand) | `data/running_costs.csv` with sources per row: electricity your spreadsheet (public DC price), compulsory insurance Roojai/OIC, class-1 insurance quotes (Green Energy Thailand 2026, PrakanEV 2026; EV vs petrol: Viriyah via Thai Examiner 2025), servicing Thaiger 2025 via Green Energy Thailand, loss of value Krungsri Research 2024, tyres Thairath and Pirelli, load dependence KIT review; judgement values labelled |
 | Road tax (Thailand) | `data/road_tax.csv`: EV weight bands (Thansettakij; Motorist 2026), petrol per cc and age discount (Motorist 2026); Honda City 988 cc (paultan.org 2019) |
+| Running costs (Germany) | `data/running_costs.csv`: electricity ACE/Hocsy 2026 (public DC, ad hoc 50–80 ct/kWh), ADAC, BDEW (home 37 ct/kWh); Haftpflicht GDV via checkalle.de; Vollkasko Stiftung Warentest 11/2026 via t-online, Verivox 2026; Teilkasko Allianz; servicing ADAC 2026; loss of value DAT (Sep 2026); tyres testbericht.de; judgement values labelled |
+| Road tax (Germany) | `data/road_tax.csv`: electric cars tax-free for 10 years when first registered by 2030 (Bundestag, Dec 2025), then § 9 KraftStG per 200 kg, halved |
+| Car data (20 Nov 2026) | `data/cars.csv` `source_url` per car: Thai prices rodfaifa, Bangkok Motorhaus, Paul Tan, Headlight Magazine; Thai specs ZigWheels, Autospinn; EU type approval (WLTP range and consumption, usable battery, weight, size) and German prices EV Database; drag coefficients from the makers; choice of German cars: KBA via electrive (Oct 2026) |
 
 ## 6. Spreadsheet issues fixed
 

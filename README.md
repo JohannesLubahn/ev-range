@@ -118,17 +118,19 @@ lists each value in its **Costs** group with its source (linked to the numbered 
 below. What depends on the car:
 
 - **Road tax:** electric cars by curb weight, petrol cars by engine size (`engine_cc`), less for older petrol cars.
+  Germany: electric cars pay no Kfz-Steuer for 10 years, then half the weight tax.
 - **Voluntary insurance:** % of the car's value at the start of each year (electric 3.0 %, petrol 2.5 % in
-  Thailand), at least the lowest premium.
-- **Loss of value:** % per year by powertrain (Thailand: electric 6.5 %, petrol 3.4 %, from 3 years of Krungsri data).
-- **Servicing:** by powertrain (Thailand: 5,346 / 17,500 THB per year).
+  Thailand; Vollkasko 1.5 % in Germany), at least the lowest premium.
+- **Loss of value:** % per year by powertrain (Thailand: electric 6.5 %, petrol 3.4 %, from 3 years of Krungsri data;
+  Germany: electric 20 %, petrol 16 %, from DAT's three-year residual values).
+- **Servicing:** by powertrain (Thailand: 5,346 / 17,500 THB per year; Germany: 250 / 400 EUR, judgement from ADAC).
 - **Tyres:** a set per tyre life; the life shrinks with the mass on the tyres (curb weight + the cost's load), premium
   cars use the dearer set.
 - **Repairs:** % of the purchase price per year after the warranty.
 
 Cars can override servicing (`maintenance_per_year`), insurance (`insurance_per_year`), the tyre set
-(`tyre_set_price`) and the energy price in `cars.csv`. The electricity standard is the public DC price (7.5 THB/kWh);
-set it lower when you charge at home. A battery replacement is not included (user's choice).
+(`tyre_set_price`) and the energy price in `cars.csv`. The electricity standard is the public DC price (7.5 THB/kWh in
+Thailand, 0.65 EUR/kWh in Germany); set it lower when you charge at home. A battery replacement is not included (user's choice).
 
 ## Inputs
 
