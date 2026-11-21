@@ -6,8 +6,8 @@ Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssu
 
 | Where | File | Route |
 | --- | --- | --- |
-| Notes tab (after Assumptions), first section: Known issues | `known_issues.csv` | `#notes` (`#known-issues` jumps there) |
-| Notes tab, second section: Personal notes | `notes/*.md`, one file per note | `#notes` |
+| Notes tab (after Assumptions): Personal notes | `notes/*.md`, one file per note | `#notes` |
+| Notes tab, at the bottom: Known issues | `known_issues.csv` | `#notes` (`#known-issues` jumps there) |
 | Impressum, linked from the footer of every page | `impressum.md` | `#impressum` |
 
 ## known_issues.csv
