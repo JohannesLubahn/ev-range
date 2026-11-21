@@ -1,4 +1,4 @@
-import type { FocusEvent, KeyboardEvent, PointerEvent, ReactNode } from 'react';
+import type { CSSProperties, FocusEvent, KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import { useTooltip } from './Tooltip';
 
 export interface StackSeries {
@@ -188,6 +188,26 @@ export function BulletRows({
       {!side && <div className="legend">{legend}</div>}
       <div className={`bars ${side ? 'paired' : ''}`} role="list">
         {side && <HeadRow main={legend} side={side} />}
+        {scale?.grid && rows.length > 0 && (
+          // One set of grid lines over all rows: an absolutely placed grid item spanning the bar column's rows
+          // (wide: one row per car; narrow: label row + bar row per car, starting at the first bar).
+          <div
+            className="grid-lines"
+            aria-hidden="true"
+            style={
+              {
+                '--row': side ? 2 : 1,
+                '--rows': rows.length,
+                '--row-narrow': (side ? 2 : 1) + 1,
+                '--rows-narrow': 2 * rows.length - 1,
+              } as CSSProperties
+            }
+          >
+            {scale.ticks.map((t) => (
+              <span key={t} style={{ left: pct(t) }} />
+            ))}
+          </div>
+        )}
         {rows.map((r) => (
           <div key={r.id} className="row-hit" role="listitem">
             <span className="label">{r.label}</span>
@@ -196,8 +216,6 @@ export function BulletRows({
               aria-label={`${r.label}: ${valueName} ${r.value.toFixed(1)}${r.target !== null ? `, ${targetName} ${r.target.toFixed(1)}` : ''}`}
               {...hoverProps(tt, r.tip, r.onClick)}
             >
-              {scale?.grid &&
-                scale.ticks.map((t) => <span key={t} className="grid-x" style={{ left: pct(t) }} aria-hidden="true" />)}
               <span className="bar" style={barStyle(r)} />
               {r.target !== null && <span className="avail" style={{ left: pct(r.target) }} />}
             </div>

@@ -910,11 +910,22 @@ table {
   background: var(--series-1);
   border-radius: 0 4px 4px 0;
 }
-/* Grid lines of a zoomed axis (BulletScale.grid): reach over the row gap so they read as one line. */
-.bars .grid-x {
+/* Grid lines of a zoomed axis (BulletScale.grid): one element over the bar column of all rows, placed on the grid
+   but out of the flow (absolute), so it does not take cells from the rows. Bars paint above it. */
+.bars {
+  position: relative;
+}
+.bars .grid-lines {
   position: absolute;
-  top: -3px;
-  bottom: -3px;
+  inset: -3px 0 -3px 0;
+  grid-column: 2 / 3; /* an absolute grid item's auto end is the container's edge */
+  grid-row: var(--row) / span var(--rows);
+  pointer-events: none;
+}
+.bars .grid-lines span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   width: 1px;
   margin-left: -0.5px;
   background: var(--line);
@@ -1018,6 +1029,15 @@ table {
   .bars .row-head .head-label,
   .bars .row-axis .axis-label {
     display: none;
+  }
+  .bars:not(.compact) .grid-lines {
+    grid-column: 1 / 2;
+    grid-row: var(--row-narrow) / span var(--rows-narrow);
+  }
+  /* The car names sit on their own rows here: the grid lines pause behind them. */
+  .bars:not(.compact) .label {
+    position: relative;
+    background: var(--surface);
   }
   .bars .track.side,
   .bars .row-head .head-side {
