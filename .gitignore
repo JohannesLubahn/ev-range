@@ -8,3 +8,9 @@ coverage/
 __pycache__/
 .claude/worktrees/
 tests/report.test.ts
+
+# Kept on the author's computer only, not on GitHub: the AI assistant's working notes, the import from the
+# author's own spreadsheet and the single-file preview build (npm run import-ods / build:single need them).
+CLAUDE.md
+scripts/ods_to_csv.py
+scripts/inline_build.mjs

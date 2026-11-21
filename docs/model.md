@@ -47,7 +47,7 @@ shared calibration (`src/engine/run.ts`).
 
 The spreadsheet's own model (constant consumption, 2.5× at high speed, onboard kW × usage %, ideal battery) was
 available as the *Simple* model until 18 Nov 2026 and was then removed at your request; it is in the git history
-(up to commit dd12c9e).
+(up to commit 8f0dd3d).
 
 ## 1. Driving energy
 

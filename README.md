@@ -25,8 +25,10 @@ the model behaves, checked against measurements) and **Assumptions** (every cons
 - **Where the site is:** https://johanneslubahn.github.io/ev-range/ (GitHub Pages). Every push to `main` runs
   `.github/workflows/pages.yml`: `npm ci`, `npm test`, `npm run build`, then it publishes `dist/`. If a test fails,
   nothing is published and the last good version stays online. The page has a `noindex` tag (`index.html`), so search
-  engines don't list it; remove that line to let them. There is also a private preview on claude.ai, a single HTML
-  file built by `npm run build:single`, visible only to people you share the link with.
+  engines don't list it; remove that line to let them.
+- **Not on GitHub:** `CLAUDE.md` (the AI assistant's working notes), `scripts/ods_to_csv.py` (the import from the
+  author's spreadsheet) and `scripts/inline_build.mjs` (the single-file build). They stay on the author's computer
+  (`.gitignore`), so `npm run import-ods` and `npm run build:single` only work there.
 - **Outside requests:** none. The fonts (IBM Plex Sans / Mono, Space Grotesk, SIL Open Font License) come with the
   app (`src/fonts.css`, from the `@fontsource` packages; Latin characters, others use the system font). Links in the
   source list open only when you click them.
@@ -38,8 +40,8 @@ npm install        # once
 npm run dev        # then open http://localhost:5173
 ```
 
-Without a server: `npm run build:single` writes `dist-single/ev-range.html`, a single file you can open
-directly in a browser (and `dist-single/artifact.html`, the same app for the hosted preview).
+Without a server (author's computer only): `npm run build:single` writes `dist-single/ev-range.html`, a single
+file you can open directly in a browser (and `dist-single/artifact.html`, the same app for the hosted preview).
 
 ## Edit the data
 
@@ -114,8 +116,8 @@ On Compare the car list is the left column; on the other pages the **Cars** butt
 | `npm run dev` | Development server with hot reload |
 | `npm test` | Engine tests (Vitest): physics, onboard measurements, spreadsheet fixes, average consumption, cost of ownership, hills, driving style, standard inputs, car list, sources |
 | `npm run build` | Type check + production build into `dist/` |
-| `npm run build:single` | One self-contained HTML file in `dist-single/` |
-| `npm run import-ods` | Re-import from `~/Documents/Tools/EV Calculations.ods` (never overwrites existing data files without `--force`) |
+| `npm run build:single` | One self-contained HTML file in `dist-single/` (author's computer only) |
+| `npm run import-ods` | Re-import from the author's `EV Calculations.ods` (author's computer only; never overwrites existing data files without `--force`) |
 | `python3 -I scripts/build_reference_data.py` | Rebuild the test-cycle and battery tables from their published sources |
 
 ## How the model works
@@ -227,7 +229,7 @@ src/content/           reads content/ (a small, safe Markdown subset)
 src/state/             app state (Zustand), saved settings, car list, the engine provider
 src/components, pages/ the UI (React)
 tests/                 Vitest tests (see Scripts)
-scripts/               ods_to_csv.py, build_reference_data.py, inline_build.mjs
+scripts/               build_reference_data.py (ods_to_csv.py, inline_build.mjs: author's computer only)
 docs/model.md          the model in detail, with sources
 docs/logo/logo.svg     the logo (bolt in front of a tyre); same drawing as src/components/Logo.tsx and the favicon
 ```
