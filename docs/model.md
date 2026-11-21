@@ -36,7 +36,10 @@ Over `years` of use and `km = years × km per year`, in the display currency (`s
 - Tyres: `km ÷ life × set price` with `life = tyre life × reference mass ÷ (curb weight + load)`: tread wear grows
   about in proportion to the load (KIT review); the reference is 1,500 kg. Premium cars use the premium set; a car's
   `tyre_set_price` replaces it. Counting the tread worn (not whole sets) gives each car the cost of its own wear.
-- Total = price − V(years) + all running costs; per km = total ÷ km. A battery replacement is not included.
+- Your extras (user request 2026-11-21): `upfront + per year × years + at the end`, the user's own amounts per
+  powertrain (+ cost, − credit; standard 0), added as they are: they do not change the price that insurance, repairs
+  and V(t) are worked out from.
+- Total = price − V(years) + all running costs + your extras; per km = total ÷ km. A battery replacement is not included.
 
 Each test has its own inputs and its own Conditions (user request 20 Nov 2026); the standard values are in
 `data/standard.csv`. The engine builds one car model per test (tests with equal conditions share one) with one

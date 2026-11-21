@@ -47,13 +47,19 @@ function hoverProps(tt: Tooltip, tip: ReactNode, onClick?: () => void) {
 
 const partsTotal = (parts: number[]) => parts.reduce((s, v) => s + (Number.isFinite(v) ? Math.max(0, v) : 0), 0);
 
-/** Stacked segments with a 2px surface gap; the last one gets the rounded data end. */
-function Segments({ parts, series, widthPct }: { parts: number[]; series: StackSeries[]; widthPct: number }) {
+/**
+ * Stacked segments with a 2px surface gap; the last one gets the rounded data end. `credit` (≥ 0, same unit as the
+ * parts) is money back: hatched over the end of the bar, so the solid part ends at the net total.
+ */
+function Segments({ parts, series, widthPct, credit = 0 }: { parts: number[]; series: StackSeries[]; widthPct: number; credit?: number }) {
+  const total = partsTotal(parts);
+  const creditPct = credit > 0 && total > 0 ? Math.min(100, (credit / total) * 100) : 0;
   return (
     <div className="segs" style={{ width: `${widthPct}%` }}>
       {parts.map((v, k) =>
         v > 0 && Number.isFinite(v) ? <span key={series[k].key} style={{ flex: `${v} 0 0`, background: series[k].color, minWidth: 1 }} /> : null,
       )}
+      {creditPct > 0 && <i className="credit" style={{ width: `${creditPct}%` }} />}
     </div>
   );
 }
@@ -258,23 +264,33 @@ export interface StackedRow {
   end: ReactNode;
   tip: ReactNode;
   onClick?: () => void;
+  /** Money back (≥ 0), drawn hatched over the end of the bar; `creditLabel` names it in the legend. */
+  credit?: number;
 }
 
 /** Horizontal stacked bars: 2px surface gap between parts, legend above, total at the bar end. */
-export function StackedRows({ rows, series, side }: { rows: StackedRow[]; series: StackSeries[]; side?: SideColumn }) {
+export function StackedRows({ rows, series, side, creditLabel = 'Credits' }: { rows: StackedRow[]; series: StackSeries[]; side?: SideColumn; creditLabel?: string }) {
   const tt = useTooltip();
   const totals = rows.map((r) => partsTotal(r.parts));
   const max = Math.max(1e-9, ...totals) * 1.02;
   const smax = sideMax(side);
+  const credits = rows.some((r) => (r.credit ?? 0) > 0);
+  const legend = (
+    <>
+      <LegendItems series={series} />
+      {credits && (
+        <span>
+          <i className="credit" />
+          {creditLabel}
+        </span>
+      )}
+    </>
+  );
   return (
     <div className="stack" style={{ gap: 10 }}>
-      {!side && (
-        <div className="legend">
-          <LegendItems series={series} />
-        </div>
-      )}
+      {!side && <div className="legend">{legend}</div>}
       <div className={`bars ${side ? 'paired' : ''}`} role="list">
-        {side && <HeadRow main={<LegendItems series={series} />} side={side} />}
+        {side && <HeadRow main={legend} side={side} />}
         {rows.map((r, i) => (
           <div key={r.id} className="row-hit" role="listitem">
             <span className="label">{r.label}</span>
@@ -283,7 +299,7 @@ export function StackedRows({ rows, series, side }: { rows: StackedRow[]; series
               aria-label={`${r.label}: ${series.map((s, k) => `${s.label} ${r.parts[k].toFixed(1)}`).join(', ')}`}
               {...hoverProps(tt, r.tip, r.onClick)}
             >
-              <Segments parts={r.parts} series={series} widthPct={(totals[i] / max) * 100} />
+              <Segments parts={r.parts} series={series} widthPct={(totals[i] / max) * 100} credit={r.credit} />
             </div>
             <span className="value">{r.end}</span>
             {side && <SideCells side={side} id={r.id} max={smax} tt={tt} onClick={r.onClick} />}

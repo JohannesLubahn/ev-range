@@ -109,6 +109,12 @@ cost,battery12vYears,,,years,Blank = the market's value (data/markets/<id>/costs
 cost,depreciationBev,,,% per year,"Blank = the market's value (data/markets/<id>/costs.csv: depreciation_pct, BEV)"
 cost,depreciationIce,,,% per year,"Blank = the market's value (data/markets/<id>/costs.csv: depreciation_pct, ICE)"
 cost,roadTaxPerYear,,,per year,"Blank = the market's road-tax table (data/markets/<id>/road_tax.csv). Only for a market without a table: the road tax per year you type"
+cost,extraUpfrontBev,0,,once,"Your own extra cost (+) or credit (−) at purchase, electric cars, on top of all other costs (fees, rebates, second-hand deals); 0 = none (your choice 2026-11-21). Back to 0 when the market changes"
+cost,extraUpfrontIce,0,,once,"Your own extra cost (+) or credit (−) at purchase, petrol cars; 0 = none (your choice 2026-11-21)"
+cost,extraYearlyBev,0,,per year,"Your own extra cost (+) or credit (−) every year of use, electric cars; 0 = none (your choice 2026-11-21)"
+cost,extraYearlyIce,0,,per year,"Your own extra cost (+) or credit (−) every year of use, petrol cars; 0 = none (your choice 2026-11-21)"
+cost,extraEndBev,0,,once,"Your own extra cost (+) or credit (−) at the end of the years of use, electric cars; 0 = none (your choice 2026-11-21)"
+cost,extraEndIce,0,,once,"Your own extra cost (+) or credit (−) at the end of the years of use, petrol cars; 0 = none (your choice 2026-11-21)"
 cost,ascentPer100Km,300,0,m,Your setup (2026-11-21); was 0: Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
 cost,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
 cost,airTemperatureC,35,,°C,Your setup (2026-11-21); was 25 (the all row)

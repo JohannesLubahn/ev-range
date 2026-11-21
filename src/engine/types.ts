@@ -249,6 +249,17 @@ export interface CostInputs extends LifeDriving {
   depreciationIce: number | null;
   /** Road tax per year typed by the user for a market without a road-tax table (null = the market's table). */
   roadTaxPerYear: number | null;
+  /**
+   * The user's own extra costs (+) or credits (−) on top of everything else, electric / petrol cars (user request
+   * 2026-11-21: fees, rebates, second-hand deals): once at purchase, every year of use, once at the end. They do not
+   * change the price that insurance, repairs and the loss of value are worked out from. 0 = none.
+   */
+  extraUpfrontBev: number;
+  extraUpfrontIce: number;
+  extraYearlyBev: number;
+  extraYearlyIce: number;
+  extraEndBev: number;
+  extraEndIce: number;
 }
 
 export interface Scenario {
@@ -353,7 +364,7 @@ export interface BatteryLifeResult {
 }
 
 /** The parts of the cost of ownership, in the order of the chart. */
-export type CostPartKey = 'depreciation' | 'energy' | 'insurance' | 'tax' | 'servicing' | 'tyres';
+export type CostPartKey = 'depreciation' | 'energy' | 'insurance' | 'tax' | 'servicing' | 'tyres' | 'extras';
 
 export interface CostPart {
   key: CostPartKey;
@@ -367,13 +378,18 @@ export interface CostResult {
   purchase: number | null;
   /** Value of the car at the end of the years of use. */
   resale: number | null;
-  /** Depreciation, energy, insurance, tax, servicing & repairs, tyres. */
+  /** Depreciation, energy, insurance, tax, servicing & repairs, tyres, the user's extras. */
   parts: CostPart[];
   /** Null when the electricity price is missing in the market's data. */
   energyCost: number | null;
-  /** Everything except the purchase and resale (null when a value is missing in the market's data). */
+  /**
+   * Everything except the purchase, the resale and the user's extras (null when a value is missing in the market's
+   * data).
+   */
   runningCost: number | null;
-  /** Purchase − resale + running costs (null without a price or with a value missing in the market's data). */
+  /** The user's extra costs (+) and credits (−) over the years of use: upfront + yearly × years + at the end. */
+  extras: number;
+  /** Purchase − resale + running costs + extras (null without a price or with a value missing in the market's data). */
   tco: number | null;
   /** Values the market's data lacks for this car (the user can type them on the Cost of ownership page). */
   missing: string[];

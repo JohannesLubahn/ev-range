@@ -185,8 +185,26 @@ export const PART_LABELS: Record<CostPartKey, string> = {
   tax: 'Road tax',
   servicing: 'Servicing & repairs',
   tyres: 'Tyres',
+  extras: 'Your extras',
 };
-export const PART_ORDER: CostPartKey[] = ['depreciation', 'energy', 'insurance', 'tax', 'servicing', 'tyres'];
+export const PART_ORDER: CostPartKey[] = ['depreciation', 'energy', 'insurance', 'tax', 'servicing', 'tyres', 'extras'];
+
+/**
+ * The user's extra costs (+) and credits (−) of one powertrain (Cost of ownership inputs): one line each for the
+ * purchase, the years of use and the end; none for a 0. Added as they are, after everything else.
+ */
+export function extraLines(ci: CostInputs, pt: Powertrain, years: number, cur: string): OwnershipLine[] {
+  const bev = pt === 'BEV';
+  const signed = (v: number) => `${v < 0 ? '−' : '+'}${thousands(Math.abs(v))} ${cur}`;
+  const upfront = bev ? ci.extraUpfrontBev : ci.extraUpfrontIce;
+  const yearly = bev ? ci.extraYearlyBev : ci.extraYearlyIce;
+  const end = bev ? ci.extraEndBev : ci.extraEndIce;
+  const lines: OwnershipLine[] = [];
+  if (upfront) lines.push({ part: 'extras', label: 'Your extra at purchase', value: upfront, formula: `${signed(upfront)} once (your input)` });
+  if (yearly) lines.push({ part: 'extras', label: 'Your extra per year', value: yearly * years, formula: `${signed(yearly)}/year (your input) × ${thousands(years)} years` });
+  if (end) lines.push({ part: 'extras', label: 'Your extra at the end', value: end, formula: `${signed(end)} once (your input)` });
+  return lines;
+}
 
 /**
  * Everything except the energy over `years` of use and `totalKm`: depreciation (purchase − value at the end),

@@ -146,6 +146,13 @@ Cars can override servicing (`maintenance_per_year`), insurance (`insurance_per_
 (`tyre_set_price`) and the energy price in their market's `offers.csv`. The electricity standard is the public DC price (7.5 THB/kWh in
 Thailand, 0.65 EUR/kWh in Germany); set it lower when you charge at home. A battery replacement is not included (user's choice).
 
+**Extra costs & credits** (user request 2026-11-21): three amounts of your own, added on top of everything else:
+once at purchase, every year of use, once at the end. + is a cost (a fee), − is money back (a rebate, credit or
+bonus); standard 0. With a petrol car ticked, electric and petrol cars get their own amounts. They do not change the
+price that insurance, repairs and the loss of value are worked out from. They are in the market's currency and go
+back to 0 when the market changes. The chart shows them as "Your extras"; net money back is hatched over the end of
+the bar.
+
 ## Inputs
 
 Every test keeps its own inputs: Traffic jam, No charger, Sprint, Long trip, Battery life and Cost of ownership

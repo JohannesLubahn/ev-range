@@ -1,6 +1,6 @@
 // The stress cases of the spreadsheet (Battery Sizing tab) and the cost of ownership, on top of the physics car model.
 import { toDisplayCurrency } from './assumptions';
-import { PART_ORDER, marketCosts, ownership, sumParts, type OwnershipLine } from './costs';
+import { PART_ORDER, extraLines, marketCosts, ownership, sumParts, type OwnershipLine } from './costs';
 import { kmUntilSoh, type AgeingResult } from './battery/ageing';
 import type { BatteryView, CarModel, HillEnergy, SegmentEnergy, SegmentSpec } from './model';
 import type { TerrainSpec } from './physics/terrain';
@@ -682,27 +682,37 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
     unitPrice === null
       ? { part: 'energy', label: 'Energy', value: null, missing: ['electricity price'], formula: "missing in the market's data: electricity price (type a value on this page)" }
       : { part: 'energy', label: 'Energy', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} ${u}/km × ${fx(totalKm, 0)} km`, value: energyCost };
-  const lines: OwnershipLine[] = [energyLine, ...own.lines];
+  const extras = extraLines(ci, d.isIce ? 'ICE' : 'BEV', ci.years, currency);
+  const lines: OwnershipLine[] = [energyLine, ...own.lines, ...extras];
   const missing = [...(energyLine.missing ?? []), ...own.missing];
   if (missing.length) warnings.push(`Missing in ${a.marketNames[a.costMarket] ?? a.costMarket}'s cost data: ${missing.join(', ')}. Type values on the Cost of ownership page`);
   const parts = sumParts(lines);
-  const running = parts.filter((p) => p.key !== 'depreciation');
+  const running = parts.filter((p) => p.key !== 'depreciation' && p.key !== 'extras');
   const runningCost = running.some((p) => p.value === null) ? null : running.reduce((sum, p) => sum + (p.value ?? 0), 0);
-  const tco = purchase === null || own.resale === null || runningCost === null ? null : purchase - own.resale + runningCost;
-  const partSteps = PART_ORDER.filter((k) => k !== 'depreciation').flatMap((k): Step[] => {
+  const extrasSum = extras.reduce((sum, l) => sum + (l.value ?? 0), 0);
+  const tco = purchase === null || own.resale === null || runningCost === null ? null : purchase - own.resale + runningCost + extrasSum;
+  const stepsOf = (k: (typeof PART_ORDER)[number]): Step[] => {
     const ls = lines.filter((l) => l.part === k);
     const part = parts.find((p) => p.key === k);
     const head: Step[] = ls.length > 1 ? [{ label: part?.label ?? k, formula: '', value: part?.value ?? null, unit: currency, kind: 'subtotal' }] : [];
     return [...head, ...ls.map((l): Step => ({ label: l.label, formula: l.formula, value: l.value, unit: currency }))];
-  });
+  };
+  const partSteps = PART_ORDER.filter((k) => k !== 'depreciation' && k !== 'extras').flatMap(stepsOf);
   const steps: Step[] = [
     { label: 'Purchase price', formula: d.car.currency !== currency && purchase !== null ? `${d.car.price} ${d.car.currency} converted` : '', value: purchase, unit: currency },
     { label: 'Value at the end', formula: lines.find((l) => l.part === 'depreciation')?.formula ?? '', value: own.resale, unit: currency },
     { label: 'Energy per km', formula: basisNote, value: energyPerKm, unit: `${u}/km` },
     ...partSteps,
     { label: 'Running costs', formula: 'energy + insurance + tax + servicing & repairs + tyres', value: runningCost, unit: currency, kind: 'subtotal' },
-    { label: 'Total cost of ownership', formula: 'purchase − value at the end + running costs', value: tco, unit: currency, kind: 'result' },
+    ...stepsOf('extras'),
+    {
+      label: 'Total cost of ownership',
+      formula: `purchase − value at the end + running costs${extras.length ? ' + your extras' : ''}`,
+      value: tco,
+      unit: currency,
+      kind: 'result',
+    },
     { label: 'Cost per km', formula: `÷ ${fx(totalKm, 0)} km`, value: tco === null ? null : tco / totalKm, unit: `${currency}/km`, kind: 'result' },
   ];
-  return { currency, purchase, resale: own.resale, parts, energyCost, runningCost, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings, missing };
+  return { currency, purchase, resale: own.resale, parts, energyCost, runningCost, extras: extrasSum, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings, missing };
 }

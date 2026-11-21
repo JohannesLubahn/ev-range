@@ -61,13 +61,14 @@ interface NumberFieldProps extends InputActions<number | null> {
   max: number;
   step?: number;
   /** Slider range can be narrower than the allowed number range. */
+  sliderMin?: number;
   sliderMax?: number;
   /** A short help line under the field (e.g. typical values). */
   hint?: string;
 }
 
 /** Label + slider + number input + unit, with ↺ / ⇉. The number input accepts any value in [min, max]. */
-export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMax, hint, reset, applyAll, spread }: NumberFieldProps) {
+export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMin, sliderMax, hint, reset, applyAll, spread }: NumberFieldProps) {
   const id = useId();
   const show = (v: number | null) => (v === null ? '' : String(v));
   const [text, setText] = useState(show(value));
@@ -88,10 +89,10 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
       <input
         type="range"
         aria-label={label}
-        min={min}
+        min={sliderMin ?? min}
         max={sliderMax ?? max}
         step={step}
-        value={Math.min(value ?? min, sliderMax ?? max)}
+        value={Math.max(sliderMin ?? min, Math.min(value ?? min, sliderMax ?? max))}
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <input

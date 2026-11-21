@@ -796,6 +796,10 @@ table {
   margin-right: 5px;
   vertical-align: -1px;
 }
+.legend i.credit {
+  background: repeating-linear-gradient(135deg, var(--ink-2) 0 1.5px, transparent 1.5px 3.5px);
+  box-shadow: inset 0 0 0 1px var(--ink-2);
+}
 .legend i.tick {
   width: 2px;
   height: 12px;
@@ -959,8 +963,18 @@ table {
 .bars .segs span {
   height: 100%;
 }
-.bars .segs span:last-child {
+.bars .segs span:last-of-type {
   border-radius: 0 4px 4px 0;
+}
+/* Money back (Cost of ownership: the user's credits): hatched over the end of the bar; the solid part is the net. */
+.bars .segs i.credit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  border-radius: 0 4px 4px 0;
+  background: repeating-linear-gradient(135deg, var(--surface) 0 2.5px, transparent 2.5px 5px);
+  box-shadow: inset 2px 0 0 var(--ink);
 }
 .bars .value {
   font-variant-numeric: tabular-nums;
@@ -1242,6 +1256,16 @@ table {
 }
 .input-group > .fields {
   padding: 2px 0 14px;
+}
+/* A group's explanation above its fields (Cost of ownership: what the extra costs and credits are). */
+.field-intro {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .assumption-subhead {
   margin: 18px 0 2px;

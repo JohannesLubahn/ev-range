@@ -279,3 +279,49 @@ describe('gaps: a market without cost data (user’s choice 2026-11-21: show the
     expect(ownership({ ...car, servicingPerYear: 5000 }, { ...std.cost, servicingBev: null }, 5, 75000, mc, 'THB').missing).toEqual([]);
   });
 });
+
+describe('extra costs and credits (user request 2026-11-21: on top of everything, + a cost, − money back)', () => {
+  const sc = standardScenario(ds, a);
+  const ids = ['byd-atto-3', 'honda-city'];
+  const base = run(sc, ids);
+  const extras = { extraUpfrontBev: 30_000, extraYearlyBev: -2_000, extraEndBev: 5_000, extraUpfrontIce: 0, extraYearlyIce: 1_000, extraEndIce: -10_000 };
+  const withExtras = run({ ...sc, cost: { ...sc.cost, ...extras } }, ids);
+  const years = sc.cost.years;
+
+  it('are 0 in the standard, in old saved scenarios and after switching the market', () => {
+    for (const k of Object.keys(extras) as (keyof typeof extras)[]) {
+      expect(sc.cost[k], k).toBe(0);
+      expect(marketCostInputs(a)[k], k).toBe(0);
+    }
+    const old: Partial<CostInputs> = { ...sc.cost };
+    delete old.extraUpfrontBev;
+    delete old.extraYearlyBev;
+    delete old.extraEndBev;
+    expect(withDefaults({ ...sc, cost: old as CostInputs }, ds, a).cost).toMatchObject({ extraUpfrontBev: 0, extraYearlyBev: 0, extraEndBev: 0 });
+    for (const id of ids) {
+      expect(base[id].cost.extras, id).toBe(0);
+      expect(base[id].cost.parts.find((p) => p.key === 'extras')?.value, id).toBe(0);
+      expect(base[id].cost.steps.some((s) => s.label.startsWith('Your extra')), id).toBe(false);
+    }
+  });
+  it('add to the total as they are, electric and petrol apart, without changing the other parts', () => {
+    const bev = withExtras['byd-atto-3'].cost;
+    const ice = withExtras['honda-city'].cost;
+    expect(bev.extras).toBeCloseTo(30_000 - 2_000 * years + 5_000, 6);
+    expect(ice.extras).toBeCloseTo(1_000 * years - 10_000, 6);
+    for (const id of ids) {
+      const b = base[id].cost;
+      const c = withExtras[id].cost;
+      expect(c.tco, id).toBeCloseTo((b.tco ?? NaN) + c.extras, 6);
+      expect(c.runningCost, id).toBe(b.runningCost);
+      expect(c.resale, id).toBe(b.resale);
+      for (const k of ['depreciation', 'insurance', 'servicing'] as const) expect(c.parts.find((p) => p.key === k)?.value, `${id} ${k}`).toBe(b.parts.find((p) => p.key === k)?.value);
+    }
+    expect(bev.steps.filter((s) => s.label.startsWith('Your extra') && s.kind !== 'subtotal').map((s) => s.formula)).toEqual([
+      '+30,000 THB once (your input)',
+      `−2,000 THB/year (your input) × ${years} years`,
+      '+5,000 THB once (your input)',
+    ]);
+    expect(bev.steps.find((s) => s.label === 'Total cost of ownership')?.formula).toBe('purchase − value at the end + running costs + your extras');
+  });
+});

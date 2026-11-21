@@ -47,6 +47,16 @@ const market = (min: number, max: number, item: CostItem, pt: Powertrain = 'BEV'
  */
 const ROAD_TAX_TYPED = n(0, 1_000_000, () => null);
 marketKinds.add(ROAD_TAX_TYPED);
+/**
+ * The user's extra cost (+) or credit (−), standard 0. It is in the market's currency, so switching the market sets it
+ * back to 0 like the market values.
+ */
+const EXTRA_LIMIT = 1_000_000_000;
+const extra = (): InputKind => {
+  const k = n(-EXTRA_LIMIT, EXTRA_LIMIT, () => 0);
+  marketKinds.add(k);
+  return k;
+};
 const CABIN: InputKind = { type: 'cabin' };
 /** Hills: altitude change start → finish, total climb, typical slope (blank = assumption hill_slope_default_pct). */
 const SLOPE = n(0.5, 20, (a) => a.hillSlopeDefaultPct);
@@ -126,6 +136,12 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
     depreciationBev: market(0, 50, 'depreciation_pct', 'BEV'),
     depreciationIce: market(0, 50, 'depreciation_pct', 'ICE'),
     roadTaxPerYear: ROAD_TAX_TYPED,
+    extraUpfrontBev: extra(),
+    extraUpfrontIce: extra(),
+    extraYearlyBev: extra(),
+    extraYearlyIce: extra(),
+    extraEndBev: extra(),
+    extraEndIce: extra(),
   },
 };
 

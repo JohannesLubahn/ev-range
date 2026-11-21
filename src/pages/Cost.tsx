@@ -17,6 +17,27 @@ import { InputsPanel } from './StressTests';
 const SERIES: StackSeries[] = PART_ORDER.map((key, i) => ({ key, label: PART_LABELS[key], color: `var(--series-${i + 1})` }));
 const COLOR: Record<CostPartKey, string> = Object.fromEntries(SERIES.map((s) => [s.key, s.color])) as Record<CostPartKey, string>;
 
+/** The user's extra cost inputs: at purchase, per year, at the end; electric / petrol. */
+const EXTRA_KEYS = ['extraUpfrontBev', 'extraUpfrontIce', 'extraYearlyBev', 'extraYearlyIce', 'extraEndBev', 'extraEndIce'] as const;
+
+/** A round number ≥ x: 1, 2 or 5 × 10ⁿ. */
+function niceCeil(x: number): number {
+  if (!(x > 0)) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(x)));
+  return [1, 2, 5, 10].map((k) => k * p).find((v) => v >= x * (1 - 1e-9)) ?? 10 * p;
+}
+
+/** The middle value (null for none). */
+function median(xs: number[]): number | null {
+  if (xs.length === 0) return null;
+  const s = [...xs].sort((x, y) => x - y);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/** "+20 k", "−5,000": a signed amount, compact. */
+const signed = (v: number) => `${v < 0 ? '−' : '+'}${compact(Math.abs(v))}`;
+
 /**
  * A collapsible group of inputs; the summary line shows the main values and whether any differs from the standard.
  * A group with a value the market's data lacks (`gap`) starts open and says so.
@@ -53,7 +74,7 @@ function Group({
 
 /** Cost of ownership: purchase − value at the end, energy, insurance, tax, servicing and tyres over the years of use. */
 export function CostPage() {
-  const { scenario, out, selectedIds, derivedById, a, stale } = useEngine();
+  const { scenario, out, selectedIds, shownIds, derivedById, a, stale } = useEngine();
   const { trip, setTrip } = useInputs('cost');
   const openDrawer = useStore((s) => s.openDrawer);
   const cur = a.displayCurrency;
@@ -73,13 +94,22 @@ export function CostPage() {
   const gapItems = [...new Set(ids.flatMap((id) => out.results[id].cost.missing))];
   const name = (id: string) => derivedById[id].car.name;
   const part = (id: string, key: CostPartKey) => out.results[id].cost.parts.find((p) => p.key === key)?.value ?? null;
+  /**
+   * The extras column only shows once a ticked car has extras; the chart's extras part once one has a net extra cost
+   * (net money back is hatched over the end of the bar instead).
+   */
+  const anyExtras = ids.some((id) => out.results[id].cost.extras !== 0);
+  const parts = PART_ORDER.filter((k) => k !== 'extras' || anyExtras);
+  const chartParts = PART_ORDER.filter((k) => k !== 'extras' || ids.some((id) => out.results[id].cost.extras > 0));
+  const series = SERIES.filter((s) => chartParts.includes(s.key as CostPartKey));
 
   const rows: StackedRow[] = priced.map((id) => {
     const r = out.results[id].cost;
     return {
       id,
       label: name(id),
-      parts: PART_ORDER.map((k) => Math.max(0, part(id, k) ?? 0)),
+      parts: chartParts.map((k) => Math.max(0, part(id, k) ?? 0)),
+      credit: Math.max(0, -r.extras),
       end: (
         <span>
           {fixed(r.costPerKm, 2)} <span className="faint">{cur}/km</span>
@@ -89,7 +119,7 @@ export function CostPage() {
         <TipLines
           title={name(id)}
           lines={[
-            ...PART_ORDER.map((k) => ({ color: COLOR[k], value: money(part(id, k), cur), label: PART_LABELS[k].toLowerCase() })),
+            ...parts.map((k) => ({ color: COLOR[k], value: money(part(id, k), cur), label: PART_LABELS[k].toLowerCase() })),
             { value: `${money(r.purchase, cur)} → ${money(r.resale, cur)}`, label: 'purchase → value at the end' },
             { value: money(r.tco, cur), label: 'total' },
           ]}
@@ -108,6 +138,33 @@ export function CostPage() {
   const gap = (k: keyof CostInputs) =>
     c[k] === null && (k.endsWith('Ice') ? anyIce : k === 'tyreSetPremium' ? anyPremium : k === 'roadTaxPerYear' ? taxGap : true);
 
+  // Extra costs and credits: the sliders span about half the middle price of the market's cars (a year: 5 %), so they
+  // fit any currency; any amount can be typed.
+  const typical = median(shownIds.map((id) => derivedById[id].priceDisplay.value).filter((v): v is number => v !== null && v > 0)) ?? 0;
+  const once = niceCeil(typical * 0.5);
+  const yearly = niceCeil(typical * 0.05);
+  const stepOf = (range: number) => Math.max(1, Math.pow(10, Math.floor(Math.log10(range / 100))));
+  const extrasOf = (up: number, year: number, end: number) =>
+    [up && `${signed(up)} at purchase`, year && `${signed(year)}/year`, end && `${signed(end)} at the end`].filter(Boolean).join(' · ');
+  const extrasBev = extrasOf(c.extraUpfrontBev, c.extraYearlyBev, c.extraEndBev);
+  const extrasIce = extrasOf(c.extraUpfrontIce, c.extraYearlyIce, c.extraEndIce);
+  const extrasSummary =
+    !extrasBev && !(anyIce && extrasIce) ? 'none yet: add a fee, rebate or credit' : anyIce ? `electric ${extrasBev || 'none'} · petrol ${extrasIce || 'none'}` : extrasBev;
+  const extraField = (key: (typeof EXTRA_KEYS)[number], label: string, unit: string, range: number, hint?: string) => (
+    <NumberField
+      key={key}
+      label={`${label}${anyIce ? (key.endsWith('Ice') ? ', petrol' : ', electric') : ''} (${cur})`}
+      unit={unit}
+      min={-1_000_000_000}
+      max={1_000_000_000}
+      sliderMin={-range}
+      sliderMax={range}
+      step={stepOf(range)}
+      hint={hint}
+      {...trip<number>(key)}
+    />
+  );
+
   return (
     <div className="stack">
       <div className="page-head">
@@ -115,7 +172,7 @@ export function CostPage() {
           <h1>Cost of ownership</h1>
           <p className="muted">
             What the car costs over the years you keep it, in {cur}: the value it loses, energy, insurance, road tax, servicing and repairs, and
-            tyres. Select a bar or a row for the full calculation.
+            tyres, plus any extra costs or credits of your own. Select a bar or a row for the full calculation.
           </p>
         </div>
         <div className="row">
@@ -217,6 +274,23 @@ export function CostPage() {
                   {c.depreciationBev !== null && ` After ${num(c.years, 0)} years an electric car keeps ${num(100 * Math.pow(1 - c.depreciationBev / 100, c.years), 0)} % of its price.`}
                 </p>
               </Group>
+              <Group gap={gap} title="Extra costs & credits" summary={extrasSummary} keys={[...EXTRA_KEYS]}>
+                <p className="field-intro">
+                  Your own amounts, <b>added on top of</b> all the costs above. Use <b>+</b> for a cost (a fee, a charge) and <b>−</b> for money
+                  back (a rebate, a credit, a bonus); 0 = none. Each amount counts for every ticked {anyIce ? 'electric car, the petrol ones for every petrol car' : 'car'}.
+                  They do not change the price that insurance, repairs and the loss of value are worked out from.
+                </p>
+                {extraField('extraUpfrontBev', 'At purchase', '', once, 'Once, on top of the price: e.g. registration or delivery (+), a purchase rebate or subsidy (−).')}
+                {anyIce && extraField('extraUpfrontIce', 'At purchase', '', once)}
+                {extraField('extraYearlyBev', 'Every year', '/year', yearly, 'Each year of use: e.g. parking or a charging subscription (+), a tax credit or an allowance (−).')}
+                {anyIce && extraField('extraYearlyIce', 'Every year', '/year', yearly)}
+                {extraField('extraEndBev', 'At the end', '', once, 'Once, when you sell or scrap the car: e.g. a disposal fee (+), a scrappage bonus or a buy-back above the value at the end (−).')}
+                {anyIce && extraField('extraEndIce', 'At the end', '', once)}
+                <p className="faint">
+                  They are in {cur} and go back to 0 when you switch the market. In the results they show as &ldquo;{PART_LABELS.extras}&rdquo;; money
+                  back is hatched over the end of the bar.
+                </p>
+              </Group>
             </div>
           </InputsPanel>
           <ConditionsPanel test="cost" />
@@ -226,7 +300,7 @@ export function CostPage() {
             <p className="muted">No cars selected (Compare → Cars).</p>
           ) : (
             <>
-              <StackedRows rows={rows} series={SERIES} />
+              <StackedRows rows={rows} series={series} creditLabel="Your credits (money back)" />
               {gapItems.length > 0 && (
                 <p className="notice">
                   {a.marketNames[mc.market] ?? mc.market}&rsquo;s cost data lacks: {gapItems.join(', ')}. Type values in the inputs marked
@@ -235,8 +309,8 @@ export function CostPage() {
               )}
               {noPrice.length > 0 && <p className="faint">No price in the market&rsquo;s offers.csv: {noPrice.map(name).join(', ')}</p>}
               <p className="faint">
-                Totals over {num(c.years, 0)} years and {compact(c.years * c.kmPerYear)} km in {cur}: purchase − value at the end + running costs. The
-                bar ends show the cost per km.
+                Totals over {num(c.years, 0)} years and {compact(c.years * c.kmPerYear)} km in {cur}: purchase − value at the end + running costs
+                {anyExtras && ' + your extras'}. The bar ends show the cost per km.
               </p>
               <div className="table-scroll">
                 <table className="data-table">
@@ -245,7 +319,7 @@ export function CostPage() {
                       <th>Car</th>
                       <th className="r">Purchase</th>
                       <th className="r">Value at the end</th>
-                      {PART_ORDER.map((k) => (
+                      {parts.map((k) => (
                         <th key={k} className="r">
                           {PART_LABELS[k]}
                         </th>
@@ -270,7 +344,7 @@ export function CostPage() {
                           </td>
                           <td className="r">{compact(r.purchase)}</td>
                           <td className="r">{compact(r.resale)}</td>
-                          {PART_ORDER.map((k) => (
+                          {parts.map((k) => (
                             <td key={k} className="r">
                               {compact(part(id, k))}
                             </td>
