@@ -6,33 +6,47 @@ import { ScoreCards, ScoreTable, sortIds } from '../components/ScoreTable';
 import { useNarrow } from '../components/useNarrow';
 import { EMBEDDED } from '../embedded';
 import { useEngine } from '../state/engine';
-import { shareLink, useStore } from '../state/store';
+import { shareCode, shareLink, useStore } from '../state/store';
 
+/**
+ * Share link: copies a link that opens the app with these settings. Inside a hosted preview a link to the frame does
+ * not work, so the button copies a settings code instead (the same text as the link's "?s=" part).
+ * If copying is blocked, the link or code stays in a text box to copy by hand.
+ */
 export function ShareButton() {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [link, setLink] = useState('');
+  const what = EMBEDDED ? 'Settings code' : 'Link';
   return (
     <span className="row" style={{ gap: 6 }}>
       <button
         type="button"
         className="btn"
         onClick={async () => {
-          const url = shareLink();
-          setLink(url);
+          const text = EMBEDDED ? shareCode() : shareLink();
+          setLink(text);
           try {
-            await navigator.clipboard.writeText(url);
+            await navigator.clipboard.writeText(text);
             setState('copied');
+            window.setTimeout(() => setState((s) => (s === 'copied' ? 'idle' : s)), 4000);
           } catch {
             setState('failed');
           }
-          window.setTimeout(() => setState('idle'), 4000);
         }}
       >
-        <IconLink /> Share link
+        <IconLink /> {EMBEDDED ? 'Copy settings' : 'Share link'}
       </button>
-      {state === 'copied' && <span className="faint">Link copied</span>}
+      {state === 'copied' && <span className="faint">{what} copied</span>}
       {state === 'failed' && (
-        <input type="text" readOnly value={link} aria-label="Share link" onFocus={(e) => e.currentTarget.select()} style={{ width: 200 }} />
+        <input
+          type="text"
+          readOnly
+          value={link}
+          aria-label={what}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ width: 200 }}
+        />
       )}
     </span>
   );
@@ -75,7 +89,7 @@ export function ComparePage() {
             {stacked && <CarsButton />}
             <PresetPicker />
             <span className="spacer" />
-            {!EMBEDDED && <ShareButton />}
+            <ShareButton />
             {!narrow && (
               <div className="segmented" role="group" aria-label="Layout">
                 <button type="button" aria-pressed={layout === 'table'} onClick={() => setLayout('table')}>

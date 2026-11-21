@@ -289,7 +289,8 @@ function fromBase64Url(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
 }
 
-export function shareLink(): string {
+/** The settings a share link carries, as one URL-safe text (the "?s=" part). */
+export function shareCode(): string {
   const s = useStore.getState();
   const shared: SharedState = {
     scenario: s.scenario,
@@ -299,8 +300,12 @@ export function shareLink(): string {
     fxOverrides: s.fxOverrides,
     market: s.market,
   };
+  return toBase64Url(JSON.stringify(shared));
+}
+
+export function shareLink(): string {
   const url = new URL(window.location.href);
-  url.search = `?s=${toBase64Url(JSON.stringify(shared))}`;
+  url.search = `?s=${shareCode()}`;
   return url.toString();
 }
 
