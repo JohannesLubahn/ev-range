@@ -85,4 +85,33 @@ describe('petrol engine', () => {
       expect(atMax.margin, id).toBeCloseTo(0, 3);
     }
   });
+
+  it('is calibrated on the measured drives of data/real_world_fuel.csv, each with sources in sources.csv', () => {
+    const ids = new Set(ds.sources.map((x) => x.id));
+    expect(ds.loadWarnings.filter((w) => w.startsWith('real_world_fuel.csv'))).toEqual([]);
+    for (const r of ds.realWorldFuel) {
+      expect(r.sources.length, r.label).toBeGreaterThan(0);
+      for (const id of r.sources) expect(ids.has(id), id).toBe(true);
+    }
+    for (const id of ICE) {
+      const cal = setup(id).m.calibration();
+      expect(cal.cycle, id).toBe('real-world');
+      // Every drive within 7 % (one unknown η; the Honda City has one drive, reproduced exactly).
+      for (const x of cal.realWorld!.drives) expect(Math.abs(x.modelL100 / x.row.lPer100Km - 1), `${id} ${x.row.label}`).toBeLessThan(0.07);
+    }
+    const city = setup('honda-city').m.calibration().realWorld!;
+    expect(city.drives[0].modelL100).toBeCloseTo(city.drives[0].row.lPer100Km, 6);
+    // The official NEDC value (4.41) is a lab value: on the road the City uses more, so the model on NEDC is higher.
+    expect(city.ratedModelL100).toBeGreaterThan(city.ratedL100 * 1.05);
+  });
+
+  it('cuts the fuel off while slowing down (no idle fuel then), but idles all the time standing in the jam', () => {
+    const { m } = setup('vw-golf-15-tsi');
+    const town = m.segment({ label: 'town', distanceKm: 10, speedKmh: 50, profile: 'city', cabinC: null });
+    expect(town.fuelCutShare).toBeGreaterThan(0.1);
+    expect(town.idleKwh).toBeCloseTo(m.idleFuelLph * town.timeH * (1 - town.fuelCutShare), 9);
+    const jam = m.segment({ label: 'jam', distanceKm: 0.5, timeH: 1, profile: 'jam', cabinC: null });
+    expect(jam.fuelCutShare).toBe(0);
+    expect(jam.idleKwh).toBeCloseTo(m.idleFuelLph, 9);
+  });
 });

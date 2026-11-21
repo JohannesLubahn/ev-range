@@ -1,5 +1,5 @@
 // The energy model of one car: segment energies from the physics and the battery view (chemistry or ideal).
-import type { Dataset } from '../data/types';
+import type { Dataset, RealWorldFuelRow } from '../data/types';
 import type { DataFlag, DerivedCar } from './derive';
 import { ageBattery, calendarCareFactor, careParams, cycleWearFactor, type AgeingInput, type AgeingResult } from './battery/ageing';
 import { Pack } from './battery/pack';
@@ -61,8 +61,10 @@ export interface SegmentEnergy {
   avgSpeedKmh: number;
   /** Driving energy from the battery terminals (kWh, or litres for ICE incl. idling). */
   driveKwh: number;
-  /** Petrol car: fuel of the engine idling over the segment's time (litres, part of driveKwh); 0 for electric cars. */
+  /** Petrol car: fuel of the engine idling over the segment's time without the fuel cut-off (litres, part of driveKwh); 0 for electric cars. */
   idleKwh: number;
+  /** Petrol car: share of the time the fuel is cut off (the car slowing down). */
+  fuelCutShare: number;
   onboard: OnboardPower;
   /** Onboard energy: power × time, plus the cabin start energy on the first segment of a trip. */
   onboardKwh: number;
@@ -127,6 +129,19 @@ export interface Calibration {
   /** Test-cycle energies (kWh/km) used for the calibration. */
   ratedBatteryPerKm: number;
   note: string;
+  /**
+   * Petrol car calibrated on measured drives (data/real_world_fuel.csv): each drive measured and as the model gives it
+   * with the fitted η (l/100 km), and the model on the official test cycle against the rated value. Null otherwise.
+   */
+  realWorld?: { drives: { row: RealWorldFuelRow; modelL100: number }[]; ratedL100: number; ratedModelL100: number } | null;
+}
+
+/** Shaft work and idle fuel of one measured drive, per km (petrol calibration). */
+interface DriveWork {
+  /** Work at the wheels + electrics via the alternator + AC compressor (kWh/km). */
+  workPerKm: number;
+  /** Idle fuel (l/km). */
+  idlePerKm: number;
 }
 
 export interface ModelContext {
@@ -236,6 +251,7 @@ export class CarModel {
       etaRegen: this.d.isIce ? 0 : a.regenEfficiencyPct / 100,
       regenMaxDecelMs2: a.regenMaxDecelMs2,
       regenMinKmh: a.regenMinKmh,
+      fuelCutMinKmh: this.d.isIce ? a.fuelCutMinKmh : undefined,
     };
   }
 
@@ -293,7 +309,7 @@ export class CarModel {
       posPerKm += (weight * sim.wheelPosKwh) / sim.distanceKm;
       rest += (weight * (auxKw * (sim.timeS / 3600) - sim.regenKwh)) / sim.distanceKm;
       avgSpeedKmh += weight * (sim.distanceKm / (sim.timeS / 3600));
-      idlePerKm += (weight * this.idleFuelLph * (sim.timeS / 3600)) / sim.distanceKm;
+      idlePerKm += (weight * this.idleFuelLph * ((sim.timeS - sim.fuelCutS) / 3600)) / sim.distanceKm;
       iceAuxPerKm += (weight * iceAuxKw * (sim.timeS / 3600)) / sim.distanceKm;
     }
     if (posPerKm <= 0) {
@@ -302,6 +318,8 @@ export class CarModel {
     if (d.isIce) {
       const ratedL = rated * labFactor;
       const lhv = a.petrolEnergyKwhPerL;
+      const drives = ds.realWorldFuel.filter((r) => r.carId === d.car.id);
+      if (drives.length) return (this.shared.calibration = this.realWorldCalibration(drives, ratedL, posPerKm + iceAuxPerKm, idlePerKm));
       let eta = (posPerKm + iceAuxPerKm) / (ratedL - idlePerKm);
       // Marginal efficiency fuel → wheels: about 30–38 % for petrol engines; outside 15–45 % the data do not fit.
       const share = eta / lhv;
@@ -333,6 +351,67 @@ export class CarModel {
       ? `${d.calibrationCycle} consumption would need a drivetrain efficiency of ${Number.isFinite(raw) && raw > 0 ? `${(raw * 100).toFixed(0)} %` : 'over 100 %'} with this weight, Cd and frontal area - limited to ${(eta * 100).toFixed(0)} %. Check the consumption (is it really ${d.calibrationCycle}?), weight and Cd`
       : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}`;
     return (this.shared.calibration = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
+  }
+
+  /**
+   * Petrol car with measured drives: replays each drive (its cycle phases or profile, load, air and AC) and fits the
+   * one unknown η (kWh at the wheels per litre beyond idling) by least squares on the litres per km:
+   * fuel_i = idle_i + work_i ÷ η  →  1/η = Σ work_i·(fuel_i − idle_i) ÷ Σ work_i².
+   */
+  private realWorldCalibration(rows: RealWorldFuelRow[], ratedL: number, ratedWorkPerKm: number, ratedIdlePerKm: number): Calibration {
+    const a = this.ctx.a;
+    const lhv = a.petrolEnergyKwhPerL;
+    const work = rows.map((r) => this.driveWork(r));
+    let num = 0;
+    let den = 0;
+    rows.forEach((r, i) => {
+      num += work[i].workPerKm * (r.lPer100Km / 100 - work[i].idlePerKm);
+      den += work[i].workPerKm ** 2;
+    });
+    let eta = num > 0 ? den / num : NaN;
+    const share = eta / lhv;
+    const clamped = !Number.isFinite(eta) || share > 0.45 || share < 0.15;
+    if (clamped) eta = clamp(Number.isFinite(eta) && eta > 0 ? eta : 0.3 * lhv, 0.15 * lhv, 0.45 * lhv);
+    const l100 = (w: DriveWork) => (w.idlePerKm + w.workPerKm / eta) * 100;
+    const drives = rows.map((row, i) => ({ row, modelL100: l100(work[i]) }));
+    const ratedModelL100 = l100({ workPerKm: ratedWorkPerKm, idlePerKm: ratedIdlePerKm });
+    const fit = drives.map((x) => `${x.row.label} ${x.row.lPer100Km.toFixed(1)} → ${x.modelL100.toFixed(1)}`).join('; ');
+    const note = clamped
+      ? `the measured drives would need ${Number.isFinite(share) && share > 0 ? `${(share * 100).toFixed(0)} %` : 'an impossible share'} of the fuel energy at the wheels beyond idling - limited to ${((eta / lhv) * 100).toFixed(0)} %. Check data/real_world_fuel.csv`
+      : `${eta.toFixed(2)} kWh at the wheels per litre beyond idling (${(share * 100).toFixed(0)} % of the fuel energy), fitted to ${rows.length} measured drive${rows.length > 1 ? 's' : ''} (l/100 km measured → model: ${fit}); official ${this.d.calibrationCycle} ${(ratedL * 100).toFixed(2)} → model ${ratedModelL100.toFixed(2)}`;
+    return {
+      etaDrive: eta,
+      cycle: 'real-world',
+      clamped,
+      ratedBatteryPerKm: ratedL,
+      note,
+      realWorld: { drives, ratedL100: ratedL * 100, ratedModelL100 },
+    };
+  }
+
+  /** One measured drive replayed: the work the engine does beyond idling, and the idle fuel, per km. */
+  private driveWork(r: RealWorldFuelRow): DriveWork {
+    const { ds, a } = this.ctx;
+    let speeds: number[];
+    if (r.cycle) {
+      const cyc = ds.cycles[r.cycle];
+      speeds = cyc.speedsKmh.filter((_, i) => r.phases.length === 0 || r.phases.includes(cyc.phases[i]));
+    } else {
+      speeds = profileTrace(ds, r.profile, r.speedKmh ?? 0, 1, a.drivingStyleWindowS, this.d.car.topSpeedKmh).speedsKmh;
+      // A constant speed is one second long: drive it for an hour.
+      if (speeds.length < 3) speeds = Array.from({ length: 3601 }, () => speeds[0]);
+    }
+    const veh = { ...this.vehicle(1, true), massKg: this.d.curbMassKg.value + r.payloadKg };
+    const env: Environment = { airDensity: airDensity(r.airC), tyrePressurePct: 100, grade: 0 };
+    const sim = simulate(speeds, veh, env);
+    const h = sim.timeS / 3600;
+    const conditions: Conditions = { ...this.ctx.conditions, airTemperatureC: r.airC, solarWm2: 0, humidityPct: 50, altitudeM: 0, thermalMode: 'managed' };
+    const o = onboardPower(ds, a, conditions, this.d.car.carClass, false, r.cabinC, true);
+    const alt = a.alternatorEfficiencyPct / 100;
+    const cl = o.climate;
+    const shaftKw = o.baseKw / alt + (cl ? cl.blowerKw / alt + (cl.mode === 'cooling' ? cl.compressorKw : 0) : 0);
+    const km = sim.distanceKm > 0 ? sim.distanceKm : 1;
+    return { workPerKm: (sim.wheelPosKwh + shaftKw * h) / km, idlePerKm: (this.idleFuelLph * ((sim.timeS - sim.fuelCutS) / 3600)) / km };
   }
 
   /** Data-check messages that come from the physics calibration. */
@@ -393,8 +472,10 @@ export class CarModel {
           ])
         : flat.sim;
     const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;
-    // Petrol car: the engine idles all the time it runs (also standing in the jam); driving comes on top.
-    const idleKwh = this.idleFuelLph * timeH;
+    // Petrol car: the engine idles all the time it runs (also standing in the jam), except while the fuel is cut off
+    // as the car slows down; driving comes on top.
+    const fuelCutShare = sim.timeS > 0 ? sim.fuelCutS / sim.timeS : 0;
+    const idleKwh = this.idleFuelLph * timeH * (1 - fuelCutShare);
     const driveKwh = perKmDrive * distanceKm + idleKwh;
     // Petrol car heating: the cabin heater uses the coolant's share of the fuel burned. If the cabin needs more,
     // the engine burns extra fuel for heat (faster idle, more load), of which again the coolant share reaches the heater.
@@ -444,7 +525,7 @@ export class CarModel {
       };
     }
     return {
-      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, idleKwh, onboard, onboardKwh, startKwh, engineHeat, totalKwh,
+      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, idleKwh, fuelCutShare, onboard, onboardKwh, startKwh, engineHeat, totalKwh,
       perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
       meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
       rmsFactor,

@@ -1,6 +1,7 @@
 import { IconExternal } from '../components/Icons';
 import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
+import { PetrolEngineTable } from '../components/PetrolEngine';
 import type { Assumptions } from '../engine/types';
 import { RoadTaxTables, RunningCostRows } from '../components/RunningCosts';
 import { BatteryCyclesTable } from '../components/BatteryCycles';
@@ -210,6 +211,8 @@ export function AssumptionsPage() {
       </section>
 
       <BatteryCyclesTable />
+
+      <PetrolEngineTable />
 
       <ProfileTable />
 

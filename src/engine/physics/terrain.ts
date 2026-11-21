@@ -82,5 +82,6 @@ export function combineSims(parts: { frac: number; sim: SimResult }[]): SimResul
     regenKwh: sum((s) => s.regenKwh),
     frictionKwh: sum((s) => s.frictionKwh),
     meanSquareKw2: sum((s) => s.meanSquareKw2),
+    fuelCutS: sum((s) => s.fuelCutS),
   };
 }

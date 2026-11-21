@@ -71,6 +71,8 @@ export interface Assumptions {
   drivetrainEfficiencyDefaultPct: number;
   /** Petrol engine: fuel of the warm engine at idle per litre of engine size (l/h per l). */
   engineIdleFuelLPerHPerL: number;
+  /** Petrol engine: overrun fuel cut-off while slowing down above this speed (km/h). */
+  fuelCutMinKmh: number;
   /** Petrol engine: alternator efficiency for the electric loads (%). */
   alternatorEfficiencyPct: number;
   /** Energy in a litre of petrol, lower heating value (kWh/l). */

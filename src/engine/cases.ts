@@ -213,7 +213,9 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
     label: `${name}: driving energy`,
     formula:
       `${fx(s.distanceKm, 1)} km × ${fx(s.distanceKm > 0 ? moving / s.distanceKm : 0, 4)}` +
-      (s.idleKwh > 0 ? ` + engine idling ${fx(m.idleFuelLph, 2)} l/h × ${fx(s.timeH, 2)} h (${fx(m.d.car.engineCc ?? 0, 0)} cc; the engine runs all the time)` : ''),
+      (s.idleKwh > 0
+        ? ` + engine idling ${fx(m.idleFuelLph, 2)} l/h × ${fx(s.timeH, 2)} h (${fx(m.d.car.engineCc ?? 0, 0)} cc; the engine runs all the time${s.fuelCutShare > 0.005 ? `, except the ${pct(s.fuelCutShare * 100)} of the time the fuel is cut off while slowing down` : ''})`
+        : ''),
     value: s.driveKwh,
     unit: u,
   });
@@ -404,8 +406,9 @@ export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
   const fixed = check.energyKwh - jamSeg.onboardKwh;
   const room = check.deliverableKwh - fixed;
   // Per hour in the jam: onboard systems, extra fuel for heat and (petrol) the idling engine.
-  const jamRate = jamSeg.onboard.totalKw + (jamSeg.engineHeat?.extraLph ?? 0) + m.idleFuelLph;
-  const fixedIdle = m.idleFuelLph * jamSeg.timeH;
+  const idleLph = jamSeg.timeH > 0 ? jamSeg.idleKwh / jamSeg.timeH : 0;
+  const jamRate = jamSeg.onboard.totalKw + (jamSeg.engineHeat?.extraLph ?? 0) + idleLph;
+  const fixedIdle = jamSeg.idleKwh;
   const maxJamHours = jamRate > 0 ? Math.max(0, (room + fixedIdle) / jamRate) : Infinity;
   return { ...check, maxJamHours };
 }

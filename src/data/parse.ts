@@ -15,6 +15,7 @@ import type {
   OnboardMeasurement,
   ProfileDef,
   ProfileSpeedKind,
+  RealWorldFuelRow,
   RoadTaxRow,
   RunningCostRow,
   TerrainPreset,
@@ -45,6 +46,8 @@ export interface RawFiles {
   terrain?: string;
   /** data/profiles.csv: the driving profiles. */
   profiles?: string;
+  /** data/real_world_fuel.csv: measured drives of petrol cars (optional like markets). */
+  realWorldFuel?: string;
   chemistries: string;
   ocv: string;
   temperature: string;
@@ -419,6 +422,7 @@ export function parseDataset(files: RawFiles): Dataset {
   const roadTax = parseRoadTax(files.roadTax ?? '', warnings);
   const terrain = parseTerrain(files.terrain ?? '', warnings);
   const profiles = parseProfiles(files.profiles ?? '', cycles, warnings);
+  const realWorldFuel = parseRealWorldFuel(files.realWorldFuel ?? '', cars, cycles, profiles, warnings);
   const sourceIds = new Set(sources.map((s) => s.id));
   for (const r of [...runningCosts, ...roadTax]) {
     for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`${'item' in r ? 'running_costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
@@ -459,6 +463,7 @@ export function parseDataset(files: RawFiles): Dataset {
     roadTax,
     terrain,
     profiles,
+    realWorldFuel,
     loadWarnings: warnings,
   };
 }
@@ -668,6 +673,62 @@ export function parseProfiles(text: string, cycles: Record<string, Cycle>, warni
       warnings.push(`profiles.csv: ${id} is listed twice; the last row counts`);
       out[i] = row;
     } else out.push(row);
+  }
+  return out;
+}
+
+/**
+ * data/real_world_fuel.csv: measured drives of petrol cars. A row is left out (and reported) when its car is not a
+ * petrol car in cars.csv, its drive is neither a known cycle (with phases) nor a known profile with a speed, or its
+ * numbers are missing.
+ */
+export function parseRealWorldFuel(text: string, cars: Car[], cycles: Record<string, Cycle>, profiles: ProfileDef[], warnings: string[]): RealWorldFuelRow[] {
+  const out: RealWorldFuelRow[] = [];
+  for (const r of parseCsv(text).rows) {
+    const carId = (r.car_id ?? '').trim();
+    if (!carId) continue;
+    const where = `real_world_fuel.csv, ${carId} "${r.label ?? ''}"`;
+    const car = cars.find((c) => c.id === carId);
+    if (!car || car.powertrain !== 'ICE') {
+      warnings.push(`${where}: not a petrol car in cars.csv`);
+      continue;
+    }
+    const cycle = (r.cycle ?? '').trim().toUpperCase();
+    const phases = ids(r.phases);
+    const profile = (r.profile ?? '').trim();
+    const speedKmh = parseNumber(r.speed_kmh);
+    if (cycle) {
+      const c = cycles[cycle];
+      const missing = c ? phases.filter((ph) => !c.phases.includes(ph)) : [];
+      if (!c || missing.length) {
+        warnings.push(`${where}: cycle "${r.cycle}" ${c ? `has no phase ${missing.join(', ')}` : 'is not in data/cycles/index.csv'}`);
+        continue;
+      }
+    } else if (!profiles.some((p) => p.id === profile) || speedKmh === null || speedKmh <= 0) {
+      warnings.push(`${where}: needs a cycle, or a profile of profiles.csv with speed_kmh`);
+      continue;
+    }
+    const airC = parseNumber(r.air_c);
+    const lPer100Km = parseNumber(r.l_per_100km);
+    const payloadKg = parseNumber(r.payload_kg);
+    if (airC === null || lPer100Km === null || lPer100Km <= 0) {
+      warnings.push(`${where}: needs air_c and l_per_100km`);
+      continue;
+    }
+    out.push({
+      carId,
+      label: (r.label ?? '').trim() || carId,
+      cycle,
+      phases,
+      profile: cycle ? '' : profile,
+      speedKmh: cycle ? null : speedKmh,
+      airC,
+      cabinC: parseNumber(r.cabin_c),
+      payloadKg: payloadKg ?? 0,
+      lPer100Km,
+      sources: ids(r.source),
+      notes: r.notes ?? '',
+    });
   }
   return out;
 }

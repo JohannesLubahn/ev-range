@@ -292,6 +292,30 @@ export interface Cycle {
 export type ProfileSpeedKind = 'constant' | 'cruising' | 'own' | 'average';
 
 /** One row of data/profiles.csv: a driving profile, its speed trace and the speeds it allows. */
+/**
+ * One measured drive of a petrol car (data/real_world_fuel.csv). A car with rows is calibrated on them instead of its
+ * rated (lab) consumption. The drive is a test cycle's phases at their recorded speeds, or a driving profile at a speed.
+ */
+export interface RealWorldFuelRow {
+  carId: string;
+  label: string;
+  /** Test cycle (data/cycles) and its phases (empty = all), driven at the recorded speeds; blank when a profile is given. */
+  cycle: string;
+  phases: string[];
+  /** Driving profile (data/profiles.csv) and its speed (km/h), when no cycle is given. */
+  profile: string;
+  speedKmh: number | null;
+  airC: number;
+  /** Cabin temperature the AC held (°C); null = AC off. */
+  cabinC: number | null;
+  /** Load on top of the curb weight (people, luggage, equipment), kg. */
+  payloadKg: number;
+  lPer100Km: number;
+  /** Ids in data/sources.csv. */
+  sources: string[];
+  notes: string;
+}
+
 export interface ProfileDef {
   id: string;
   label: string;
@@ -345,6 +369,8 @@ export interface Dataset {
   terrain: TerrainPreset[];
   /** Driving profiles (data/profiles.csv), in the file's order. */
   profiles: ProfileDef[];
+  /** Measured real-world fuel consumption of petrol cars (data/real_world_fuel.csv): their calibration. */
+  realWorldFuel: RealWorldFuelRow[];
   /** Problems found while reading the files (e.g. a non-numeric value in a number column). */
   loadWarnings: string[];
 }

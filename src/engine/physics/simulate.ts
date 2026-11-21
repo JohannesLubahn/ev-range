@@ -21,6 +21,8 @@ export interface SimResult {
   frictionKwh: number;
   /** Mean of the squared battery power (kW²), including the constant auxiliary load. */
   meanSquareKw2: number;
+  /** Petrol engine: seconds of overrun fuel cut-off (the car slows down above `fuelCutMinKmh`): no idle fuel. */
+  fuelCutS: number;
 }
 
 const J_PER_KWH = 3.6e6;
@@ -43,6 +45,8 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
   let regen = 0;
   let friction = 0;
   let sumSq = 0;
+  let fuelCut = 0;
+  const cutV = veh.fuelCutMinKmh === undefined ? Infinity : veh.fuelCutMinKmh / 3.6;
   const n = speedsKmh.length - 1;
   for (let i = 0; i < n; i++) {
     const v0 = speedsKmh[i] / 3.6;
@@ -62,6 +66,7 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
       pb = p / veh.etaDrive;
     } else {
       neg += -p;
+      if (v >= cutV) fuelCut += 1;
       // Regeneration brakes with at most the force that decelerates the car at the limit, and only above a
       // minimum speed; the friction brakes take the rest (heat).
       const minV = (veh.regenMinKmh ?? 0) / 3.6;
@@ -89,5 +94,6 @@ export function simulate(speedsKmh: number[], veh: VehiclePhysics, env: Environm
     regenKwh: regen / J_PER_KWH,
     frictionKwh: friction / J_PER_KWH,
     meanSquareKw2: n ? sumSq / n : 0,
+    fuelCutS: fuelCut,
   };
 }

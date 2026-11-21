@@ -16,6 +16,8 @@ export interface VehiclePhysics {
   regenMaxDecelMs2?: number;
   /** Below this speed (km/h) the friction brakes do the braking. */
   regenMinKmh?: number;
+  /** Petrol engine: overrun fuel cut-off while the car slows down above this speed (km/h); none when unset. */
+  fuelCutMinKmh?: number;
 }
 
 export interface Environment {

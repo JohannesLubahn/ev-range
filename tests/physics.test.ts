@@ -257,6 +257,7 @@ describe('calibration reproduces each car’s rated consumption on its own test 
       const m = new CarModel(d, { ds, a, conditions: DEFAULT_CONDITIONS, settings: { battery: 'ideal' } });
       const cal = m.calibration();
       if (cal.clamped) return; // flagged in the data check; cannot reproduce by design
+      if (cal.realWorld) return; // petrol car calibrated on measured drives instead (tests/petrol.test.ts)
       const veh = m.vehicle(cal.etaDrive, true);
       const env = m.environment(0, true);
       const aux = d.isIce ? 0 : baseLoadKw(onboardClass(ds, d.car.carClass));
@@ -268,7 +269,7 @@ describe('calibration reproduces each car’s rated consumption on its own test 
       ids.forEach((id, k) => {
         const sim = simulate(ds.cycles[id].speedsKmh, veh, env, aux);
         const h = sim.timeS / 3600;
-        perKm += (w[k] * (sim.batteryKwh + aux * h + (m.idleFuelLph + iceAux) * h)) / sim.distanceKm;
+        perKm += (w[k] * (sim.batteryKwh + aux * h + m.idleFuelLph * (h - sim.fuelCutS / 3600) + iceAux * h)) / sim.distanceKm;
       });
       const chargeEff = d.isIce || d.consumption.provenance === 'calculated' ? 1 : a.chargingEfficiencyPct / 100;
       const lab = d.calibrationCycle === 'EPA' ? 0.7 : 1;

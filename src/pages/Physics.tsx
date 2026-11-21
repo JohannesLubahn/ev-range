@@ -868,6 +868,11 @@ export function PhysicsPage() {
                       <td className="r">
                         {cal ? (d.isIce ? `${fixed(cal.etaDrive, 2)} kWh/l` : `${fixed(cal.etaDrive * 100, 0)} %`) : '–'}
                         {cal?.clamped && <span className="chip warn" style={{ marginLeft: 4 }}>limited</span>}
+                        {cal?.realWorld && (
+                          <span className="chip" style={{ marginLeft: 4 }} title="Calibrated on measured drives (data/real_world_fuel.csv), not on the official value">
+                            real-world
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

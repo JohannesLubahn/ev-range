@@ -50,6 +50,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/running_costs.csv` | **Running costs per market** (in its currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). |
 | `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
 | `data/profiles.csv` | Driving profiles (Steady, City, Rural, Highway, Motorway, Mixed, the traffic jam): speed trace (cycle and phases), what the speed set means, the speeds each allows, with why and sources. |
+| `data/real_world_fuel.csv` | Measured drives of petrol cars (route or profile, speed, air, AC, load, l/100 km, sources): petrol cars with rows are calibrated on them instead of their official (lab) value. |
 | `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): `all` rows = the conditions every test starts from, test rows = its trip inputs and its own conditions (e.g. the traffic jam at 35 °C), each with the reason. Blank = from an assumption or the market. |

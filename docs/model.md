@@ -177,22 +177,38 @@ line of a combustion engine: the warm engine burns its idle fuel all the time it
 at one marginal efficiency η (kWh at the wheels per litre beyond idling):
 
 ```
-litres = idle × time + (Σ(F·v)⁺ + electric loads ÷ η_alternator · time + AC compressor shaft work) ÷ η
+litres = idle × (time − fuel cut-off) + (Σ(F·v)⁺ + electric loads ÷ η_alternator · time + AC compressor shaft work) ÷ η
 idle   = 0.40 l/h per litre of engine size (engine_cc)
 ```
 
 - Idle: Argonne measured 0.279 cc/s (1.0 l/h) for a warm 2011 Ford Fusion 2.5 l at 21 °C without accessories,
   0.2–0.5 gal/h for passenger cars across sizes (Gaines, Rask, Keller 2013). The engine is assumed to run all the
-  time: standing in traffic (DOE: "When waiting in traffic, you must keep your car running") and at the test
-  cycle's stops; start-stop is not modelled.
-- η is calibrated on the car's test cycle like η_drive: Honda City 3.13 kWh/l (36 % of the fuel energy, NEDC;
-  idling is 1.18 of its 4.41 l/100 km), Golf 1.5 TSI 3.10 kWh/l (35 %, WLTP; 1.29 of 5.40 l/100 km). Outside
-  15–45 % of the fuel energy it is limited and the car is flagged. Before, one average efficiency (2.03 / 2.20 kWh
-  at the wheels per litre) was used for everything, so standing still cost almost nothing (Honda City in the
-  standard jam: 0.64 → now 0.90 l/h).
-- Side effect: open-road driving now costs less fuel than before (Golf at steady 120 km/h 7.1 → 5.6 l/100 km)
-  because the test cycle's idling no longer inflates the cost of driving. The rated (lab) consumption sets the
-  level; real-world values are usually higher.
+  time: standing in traffic (DOE: "When waiting in traffic, you must keep your car running"); start-stop is not
+  modelled.
+- Fuel cut-off: while the car slows down above 15 km/h (`fuel_cut_min_kmh`, judgement) the engine gets no fuel, so
+  no idle fuel either. 15 km/h fits ADAC's Golf data better than 0 or 25 km/h.
+- **Real-world calibration** (user's choice 21 Nov 2026): lab values of petrol cars are well below their road
+  consumption, so a petrol car with measured drives in `data/real_world_fuel.csv` is calibrated on them. Each drive
+  (a test cycle's phases at their recorded speeds, or a profile at a speed; its air temperature, AC and load) is
+  replayed and η is fitted by least squares: `1/η = Σ work·(fuel − idle) ÷ Σ work²`. A petrol car without drives
+  uses its official value. Outside 15–45 % of the fuel energy η is limited and the car is flagged.
+
+| Car | Measured drive (source) | Measured | Model |
+|---|---|---|---|
+| VW Golf 1.5 TSI (η 2.95 kWh/l, 33 %) | ADAC Ecotest, in town (WLTC low + medium, 23 °C, AC, 200 kg) | 5.9 | 6.2 |
+| | ADAC Ecotest, out of town (WLTC high) | 5.0 | 5.0 |
+| | ADAC Ecotest, motorway (Motorway profile at 130 km/h) | 6.3 | 6.0 |
+| | official WLTP (not used) | 5.40 | 5.31 |
+| Honda City 1.0 Turbo (η 2.56 kWh/l, 29 %) | HeadLight Magazine 2020: 19.66 km/l at 110 km/h, AC, 2 people (steady 110, 30 °C, 150 kg) | 5.09 | 5.09 |
+| | official NEDC (not used) | 4.41 | 5.01 |
+
+  ADAC tested the Golf 1.5 TSI Life (same engine, gearbox and weight as the Trend, Dec 2024); which WLTC phases
+  give ADAC's in-town and out-of-town values is not published (judgement), and ADAC's own motorway cycle (up to 130
+  km/h) is driven as the Motorway profile. HeadLight tested the City RS (same engine and CVT); the air temperature
+  and the load are judgement. The remaining misfit of the Golf (town +5 %, motorway −5 %) is the engine friction
+  rising with engine speed, which one η cannot show.
+- Results: the standard jam (35 °C, AC) costs the Honda City 1.01 l/h and the Golf 1.13 l/h (before 21 Nov: 0.64
+  and 0.59, without idling); steady 120 km/h City 5.8, Golf 5.9 l/100 km.
 
 ## 3. Onboard systems
 
