@@ -69,6 +69,14 @@ export interface Assumptions {
   rotatingMassFactor: number;
   frontalAreaFactor: number;
   drivetrainEfficiencyDefaultPct: number;
+  /** Petrol engine: fuel of the warm engine at idle per litre of engine size (l/h per l). */
+  engineIdleFuelLPerHPerL: number;
+  /** Petrol engine: alternator efficiency for the electric loads (%). */
+  alternatorEfficiencyPct: number;
+  /** Energy in a litre of petrol, lower heating value (kWh/l). */
+  petrolEnergyKwhPerL: number;
+  /** Petrol engine: share of the fuel energy that heats the coolant, the cabin heater's source (%). */
+  engineCoolantHeatPct: number;
   testPayloadKg: number;
   testTemperatureC: number;
   defaultBasis: string;

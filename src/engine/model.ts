@@ -59,13 +59,20 @@ export interface SegmentEnergy {
   distanceKm: number;
   timeH: number;
   avgSpeedKmh: number;
-  /** Driving energy from the battery terminals (kWh, or litres for ICE). */
+  /** Driving energy from the battery terminals (kWh, or litres for ICE incl. idling). */
   driveKwh: number;
+  /** Petrol car: fuel of the engine idling over the segment's time (litres, part of driveKwh); 0 for electric cars. */
+  idleKwh: number;
   onboard: OnboardPower;
   /** Onboard energy: power × time, plus the cabin start energy on the first segment of a trip. */
   onboardKwh: number;
   /** Part of onboardKwh for heating / cooling the parked cabin at the start. */
   startKwh: number;
+  /**
+   * Petrol car heating: heat the cabin needs, waste heat the coolant gets from the fuel burned (kW), and the extra fuel
+   * when that is not enough (l/h, litres; part of onboardKwh). Null otherwise.
+   */
+  engineHeat: { demandKw: number; availableKw: number; extraLph: number; extraL: number } | null;
   totalKwh: number;
   /** Driving + onboard energy per km. */
   perKm: number;
@@ -195,13 +202,24 @@ export class CarModel {
     const { ds, a, conditions } = this.ctx;
     let p = onboardPower(ds, a, conditions, this.d.car.carClass, this.d.heatPump.value, cabinC, this.d.isIce);
     if (this.d.isIce) {
-      // Petrol car: onboard power is produced by the engine; convert kW into litres/hour with the calibrated factor.
-      // Heating uses the engine's waste heat (only the blower costs fuel).
-      const f = 1 / this.calibration().etaDrive;
-      p = { ...p, totalKw: p.totalKw * f, baseKw: p.baseKw * f, cabinKw: p.cabinKw * f, startKwh: p.startKwh * f };
+      // Petrol car: the engine drives the loads, in litres per hour at its calibrated marginal efficiency (kWh at the
+      // shaft per litre on top of idling). Electronics and blower come from the alternator (÷ its efficiency); the AC
+      // compressor is belt-driven (shaft power = cooling ÷ COP). Heating uses the engine's waste heat (segment()).
+      const perShaftKwh = 1 / this.calibration().etaDrive;
+      const alt = a.alternatorEfficiencyPct / 100;
+      const cl = p.climate;
+      const baseKw = (p.baseKw / alt) * perShaftKwh;
+      const cabinKw = cl ? (cl.blowerKw / alt + (cl.mode === 'cooling' ? cl.compressorKw : 0)) * perShaftKwh : 0;
+      p = { ...p, totalKw: baseKw + cabinKw, baseKw, cabinKw, startKwh: p.startKwh * perShaftKwh };
     }
     this.onboardCache.set(key, p);
     return p;
+  }
+
+  /** Petrol car: fuel of the warm engine at idle (l/h), from the engine size; 0 for electric cars or without engine_cc. */
+  get idleFuelLph(): number {
+    const cc = this.d.car.engineCc;
+    return this.d.isIce && cc ? (this.ctx.a.engineIdleFuelLPerHPerL * cc) / 1000 : 0;
   }
 
   // ------------------------------------------------------------------------------------------ physics
@@ -263,6 +281,11 @@ export class CarModel {
     let posPerKm = 0;
     let rest = 0;
     let avgSpeedKmh = 0;
+    // Petrol car (Willans line): litres = idle fuel × time + (work at the wheels + electronics via the alternator) ÷ η,
+    // η = kWh at the wheels per litre burned on top of idling. The engine runs through the cycle's stops.
+    let idlePerKm = 0;
+    let iceAuxPerKm = 0;
+    const iceAuxKw = d.isIce ? baseLoadKw(onboardClass(ds, d.car.carClass)) / (a.alternatorEfficiencyPct / 100) : 0;
     for (const { id, weight } of cycles) {
       const cyc = ds.cycles[id];
       if (!cyc) continue;
@@ -270,9 +293,25 @@ export class CarModel {
       posPerKm += (weight * sim.wheelPosKwh) / sim.distanceKm;
       rest += (weight * (auxKw * (sim.timeS / 3600) - sim.regenKwh)) / sim.distanceKm;
       avgSpeedKmh += weight * (sim.distanceKm / (sim.timeS / 3600));
+      idlePerKm += (weight * this.idleFuelLph * (sim.timeS / 3600)) / sim.distanceKm;
+      iceAuxPerKm += (weight * iceAuxKw * (sim.timeS / 3600)) / sim.distanceKm;
     }
     if (posPerKm <= 0) {
       return (this.shared.calibration = { etaDrive: fallback, cycle: d.calibrationCycle, clamped: false, ratedBatteryPerKm: 0, note: 'cycle missing' });
+    }
+    if (d.isIce) {
+      const ratedL = rated * labFactor;
+      const lhv = a.petrolEnergyKwhPerL;
+      let eta = (posPerKm + iceAuxPerKm) / (ratedL - idlePerKm);
+      // Marginal efficiency fuel → wheels: about 30–38 % for petrol engines; outside 15–45 % the data do not fit.
+      const share = eta / lhv;
+      const clamped = !Number.isFinite(eta) || share > 0.45 || share < 0.15;
+      if (clamped) eta = clamp(Number.isFinite(eta) && eta > 0 ? eta : 0.3 * lhv, 0.15 * lhv, 0.45 * lhv);
+      const idleText = `idling ${(this.idleFuelLph).toFixed(2)} l/h (${d.car.engineCc ?? '?'} cc) = ${(idlePerKm * 100).toFixed(2)} of ${(ratedL * 100).toFixed(2)} l/100 km`;
+      const note = clamped
+        ? `${d.calibrationCycle} consumption would need ${Number.isFinite(share) && share > 0 ? `${(share * 100).toFixed(0)} %` : 'an impossible share'} of the fuel energy at the wheels beyond idling (${idleText}) - limited to ${((eta / lhv) * 100).toFixed(0)} %. Check the consumption, engine size and weight`
+        : `${eta.toFixed(2)} kWh at the wheels per litre beyond idling (${(share * 100).toFixed(0)} % of the fuel energy; ${idleText}), calibrated on ${d.calibrationCycle}`;
+      return (this.shared.calibration = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: ratedL, note });
     }
     let battPerKm = rated * labFactor * chargeEff;
     // Remove the pack's own losses at test conditions, so they are not counted twice. Test cycles are highly
@@ -285,16 +324,14 @@ export class CarModel {
     }
     let eta = posPerKm / (battPerKm - rest);
     let clamped = false;
-    if (!d.isIce && (!Number.isFinite(eta) || eta > 1 || eta < 0.5)) {
+    if (!Number.isFinite(eta) || eta > 1 || eta < 0.5) {
       clamped = true;
       eta = Number.isFinite(eta) && eta > 0 ? clamp(eta, 0.5, 1) : fallback;
     }
     const raw = posPerKm / (battPerKm - rest);
-    const note = d.isIce
-      ? `${eta.toFixed(2)} kWh at the wheels per litre (calibrated on ${d.calibrationCycle})`
-      : clamped
-        ? `${d.calibrationCycle} consumption would need a drivetrain efficiency of ${Number.isFinite(raw) && raw > 0 ? `${(raw * 100).toFixed(0)} %` : 'over 100 %'} with this weight, Cd and frontal area - limited to ${(eta * 100).toFixed(0)} %. Check the consumption (is it really ${d.calibrationCycle}?), weight and Cd`
-        : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}`;
+    const note = clamped
+      ? `${d.calibrationCycle} consumption would need a drivetrain efficiency of ${Number.isFinite(raw) && raw > 0 ? `${(raw * 100).toFixed(0)} %` : 'over 100 %'} with this weight, Cd and frontal area - limited to ${(eta * 100).toFixed(0)} %. Check the consumption (is it really ${d.calibrationCycle}?), weight and Cd`
+      : `${(eta * 100).toFixed(1)} % battery → wheels, calibrated on ${d.calibrationCycle}`;
     return (this.shared.calibration = { etaDrive: eta, cycle: d.calibrationCycle, clamped, ratedBatteryPerKm: battPerKm, note });
   }
 
@@ -302,7 +339,10 @@ export class CarModel {
   calibrationFlags(): DataFlag[] {
     if (this.d.consumption.value === null) return [];
     const cal = this.calibration();
-    return cal.clamped ? [{ carId: this.d.car.id, severity: 'warning', field: 'consumption_kwh_per_km', message: cal.note }] : [];
+    const flags: DataFlag[] = cal.clamped ? [{ carId: this.d.car.id, severity: 'warning', field: 'consumption_kwh_per_km', message: cal.note }] : [];
+    if (this.d.isIce && !this.d.car.engineCc)
+      flags.push({ carId: this.d.car.id, severity: 'warning', field: 'engine_cc', message: 'No engine size: the fuel for idling is left out (traffic jam and stops too low)' });
+    return flags;
   }
 
   /** Driving style of the Conditions as a factor on the trace dynamics (1 = the WLTP's own). */
@@ -339,7 +379,7 @@ export class CarModel {
     const { description: trace, movingAvgKmh: movingKmh, dynamics } = profile;
     const onboard = this.onboard(spec.cabinC);
     const startKwh = spec.tripStart ? onboard.startKwh : 0;
-    const onboardKwh = onboard.totalKw * timeH + startKwh;
+    let onboardKwh = onboard.totalKw * timeH + startKwh;
     // Hills: the speed trace driven uphill, downhill and on the flat, mixed by their share of the distance.
     const mix = terrainMix(distanceKm, spec.terrain);
     const up = mix.upFrac > 0 ? this.simulateProfile(spec.profile, speedSet, mix.grade).sim : flat.sim;
@@ -353,7 +393,22 @@ export class CarModel {
           ])
         : flat.sim;
     const perKmDrive = sim.distanceKm > 0 ? sim.batteryKwh / sim.distanceKm : 0;
-    const driveKwh = perKmDrive * distanceKm;
+    // Petrol car: the engine idles all the time it runs (also standing in the jam); driving comes on top.
+    const idleKwh = this.idleFuelLph * timeH;
+    const driveKwh = perKmDrive * distanceKm + idleKwh;
+    // Petrol car heating: the cabin heater uses the coolant's share of the fuel burned. If the cabin needs more,
+    // the engine burns extra fuel for heat (faster idle, more load), of which again the coolant share reaches the heater.
+    let engineHeat: SegmentEnergy['engineHeat'] = null;
+    if (this.d.isIce && onboard.climate?.mode === 'heating' && timeH > 0) {
+      const a = this.ctx.a;
+      const heatPerL = (a.engineCoolantHeatPct / 100) * a.petrolEnergyKwhPerL;
+      const fuelLph = (driveKwh + onboardKwh - startKwh) / timeH;
+      const demandKw = onboard.climate.loadW / 1000;
+      const availableKw = heatPerL * fuelLph;
+      const extraLph = heatPerL > 0 ? Math.max(0, demandKw - availableKw) / heatPerL : 0;
+      engineHeat = { demandKw, availableKw, extraLph, extraL: extraLph * timeH };
+      onboardKwh += engineHeat.extraL;
+    }
     const totalKwh = driveKwh + onboardKwh;
     // RMS of the battery power over the trace incl. onboard load, relative to the mean.
     const traceMeanKw = sim.timeS > 0 ? (sim.batteryKwh * 3600) / sim.timeS : 0;
@@ -389,7 +444,7 @@ export class CarModel {
       };
     }
     return {
-      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, onboard, onboardKwh, startKwh, totalKwh,
+      spec, distanceKm, timeH, avgSpeedKmh, driveKwh, idleKwh, onboard, onboardKwh, startKwh, engineHeat, totalKwh,
       perKm: distanceKm > 0 ? totalKwh / distanceKm : 0,
       meanPowerKw: timeH > 0 ? totalKwh / timeH : 0,
       rmsFactor,

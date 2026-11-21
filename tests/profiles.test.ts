@@ -132,20 +132,23 @@ describe('the speed in the tests', () => {
     for (const id of ['aion-hyptec-ht', 'byd-dolphin', 'vw-golf-15-tsi']) {
       const m = model(id);
       const seg = (p: Profile, v: number) => m.segment({ label: 'x', distanceKm: 100, speedKmh: v, profile: p, cabinC: 22 });
+      // A petrol engine's idle fuel is per hour: it falls per km with speed, so only the energy for moving is checked
+      // for it (its total per km has a minimum at moderate speeds, as measured fuel-economy curves do).
       for (const p of ['rural', 'highway', 'motorway'] as Profile[]) {
         const def = profileDef(ds, p);
         let last = { drive: 0, total: 0 };
         for (let v = def.speedMinKmh!; v <= def.speedMaxKmh!; v += 10) {
           const s = seg(p, v);
-          expect(s.driveKwh, `${id} ${p} ${v}`).toBeGreaterThan(last.drive);
-          expect(s.totalKwh, `${id} ${p} ${v}`).toBeGreaterThan(last.total);
-          last = { drive: s.driveKwh, total: s.totalKwh };
+          const drive = s.driveKwh - s.idleKwh;
+          expect(drive, `${id} ${p} ${v}`).toBeGreaterThan(last.drive);
+          if (s.idleKwh === 0) expect(s.totalKwh, `${id} ${p} ${v}`).toBeGreaterThan(last.total);
+          last = { drive, total: s.totalKwh };
         }
       }
       // Town: accelerations and stops per km stay the same at any cruising speed (the trace is stretched in time), so
       // the driving energy stays about the same; per km a slow crawl costs more onboard energy (more hours).
       const city = [30, 40, 50, 60].map((v) => seg('city', v));
-      const drive = city.map((s) => s.driveKwh);
+      const drive = city.map((s) => s.driveKwh - s.idleKwh);
       expect(Math.max(...drive) / Math.min(...drive), id).toBeLessThan(1.12);
       for (let i = 1; i < city.length; i++) expect(city[i].onboardKwh, id).toBeLessThan(city[i - 1].onboardKwh);
     }

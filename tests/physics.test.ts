@@ -263,9 +263,12 @@ describe('calibration reproduces each car’s rated consumption on its own test 
       const ids = d.calibrationCycle === 'EPA' ? ['EPA_CITY', 'EPA_HIGHWAY'] : [d.calibrationCycle];
       const w = d.calibrationCycle === 'EPA' ? [0.55, 0.45] : [1];
       let perKm = 0;
+      // Petrol car: idle fuel all the time, electronics via the alternator at the calibrated kWh per litre.
+      const iceAux = d.isIce ? baseLoadKw(onboardClass(ds, d.car.carClass)) / (a.alternatorEfficiencyPct / 100) / cal.etaDrive : 0;
       ids.forEach((id, k) => {
         const sim = simulate(ds.cycles[id].speedsKmh, veh, env, aux);
-        perKm += (w[k] * (sim.batteryKwh + aux * (sim.timeS / 3600))) / sim.distanceKm;
+        const h = sim.timeS / 3600;
+        perKm += (w[k] * (sim.batteryKwh + aux * h + (m.idleFuelLph + iceAux) * h)) / sim.distanceKm;
       });
       const chargeEff = d.isIce || d.consumption.provenance === 'calculated' ? 1 : a.chargingEfficiencyPct / 100;
       const lab = d.calibrationCycle === 'EPA' ? 0.7 : 1;

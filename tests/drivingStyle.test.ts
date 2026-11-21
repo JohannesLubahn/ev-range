@@ -127,8 +127,11 @@ describe('friction braking beyond the regeneration limits', () => {
 describe('driving style in the consumption', () => {
   const gentle = a.drivingStyleGentlePct;
   const sporty = a.drivingStyleSportyPct;
-  const perKm = (id: string, style: number, profile: Profile, speed: number) =>
-    model(id, style).segment({ label: 'x', distanceKm: 100, speedKmh: speed, profile, cabinC: null }).driveKwh / 100;
+  // Energy for moving the car: a petrol engine's idle fuel (per hour, the same for any style) is left out.
+  const perKm = (id: string, style: number, profile: Profile, speed: number) => {
+    const s = model(id, style).segment({ label: 'x', distanceKm: 100, speedKmh: speed, profile, cabinC: null });
+    return (s.driveKwh - s.idleKwh) / 100;
+  };
 
   it('every car: Gentle < Normal < Sporty in the city, on rural roads and in a jam; Steady is unchanged', () => {
     for (const d of Object.values(derived)) {

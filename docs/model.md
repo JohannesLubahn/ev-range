@@ -172,6 +172,28 @@ rated × η_charge × distance = Σ(F·v)⁺ / η_drive − η_regen · Σ|F·v|
   its weight, drag and test cycle (often a consumption from a different standard, or a gross instead of a curb
   weight).
 
+**Petrol cars** (since 21 Nov 2026, user request: they did too well in the traffic jam). Fuel follows the Willans
+line of a combustion engine: the warm engine burns its idle fuel all the time it runs, everything else comes on top
+at one marginal efficiency η (kWh at the wheels per litre beyond idling):
+
+```
+litres = idle × time + (Σ(F·v)⁺ + electric loads ÷ η_alternator · time + AC compressor shaft work) ÷ η
+idle   = 0.40 l/h per litre of engine size (engine_cc)
+```
+
+- Idle: Argonne measured 0.279 cc/s (1.0 l/h) for a warm 2011 Ford Fusion 2.5 l at 21 °C without accessories,
+  0.2–0.5 gal/h for passenger cars across sizes (Gaines, Rask, Keller 2013). The engine is assumed to run all the
+  time: standing in traffic (DOE: "When waiting in traffic, you must keep your car running") and at the test
+  cycle's stops; start-stop is not modelled.
+- η is calibrated on the car's test cycle like η_drive: Honda City 3.13 kWh/l (36 % of the fuel energy, NEDC;
+  idling is 1.18 of its 4.41 l/100 km), Golf 1.5 TSI 3.10 kWh/l (35 %, WLTP; 1.29 of 5.40 l/100 km). Outside
+  15–45 % of the fuel energy it is limited and the car is flagged. Before, one average efficiency (2.03 / 2.20 kWh
+  at the wheels per litre) was used for everything, so standing still cost almost nothing (Honda City in the
+  standard jam: 0.64 → now 0.90 l/h).
+- Side effect: open-road driving now costs less fuel than before (Golf at steady 120 km/h 7.1 → 5.6 l/100 km)
+  because the test cycle's idling no longer inflates the cost of driving. The rated (lab) consumption sets the
+  level; real-world values are usually higher.
+
 ## 3. Onboard systems
 
 ```
@@ -219,7 +241,13 @@ cooling (Q > 0):  P = (Q + moisture) / COP_ac                       moisture: fr
   temperature; it adds to the onboard drain that slows charging. Before 19 Nov 2026 this input was a usage %
   (share of the time on, a leftover of the spreadsheet); saved scenarios convert 0 % to *Off* and anything else to
   the default 22 °C.
-- **Petrol car:** heating uses engine waste heat (only the blower costs fuel); AC as above, converted to litres.
+- **Petrol car:** the AC compressor is belt-driven: its shaft work (cooling ÷ COP) costs litres at the engine's
+  calibrated η; electronics and blower come from the alternator (55 %, Remy 2008). Heating uses the engine's waste
+  heat: 30 % of the fuel energy reaches the coolant (judgement; 8.8 kWh per litre, AFDC). If the cabin needs more
+  than the coolant's share of the fuel burned (idle + driving + loads), the engine burns extra fuel for heat, of which
+  again 30 % reaches the heater: extra l/h = (heat needed − heat available) ÷ (0.30 × 8.8 kWh/l). In the standard
+  jam the Honda City idles at 0.60 l/h incl. its loads, enough heat down to about 0 °C; at −10 °C it needs 0.32 l/h
+  extra. A cold engine's warm-up is not modelled.
 
 **Checked against measurements** (`data/onboard/measurements.csv`, also on the Physics page):
 

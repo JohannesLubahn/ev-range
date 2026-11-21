@@ -13,7 +13,7 @@ import { useStore } from '../state/store';
 
 type Key = Exclude<keyof Assumptions, 'fx'>;
 
-const GROUP_ORDER = ['Battery', 'Cabin climate', 'Charging', 'Driving physics', 'Driving style', 'Test conditions', 'Costs', 'Exchange rates'];
+const GROUP_ORDER = ['Battery', 'Cabin climate', 'Charging', 'Driving physics', 'Petrol engine', 'Driving style', 'Test conditions', 'Costs', 'Exchange rates'];
 
 /** The source list (data/sources.csv), numbered across topics, with clickable links. */
 function SourceList({ sources }: { sources: Source[] }) {

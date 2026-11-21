@@ -201,29 +201,55 @@ function segmentSteps(m: CarModel, s: SegmentEnergy): Step[] {
   const cal = m.calibration();
   if (p.hills) steps.push(...hillSteps(m, p.hills, u));
   steps.push({
-    label: 'From the battery for driving',
+    label: m.d.isIce ? 'From the tank for driving' : 'From the battery for driving',
     formula: m.d.isIce
-      ? `÷ ${fx(cal.etaDrive, 2)} kWh per litre (calibrated)`
+      ? `÷ ${fx(cal.etaDrive, 2)} kWh at the wheels per litre beyond idling (calibrated)`
       : `÷ drivetrain ${fx(cal.etaDrive * 100, 1)} % (calibrated), − regeneration ${fx(p.regenPerKm, 3)} kWh/km${p.frictionPerKm > 5e-4 ? ` (braking beyond the regeneration limits lost to the friction brakes: ${fx(p.frictionPerKm, 3)} kWh/km)` : ''}`,
     value: p.drivePerKm,
     unit: `${u}/km`,
   });
-  steps.push({ label: `${name}: driving energy`, formula: `${fx(s.distanceKm, 1)} km × ${fx(s.distanceKm > 0 ? s.driveKwh / s.distanceKm : 0, 4)}`, value: s.driveKwh, unit: u });
+  const moving = s.driveKwh - s.idleKwh;
+  steps.push({
+    label: `${name}: driving energy`,
+    formula:
+      `${fx(s.distanceKm, 1)} km × ${fx(s.distanceKm > 0 ? moving / s.distanceKm : 0, 4)}` +
+      (s.idleKwh > 0 ? ` + engine idling ${fx(m.idleFuelLph, 2)} l/h × ${fx(s.timeH, 2)} h (${fx(m.d.car.engineCc ?? 0, 0)} cc; the engine runs all the time)` : ''),
+    value: s.driveKwh,
+    unit: u,
+  });
   const o = s.onboard;
   const rate = m.d.isIce ? 'l/h' : 'kW';
   if (o.climate) {
     steps.push({
       label: `${name}: cabin climate`,
-      formula: `${climateText(o.climate, m.d.isIce)}${m.d.isIce ? ' (in litres via the calibrated engine factor)' : ''}`,
+      formula: `${climateText(o.climate, m.d.isIce)}${
+        m.d.isIce
+          ? o.climate.mode === 'cooling'
+            ? `; compressor driven by the belt, blower via the alternator (${fx(m.ctx.a.alternatorEfficiencyPct, 0)} %), ÷ ${fx(cal.etaDrive, 2)} kWh per litre`
+            : `; blower via the alternator (${fx(m.ctx.a.alternatorEfficiencyPct, 0)} %), ÷ ${fx(cal.etaDrive, 2)} kWh per litre`
+          : ''
+      }`,
       value: o.cabinKw,
       unit: rate,
+    });
+  }
+  const eh = s.engineHeat;
+  if (eh) {
+    steps.push({
+      label: `${name}: heat from the engine`,
+      formula:
+        `waste heat ${fx(m.ctx.a.engineCoolantHeatPct, 0)} % × ${fx(m.ctx.a.petrolEnergyKwhPerL, 1)} kWh/l × ${fx(eh.availableKw / ((m.ctx.a.engineCoolantHeatPct / 100) * m.ctx.a.petrolEnergyKwhPerL), 2)} l/h burned = ${kw(eh.availableKw * 1000)} kW for ${kw(eh.demandKw * 1000)} kW needed` +
+        (eh.extraLph > 0 ? `; the rest needs extra fuel: ${kw((eh.demandKw - eh.availableKw) * 1000)} kW ÷ ${fx((m.ctx.a.engineCoolantHeatPct / 100) * m.ctx.a.petrolEnergyKwhPerL, 2)} kWh/l = ${fx(eh.extraLph, 2)} l/h × ${fx(s.timeH, 2)} h` : '; enough, no extra fuel'),
+      value: eh.extraL,
+      unit: u,
     });
   }
   steps.push({
     label: `${name}: onboard systems`,
     formula:
-      `(electronics ${fx(o.baseKw, 2)} + ${o.climate ? `${o.climate.mode === 'heating' ? 'heating' : o.climate.mode === 'cooling' ? 'AC' : 'fan'} ${fx(o.cabinKw, 2)} for a ${fx(o.climate.setpointC, 0)} °C cabin` : 'heating/AC off'}) ${rate} × ${fx(s.timeH, 2)} h` +
-      (s.startKwh > 0 ? ` + ${o.climate && o.climate.soakC > o.climate.setpointC ? 'cooling' : 'warming'} the parked cabin from ${fx(o.climate?.soakC ?? 0, 0)} °C ${fx(s.startKwh, 2)} ${u}` : ''),
+      `(electronics${m.d.isIce ? ' via the alternator' : ''} ${fx(o.baseKw, 2)} + ${o.climate ? `${o.climate.mode === 'heating' ? 'heating' : o.climate.mode === 'cooling' ? 'AC' : 'fan'} ${fx(o.cabinKw, 2)} for a ${fx(o.climate.setpointC, 0)} °C cabin` : 'heating/AC off'}) ${rate} × ${fx(s.timeH, 2)} h` +
+      (s.startKwh > 0 ? ` + ${o.climate && o.climate.soakC > o.climate.setpointC ? 'cooling' : 'warming'} the parked cabin from ${fx(o.climate?.soakC ?? 0, 0)} °C ${fx(s.startKwh, 2)} ${u}` : '') +
+      (eh && eh.extraL > 0 ? ` + extra fuel for heat ${fx(eh.extraL, 2)} ${u}` : ''),
     value: s.onboardKwh,
     unit: u,
   });
@@ -377,7 +403,10 @@ export function trafficJam(m: CarModel, i: TrafficJamInputs): TrafficJamResult {
   const jamSeg = segs[1];
   const fixed = check.energyKwh - jamSeg.onboardKwh;
   const room = check.deliverableKwh - fixed;
-  const maxJamHours = jamSeg.onboard.totalKw > 0 ? Math.max(0, room / jamSeg.onboard.totalKw) : Infinity;
+  // Per hour in the jam: onboard systems, extra fuel for heat and (petrol) the idling engine.
+  const jamRate = jamSeg.onboard.totalKw + (jamSeg.engineHeat?.extraLph ?? 0) + m.idleFuelLph;
+  const fixedIdle = m.idleFuelLph * jamSeg.timeH;
+  const maxJamHours = jamRate > 0 ? Math.max(0, (room + fixedIdle) / jamRate) : Infinity;
   return { ...check, maxJamHours };
 }
 

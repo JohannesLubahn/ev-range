@@ -223,7 +223,7 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
   // --- plausibility checks
   if (car.raw.turning_radius_m && Number(car.raw.turning_radius_m) > 8)
     flag('warning', 'turning_radius_m', `Turning radius ${car.raw.turning_radius_m} m looks like a turning diameter`);
-  if (isIce) flag('info', 'powertrain', 'Petrol car modelled with the EV method (litres instead of kWh) - approximation');
+  if (isIce) flag('info', 'powertrain', 'Petrol car: litres instead of kWh; engine idle fuel + one calibrated efficiency (Willans line) - approximation');
   if (cd.provenance !== 'data') flag('info', 'drag_coefficient', `Drag coefficient estimated (${cd.note})`);
   if (frontalAreaM2.provenance === 'estimated') flag('info', 'frontal_area_m2', `Frontal area estimated (${frontalAreaM2.note})`);
   if (curbMassKg.provenance === 'estimated') flag('info', 'weight_kg', `Weight estimated ${curbMassKg.note}`);
