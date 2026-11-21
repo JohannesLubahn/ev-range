@@ -20,10 +20,13 @@ the model behaves, checked against measurements) and **Assumptions** (every cons
   project's own code).
 - **No server and no account:** everything is calculated in the browser. Your inputs and saved scenarios are kept
   in the browser's local storage on your computer.
-- **Where the code is:** in this folder, in a local git repository with **no remote** (nothing is pushed anywhere,
-  nothing is public). The only copy outside this computer is the private preview on claude.ai, a single HTML file
-  built by `npm run build:single` that contains the whole app and its data; it is visible only to people you share
-  the link with.
+- **Where the code is:** in this folder (a local git repository) and, since 21 Nov 2026, in the public GitHub
+  repository https://github.com/JohannesLubahn/ev-range. Only `main` is pushed, and only for major revisions.
+- **Where the site is:** https://johanneslubahn.github.io/ev-range/ (GitHub Pages). Every push to `main` runs
+  `.github/workflows/pages.yml`: `npm ci`, `npm test`, `npm run build`, then it publishes `dist/`. If a test fails,
+  nothing is published and the last good version stays online. The page has a `noindex` tag (`index.html`), so search
+  engines don't list it; remove that line to let them. There is also a private preview on claude.ai, a single HTML
+  file built by `npm run build:single`, visible only to people you share the link with.
 - **Outside requests:** none. The fonts (IBM Plex Sans / Mono, Space Grotesk, SIL Open Font License) come with the
   app (`src/fonts.css`, from the `@fontsource` packages; Latin characters, others use the system font). Links in the
   source list open only when you click them.
