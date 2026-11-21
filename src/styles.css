@@ -1108,7 +1108,7 @@ table {
 }
 .field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 44px;
+  grid-template-columns: minmax(0, 1fr) 104px 44px;
   gap: 4px 8px;
   align-items: center;
 }

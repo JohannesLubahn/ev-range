@@ -138,11 +138,13 @@ export function CostPage() {
   const gap = (k: keyof CostInputs) =>
     c[k] === null && (k.endsWith('Ice') ? anyIce : k === 'tyreSetPremium' ? anyPremium : k === 'roadTaxPerYear' ? taxGap : true);
 
-  // Extra costs and credits: the sliders span about half the middle price of the market's cars (a year: 5 %), so they
-  // fit any currency; any amount can be typed.
+  // Extra costs and credits: the sliders scale with the middle price of the market's cars, so they fit any currency.
+  // Once: ± 10 × that price (rounded up to 1-2-5), enough for nearly the whole value of a very expensive car, e.g.
+  // one bought at the end; a year: ± 50 % of it. (User request 2026-11-21: 10–20 × the first ranges of ½ and 5 %.)
+  // Any amount up to ± 1,000,000,000 can be typed.
   const typical = median(shownIds.map((id) => derivedById[id].priceDisplay.value).filter((v): v is number => v !== null && v > 0)) ?? 0;
-  const once = niceCeil(typical * 0.5);
-  const yearly = niceCeil(typical * 0.05);
+  const once = niceCeil(typical * 0.5) * 20;
+  const yearly = niceCeil(typical * 0.05) * 10;
   const stepOf = (range: number) => Math.max(1, Math.pow(10, Math.floor(Math.log10(range / 100))));
   const extrasOf = (up: number, year: number, end: number) =>
     [up && `${signed(up)} at purchase`, year && `${signed(year)}/year`, end && `${signed(end)} at the end`].filter(Boolean).join(' · ');
