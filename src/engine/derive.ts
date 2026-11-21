@@ -35,6 +35,13 @@ export interface DerivedCar {
   batteryKwh: number | null;
   /** Capacity at the end of the rated cycles (% of nominal): the car's value or the assumption. */
   eolPct: Val<number>;
+  /**
+   * Rated full cycles: the maker's figure for this car (data, with its source) or the chemistry default
+   * (estimated; data/battery/chemistries.csv). Null for petrol cars or when neither exists (no cycle wear).
+   */
+  ratedCycles: Val<number | null>;
+  /** Source ids (sources.csv) of `ratedCycles`. */
+  ratedCyclesSources: string[];
   fastWindow: { from: number; to: number } | null;
   /** Charging speeds in % of state of charge per hour (from the published charging test). */
   fastPctPerH: number | null;
@@ -188,6 +195,16 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     }
   }
 
+  const chemDef = chemistry ? ds.chemistries[chemistry] : undefined;
+  const ratedCycles: Val<number | null> =
+    car.batteryCycles !== null
+      ? { value: car.batteryCycles, provenance: 'data', note: 'maker figure for this car' }
+      : chemDef?.ratedCycles != null
+        ? { value: chemDef.ratedCycles, provenance: 'estimated', note: `${chemistry} default` }
+        : { value: null, provenance: 'missing' };
+  const ratedCyclesSources =
+    car.batteryCycles !== null ? (car.batteryCyclesSource ? [car.batteryCyclesSource] : []) : (chemDef?.ratedCyclesSources ?? []);
+
   // --- costs
   if (!car.market) flag('info', 'market', 'No market set - listed only under All markets');
   else if (!ds.markets.some((m) => m.id === car.market)) flag('info', 'market', `Market "${car.market}" is not in markets.csv - listed only under All markets`);
@@ -222,6 +239,8 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     ratedRangeKm: ratedRange,
     batteryKwh: battery,
     eolPct,
+    ratedCycles,
+    ratedCyclesSources,
     fastWindow,
     fastPctPerH,
     slowPctPerH: fastPctPerH !== null ? fastPctPerH * taper : null,

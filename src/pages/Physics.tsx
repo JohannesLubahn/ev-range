@@ -629,7 +629,7 @@ export function PhysicsPage() {
                       {derivedById[id].car.name} <span className="faint">{derivedById[id].chemistry}</span>
                     </td>
                     <td className="r">{g ? `${fixed(g.years, 1)} y` : ''}</td>
-                    <td className="r">{g ? `${num(g.efc, 0)} of ${num(derivedById[id].car.batteryCycles, 0)}` : ''}</td>
+                    <td className="r">{g ? `${num(g.efc, 0)} of ${num(derivedById[id].ratedCycles.value, 0)}` : ''}</td>
                     <td className="r">
                       {g ? `${fixed(g.cycleFadePct, 1)} %` : ''} {g && <span className="faint">×{fixed(g.cycleWearFactor, 2)}</span>}
                     </td>

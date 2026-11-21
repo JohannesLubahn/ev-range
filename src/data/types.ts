@@ -23,7 +23,10 @@ export interface Car {
   /** Capacity at the end of the rated cycles (% of nominal); null = assumption. */
   endOfLifeCapacityPct: number | null;
   batteryType: string | null;
+  /** Rated full cycles the maker states for this car's battery; null = the chemistry default. */
   batteryCycles: number | null;
+  /** Source of `batteryCycles` (id in sources.csv). */
+  batteryCyclesSource: string | null;
   consumptionKwhPerKm: number | null;
   ranges: Partial<Record<Basis, number>>;
   consumptionBasis: Basis | null;
@@ -257,6 +260,10 @@ export interface Chemistry {
   calendarEaKjPerMol: number;
   cycleFadeExponent: number;
   ageingSource: string;
+  /** Rated full cycles for cars without a maker figure of their own (null = none: no cycle wear). */
+  ratedCycles: number | null;
+  ratedCyclesSources: string[];
+  ratedCyclesNote: string;
   /** Open-circuit voltage per cell at 0..100 % SoC (index = SoC %). */
   ocv: number[];
   /** Calendar-ageing rate vs. state of charge (index = %), 1 at 50 % (battery/calendar_soc.csv). */

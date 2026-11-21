@@ -143,6 +143,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       endOfLifeCapacityPct: num(row, 'end_of_life_capacity_pct', warnings, where),
       batteryType: row.battery_type ? row.battery_type.toUpperCase() : null,
       batteryCycles: num(row, 'battery_cycles', warnings, where),
+      batteryCyclesSource: row.battery_cycles_source?.trim() || null,
       consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, where),
       ranges,
       consumptionBasis: basis,
@@ -386,6 +387,9 @@ export function parseDataset(files: RawFiles): Dataset {
       calendarEaKjPerMol: req(r, 'calendar_ea_kj_per_mol', warnings, where, 30),
       cycleFadeExponent: req(r, 'cycle_fade_exponent', warnings, where, 1),
       ageingSource: r.ageing_source ?? '',
+      ratedCycles: parseNumber(r.rated_cycles ?? ''),
+      ratedCyclesSources: (r.rated_cycles_source ?? '').split(';').map((x) => x.trim()).filter(Boolean),
+      ratedCyclesNote: r.rated_cycles_note ?? '',
       ocv,
       calendarSocFactor,
       capacityPct: tempTable.rows.map((t) => parseNumber(t[code]) ?? 100),
@@ -424,6 +428,14 @@ export function parseDataset(files: RawFiles): Dataset {
   }
   for (const p of profiles) {
     for (const id of p.sources) if (!sourceIds.has(id)) warnings.push(`profiles.csv, ${p.id}: source "${id}" is not in sources.csv`);
+  }
+  for (const c of Object.values(chemistries))
+    for (const id of c.ratedCyclesSources) if (!sourceIds.has(id)) warnings.push(`battery/chemistries.csv, ${c.chemistry}: source "${id}" is not in sources.csv`);
+  // Car-specific rated cycles need their source (cars.csv battery_cycles_source).
+  for (const c of cars) {
+    if (c.batteryCyclesSource && !sourceIds.has(c.batteryCyclesSource))
+      warnings.push(`cars.csv, ${c.id}: battery_cycles_source "${c.batteryCyclesSource}" is not in sources.csv`);
+    if (c.batteryCycles !== null && !c.batteryCyclesSource) warnings.push(`cars.csv, ${c.id}: battery_cycles without battery_cycles_source`);
   }
 
   return {

@@ -160,6 +160,13 @@ _SOC_NOTE = (". Calendar ageing vs. state of charge (calendar_soc.csv, used for 
              "(J. Electrochem. Soc. 158(5), A562), at 25 °C")
 AGEING_SOURCE = {k: v + _SOC_NOTE for k, v in AGEING_SOURCE.items()}
 
+# Rated cycles for cars without a maker figure of their own (cars.csv battery_cycles): the user's research.
+RATED_CYCLES_SOURCE = "your-ev-calculations;nrel-blast-lite"
+RATED_CYCLES_NOTE = {
+    "LFP": ("Your research (EV Calculations.ods, Car Details). For comparison, NREL's large-format lab cell (250 Ah, BLAST-Lite) reaches 80 % after about 3,700 full cycles at C/2 and 25 °C"),
+    "NMC": ("Your research (EV Calculations.ods, Car Details). For comparison, NREL's large-format lab cell (75 Ah, a high-power cell, BLAST-Lite) reaches 80 % after about 3,350 full cycles at C/2 and 25 °C"),
+}
+
 
 def graphite_potential_safari2011(soc):
     """Graphite anode potential vs. Li (V) at a cell state of charge 0..1, as used by NREL BLAST-Lite."""
@@ -198,7 +205,8 @@ def battery_tables():
         ("chemistry", "label", "nominal_cell_v", "cutoff_cell_v", "max_cell_v", "dv_1c_25c_pct",
          "resistance_ea_kj_per_mol", "pack_wh_per_kg", "specific_heat_j_per_kgk", "ocv_source", "resistance_source",
          "capacity_source", "thermal_source", "calendar_loss_pct_1y_25c", "calendar_time_exponent",
-         "calendar_ea_kj_per_mol", "cycle_fade_exponent", "ageing_source"),
+         "calendar_ea_kj_per_mol", "cycle_fade_exponent", "ageing_source", "rated_cycles", "rated_cycles_source",
+         "rated_cycles_note"),
         ("LFP", "Lithium iron phosphate (LiFePO4) / graphite", f"{mean(lfp):.3f}", f"{lfp[0]:.2f}", f"{lfp[100]:.2f}",
          "3.0", "27", "140", "1100",
          "Prada et al. 2013, J. Electrochem. Soc. 160(4), A616 (A123 LFP/graphite cell model); LFP OCP Afshar 2017, "
@@ -208,7 +216,7 @@ def battery_tables():
          "complete EV pack incl. interconnects",
          "See temperature.csv",
          "Pack: BYD Han Blade pack ≈ 140 Wh/kg (vendor figure; Tesla's LFP Model 3 pack ≈ 125 Wh/kg). Cells: measured LFP pouch and prismatic cells 1.0–1.15 J/(g·K) (batterydesign.net summary of measurements)",
-         "2.3", "0.53", "30", "0.83", AGEING_SOURCE["LFP"]),
+         "2.3", "0.53", "30", "0.83", AGEING_SOURCE["LFP"], "2000", RATED_CYCLES_SOURCE, RATED_CYCLES_NOTE["LFP"]),
         ("NMC", "Lithium nickel manganese cobalt oxide (NMC811) / graphite", f"{mean(nmc):.3f}", f"{nmc[0]:.2f}",
          f"{nmc[100]:.2f}", "3.0", "28", "170", "1000",
          "Chen et al. 2020, J. Electrochem. Soc. 167, 080534 (LG M50 NMC811/graphite-SiOx cell); full-cell curve "
@@ -218,7 +226,7 @@ def battery_tables():
          "for a complete EV pack incl. interconnects",
          "See temperature.csv",
          "Pack: NMC packs ≈ 160–180 Wh/kg (vendor figures). Cells: measured NMC cells 0.96–1.04 J/(g·K) (batterydesign.net summary of measurements)",
-         "2.45", "0.58", "30", "1.11", AGEING_SOURCE["NMC"]),
+         "2.45", "0.58", "30", "1.11", AGEING_SOURCE["NMC"], "1100", RATED_CYCLES_SOURCE, RATED_CYCLES_NOTE["NMC"]),
     ]
     temp = [
         ("temperature_c", "LFP", "NMC", "note"),

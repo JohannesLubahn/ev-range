@@ -58,7 +58,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/onboard/classes.csv` | Electronics and cabin properties per car class (walls, fresh air, sun area, heat capacity), with sources. |
 | `data/onboard/measurements.csv` | Published onboard-power measurements (Argonne, ADAC, …) the model is checked against. |
 | `data/onboard/facts_tab.csv` | Your Facts-tab onboard curves, kept for comparison only. |
-| `data/battery/*.csv` | Voltage curves, resistance and capacity vs. temperature per chemistry (LFP, NMC). |
+| `data/battery/*.csv` | Voltage curves, resistance and capacity vs. temperature per chemistry (LFP, NMC); ageing parameters and the default rated cycles per chemistry (`chemistries.csv`). |
 | `data/cycles/*.csv` | Official test-cycle speed traces (WLTP, NEDC, EPA) used for the calibration. |
 | `data/sources.csv` | Every source the data and the model rest on, with links (shown on the Assumptions page). |
 
@@ -166,7 +166,11 @@ Mixed, the sprint at a steady 120 km/h. Scenarios saved before 20 Nov 2026 (spee
 converted: the old standard driving becomes the new one.
 
 **Battery wear** (Conditions: km driven, default 100,000 km) sets the capacity the stress tests start from:
-cycle wear up to the car's rated cycles plus calendar ageing, per chemistry. **Battery care** (Battery life page:
+cycle wear up to the car's rated cycles plus calendar ageing, per chemistry. **Rated cycles:** a maker's figure
+for the car's own battery where one was found (`battery_cycles` in `cars.csv`, with its source id in
+`battery_cycles_source` and, if the maker gives one, the capacity at those cycles in `end_of_life_capacity_pct`);
+otherwise the chemistry default in `data/battery/chemistries.csv` (LFP 2,000, NMC 1,100). The Assumptions page lists
+them with sources. **Battery care** (Battery life page:
 Gentle / Typical / Hard, or % of charging at DC fast chargers and % of the time parked above 80 %) speeds the wear
 up or slows it down. Battery life shows the capacity left after the years, without a pass or fail: green from 80 %, orange from 60 %,
 red below (`capacity_good_pct`, `capacity_poor_pct` in `data/assumptions.csv`).

@@ -280,7 +280,15 @@ battery. Code: `src/engine/battery/ageing.ts`.
   cycles than with the old division by 80 % of nominal (BYD Atto 3: 872 → 798; the Hyundai Inster, which was at
   100 %, now needs more), and it also shows the capacity left at the end.
 - **Cycle wear** reaches 80 % capacity (assumption `rated_cycles_end_capacity_pct`, 80 %, or the
-  car's `end_of_life_capacity_pct`) at the car's **rated cycles** (`battery_cycles`), so the car data sets its size.
+  car's `end_of_life_capacity_pct`) at the car's **rated cycles**, so the rating sets its size. Rated cycles
+  (since 21 Nov 2026): the maker's figure for the car's own battery where one was found (`battery_cycles` +
+  `battery_cycles_source` in cars.csv: BYD Atto 3 / Dolphin / Seal 5,000, XPeng G6 2,000 to 70 %, Citroën ë-C3 1,000),
+  otherwise the chemistry default in `data/battery/chemistries.csv` (the user's research: LFP 2,000, NMC 1,100). Makers
+  rate under their own test conditions, so the figures compare only roughly. "Years until 80 %" uses the assumption
+  for every car, whatever capacity a maker rates its cycles to. NREL's BLAST-Lite lab cells were checked as
+  defaults (250 Ah LFP ≈ 3,700, 75 Ah NMC ≈ 3,350 full cycles to 80 % at C/2 and 25 °C) and not used: together with
+  their own calendar ageing (LFP 1.4 %, NMC 0.8 % after a year at 25 °C) they predict 2.7 (LFP) and 7.7 (NMC) points
+  more capacity than the fleet data, and scaling them to the fleet would treat makers' ratings inconsistently.
   The chemistry sets its shape: z = 0.83 (LFP) and 1.11 (NMC), from NREL's BLAST-Lite models of a 250 Ah prismatic
   LFP cell and a 75 Ah automotive NMC pouch cell (NREL 2023, J. Energy Storage 73, 109042).
 - **Calendar ageing** per chemistry (`data/battery/chemistries.csv`): time exponents n = 0.53 (LFP) and 0.58 (NMC)

@@ -477,7 +477,7 @@ export class CarModel {
     return {
       chem,
       nominalKwh: d.batteryKwh,
-      ratedCycles: d.car.batteryCycles,
+      ratedCycles: d.ratedCycles.value,
       eolPct: d.eolPct.value,
       kwhPerKm: perKm,
       km,

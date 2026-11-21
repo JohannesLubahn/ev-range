@@ -1523,3 +1523,14 @@ table {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+
+/* Rated battery cycles (Assumptions): the note and source on a full-width line under each row. */
+.cycles-table tr.main td {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+.cycles-table tr.note td {
+  padding-top: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}

@@ -245,7 +245,7 @@ function ageingSteps(m: CarModel, g: AgeingResult, care?: BatteryLifeInputs): St
     },
   ];
   if (!chem) return steps;
-  const rated = m.d.car.batteryCycles;
+  const rated = m.d.ratedCycles.value;
   const life = care ?? m.life;
   const c = m.fastChargeCRate();
   steps.push({
@@ -524,9 +524,11 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
   const available = bat.availableKwh;
   const g = m.ageing(totalKm, i);
   const cyclesRequired = g ? g.efc : available > 0 ? energy / available : Infinity;
-  const rated = m.d.car.batteryCycles;
-  // Pass: the capacity left at the end of the life is at least the end-of-life capacity (needs the rated cycles).
-  const eol = m.d.eolPct.value;
+  const rated = m.d.ratedCycles.value;
+  // The car's rating: rated cycles until `ratingEol` capacity is left (e.g. XPeng: 2,000 cycles to 70 %).
+  const ratingEol = m.d.eolPct.value;
+  // "Years until" and the (internal) pass use one threshold for every car: the assumption (80 %).
+  const eol = m.ctx.a.ratedCyclesEndCapacityPct;
   const judged = g !== null && !!rated;
   const margin = judged ? (g.sohPct - eol) / Math.max(1e-9, 100 - eol) : null;
   const input = judged ? m.ageingInput(0, i) : null;
@@ -553,7 +555,12 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
           kind: 'result',
         }
       : { label: 'Full cycles needed', formula: `${fx(energy, 0)} ÷ ${fx(available, 1)} ${u}`, value: cyclesRequired, unit: 'cycles', kind: 'result' },
-    { label: 'Rated cycles', formula: `until ${pct(eol)} capacity is left`, value: rated, unit: 'cycles' },
+    {
+      label: 'Rated cycles',
+      formula: `until ${pct(ratingEol)} capacity is left; ${m.d.ratedCycles.provenance === 'data' ? 'maker figure for this car' : `${m.d.chemistry} default (no maker figure for this car)`}`,
+      value: rated,
+      unit: 'cycles',
+    },
     ...(g
       ? [
           ...ageingSteps(m, g, i).slice(2),

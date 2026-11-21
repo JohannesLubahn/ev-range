@@ -93,6 +93,19 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
           cells[id] = { text: num(v.value, digitsFor(v.value)), value: v.value, prov: v.prov };
           continue;
         }
+        if (f.key === 'battery_cycles') {
+          // The maker's figure for this car, else the chemistry default (est.).
+          const v = d.ratedCycles.value;
+          cells[id] = v === null ? { text: '', value: null } : { text: num(v, 0), value: v, prov: d.ratedCycles.provenance };
+          continue;
+        }
+        if (f.key === 'battery_cycles_source') {
+          const sid = d.ratedCyclesSources[0];
+          const s = sid ? ds.sources.find((x) => x.id === sid) : undefined;
+          const text = !s ? sid ?? '' : s.topic === 'Your files' ? `${s.title.split(' (')[0]} (${d.chemistry} default)` : [s.publisher || s.authors, s.year].filter(Boolean).join(' ');
+          cells[id] = { text: s?.url ? `${text}|${s.url}` : text, value: null };
+          continue;
+        }
         if (f.key === 'heat_pump') {
           cells[id] = d.isIce ? { text: '', value: null } : { text: d.heatPump.value ? 'yes' : 'no', value: null, prov: d.heatPump.provenance };
           continue;
@@ -294,7 +307,19 @@ export function CarsPage() {
                           const long = !!c && c.value === null && c.text.length > LONG_TEXT;
                           return (
                             <td key={id} className={`num ${isBest ? 'best' : ''}${long ? ' long' : ''}`}>
-                              {c && c.text !== '' ? r.key === 'source_url' ? <SourceLinks text={c.text} /> : c.text : <span className="faint">–</span>}
+                              {c && c.text !== '' ? (
+                                r.key === 'source_url' ? (
+                                  <SourceLinks text={c.text} />
+                                ) : r.key === 'battery_cycles_source' && c.text.includes('|') ? (
+                                  <a href={c.text.split('|')[1]} target="_blank" rel="noreferrer">
+                                    {c.text.split('|')[0]}
+                                  </a>
+                                ) : (
+                                  c.text
+                                )
+                              ) : (
+                                <span className="faint">–</span>
+                              )}
                               {c?.prov === 'estimated' && c.text !== '' && (
                                 <span className="chip est" style={{ marginLeft: 6 }}>
                                   est.
