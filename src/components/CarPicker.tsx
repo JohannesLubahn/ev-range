@@ -18,6 +18,7 @@ import {
 } from '../state/carList';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
+import { NumberInput } from './Fields';
 import { IconClose, IconWarning } from './Icons';
 
 /** Ticks or unticks a set of cars (a group, a model's variants, or every car shown). */
@@ -261,24 +262,24 @@ export function CarPickerContent() {
         )}
         <div className="price-range">
           <span className="faint">Price, {a.displayCurrency}</span>
-          <input
-            type="number"
+          <NumberInput
             aria-label={`Price from (${a.displayCurrency})`}
             placeholder="from"
             min={0}
             step={priceStep(opts.priceMax)}
-            value={filters.priceMin ?? ''}
-            onChange={(e) => setFilters({ priceMin: e.target.value === '' ? null : Number(e.target.value) })}
+            allowEmpty
+            value={filters.priceMin}
+            onChange={(v) => setFilters({ priceMin: v })}
           />
           <span className="faint">–</span>
-          <input
-            type="number"
+          <NumberInput
             aria-label={`Price up to (${a.displayCurrency})`}
             placeholder={opts.priceMax === null ? 'to' : compact(opts.priceMax)}
             min={0}
             step={priceStep(opts.priceMax)}
-            value={filters.priceMax ?? ''}
-            onChange={(e) => setFilters({ priceMax: e.target.value === '' ? null : Number(e.target.value) })}
+            allowEmpty
+            value={filters.priceMax}
+            onChange={(v) => setFilters({ priceMax: v })}
           />
         </div>
         {hasFilters(filters) && (

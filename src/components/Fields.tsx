@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { num } from '../format';
+import { editNumberText, formatNumberText, groupsThousands, parseNumberText } from '../numberText';
 import { IconApplyAll, IconReset } from './Icons';
 
 /**
@@ -51,6 +52,98 @@ function decimals(step: number): number {
   return s.includes('.') ? s.length - s.indexOf('.') - 1 : 0;
 }
 
+interface NumberInputProps {
+  id?: string;
+  'aria-label'?: string;
+  placeholder?: string;
+  value: number | null;
+  min?: number;
+  max?: number;
+  /** Arrow up / down add or take this much. */
+  step?: number;
+  /** Each complete number typed within [min, max]; on leaving the field (or Enter) the typed value held to [min, max]. */
+  onChange: (v: number | null) => void;
+  /** An emptied field means "no value" (null); otherwise it gets the current value back. */
+  allowEmpty?: boolean;
+}
+
+/**
+ * Number box with thousands grouped while typing (1,600,000; user request 2026-11-21). A text input, since a number
+ * input cannot show separators; arrow up / down step like a number input's.
+ */
+export function NumberInput({ value, min, max, step = 1, onChange, allowEmpty = false, ...attrs }: NumberInputProps) {
+  const grouped = groupsThousands(min, max);
+  const negative = (min ?? 0) < 0;
+  const lo = min ?? -Infinity;
+  const hi = max ?? Infinity;
+  const ref = useRef<HTMLInputElement>(null);
+  const caret = useRef<number | null>(null);
+  const [text, setText] = useState(() => formatNumberText(value, grouped));
+  const [, rerender] = useReducer((k: number) => k + 1, 0);
+  useEffect(() => {
+    // A value from elsewhere (slider, ↺, another test) replaces the text; the same value keeps what is being typed ("7.").
+    const typing = ref.current !== null && ref.current === document.activeElement;
+    setText((t) => (typing && parseNumberText(t) === value ? t : formatNumberText(value, grouped)));
+  }, [value, grouped]);
+  useLayoutEffect(() => {
+    if (caret.current !== null && ref.current === document.activeElement) ref.current?.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  });
+  const commit = () => {
+    const v = parseNumberText(text);
+    if (v === null) {
+      if (allowEmpty && text.trim() === '') onChange(null);
+      else setText(formatNumberText(value, grouped));
+      return;
+    }
+    const held = Math.min(hi, Math.max(lo, v));
+    if (held !== value) onChange(held);
+    setText(formatNumberText(held, grouped));
+  };
+  return (
+    <input
+      ref={ref}
+      type="text"
+      className="num-input"
+      // Phones: the digit pad has no minus sign, so fields that take negative values get the full keyboard.
+      inputMode={negative ? 'text' : 'decimal'}
+      autoComplete="off"
+      spellCheck={false}
+      value={text}
+      {...attrs}
+      onChange={(e) => {
+        let raw = e.target.value;
+        let at = e.target.selectionStart ?? raw.length;
+        // Deleting a separator deletes the digit next to it (else the caret would only hop over the comma).
+        if (grouped && raw.length === text.length - 1 && text[at] === ',' && raw === text.slice(0, at) + text.slice(at + 1)) {
+          if ((e.nativeEvent as InputEvent).inputType === 'deleteContentForward') raw = raw.slice(0, at) + raw.slice(at + 1);
+          else if (at > 0) {
+            raw = raw.slice(0, at - 1) + raw.slice(at);
+            at -= 1;
+          }
+        }
+        const next = editNumberText(raw, at, { grouped, negative });
+        caret.current = next.caret;
+        setText(next.text);
+        rerender();
+        const v = parseNumberText(next.text);
+        if (v !== null && v >= lo && v <= hi) onChange(v);
+        else if (allowEmpty && next.text === '') onChange(null);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        const from = parseNumberText(text) ?? value ?? (min ?? 0);
+        const v = Math.min(hi, Math.max(lo, Number((from + (e.key === 'ArrowUp' ? step : -step)).toPrecision(12))));
+        onChange(v);
+        setText(formatNumberText(v, grouped));
+      }}
+    />
+  );
+}
+
 interface NumberFieldProps extends InputActions<number | null> {
   label: string;
   /** Null = no value yet (a cost value the market's data lacks): the field asks for one. */
@@ -70,14 +163,6 @@ interface NumberFieldProps extends InputActions<number | null> {
 /** Label + slider + number input + unit, with ↺ / ⇉. The number input accepts any value in [min, max]. */
 export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMin, sliderMax, hint, reset, applyAll, spread }: NumberFieldProps) {
   const id = useId();
-  const show = (v: number | null) => (v === null ? '' : String(v));
-  const [text, setText] = useState(show(value));
-  useEffect(() => setText(show(value)), [value]);
-  const commit = (raw: string) => {
-    const v = Number(raw.replace(',', '.'));
-    if (raw.trim() !== '' && Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-    else setText(show(value));
-  };
   const fmt = (v: number | null | undefined) => (v === null ? 'missing' : `${num(v, decimals(step))}${unit.startsWith('/') || unit === '' ? '' : ' '}${unit}`.trim());
   const resetShown = !!reset && (reset.differs ?? reset.value !== value);
   const standardText = reset?.text ?? (reset?.value === null ? "missing in the market's data" : fmt(reset?.value));
@@ -95,21 +180,14 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
         value={Math.max(sliderMin ?? min, Math.min(value ?? min, sliderMax ?? max))}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      <input
+      <NumberInput
         id={id}
-        type="number"
-        inputMode="decimal"
         min={min}
         max={max}
         step={step}
         placeholder={value === null ? 'missing' : undefined}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          const v = Number(e.target.value);
-          if (e.target.value !== '' && Number.isFinite(v) && v >= min && v <= max) onChange(v);
-        }}
-        onBlur={(e) => commit(e.target.value)}
+        value={value}
+        onChange={(v) => v !== null && onChange(v)}
       />
       <span className="unit">{unit}</span>
       {value === null && <span className="field-note missing-note">Not in this market&rsquo;s data yet: type a value to include it in the costs.</span>}

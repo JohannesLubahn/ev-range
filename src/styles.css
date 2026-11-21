@@ -294,7 +294,8 @@ select {
   padding: 0 8px;
   min-width: 0;
 }
-input[type='number'] {
+input[type='number'],
+input.num-input {
   font-variant-numeric: tabular-nums;
 }
 input[type='range'] {
@@ -449,7 +450,7 @@ main.wrap {
   border: 1px solid var(--line);
 }
 /* A cost value the market's data lacks (the user types it). */
-.field.missing input[type='number'],
+.field.missing input.num-input,
 .assumption input.missing {
   border-color: var(--warn);
   background: var(--warn-soft);
@@ -1107,7 +1108,7 @@ table {
 }
 .field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px 44px;
+  grid-template-columns: minmax(0, 1fr) 96px 44px;
   gap: 4px 8px;
   align-items: center;
 }
@@ -1291,7 +1292,7 @@ table {
   color: var(--ink-3);
   font-size: 12.5px;
 }
-.field input[type='number'] {
+.field input.num-input {
   width: 100%;
   text-align: right;
 }
