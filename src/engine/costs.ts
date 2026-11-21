@@ -153,7 +153,7 @@ export interface OwnershipCar {
   engineCc: number | null;
   /** Official CO₂ emissions (g/km), for road taxes that depend on CO₂. */
   co2GPerKm: number | null;
-  /** Overrides from cars.csv, in the display currency (null = the rule). */
+  /** The car's own prices from its market's offers.csv, in the display currency (null = the rule). */
   servicingPerYear: number | null;
   insurancePerYear: number | null;
   tyreSetPrice: number | null;
@@ -226,7 +226,7 @@ export function ownership(car: OwnershipCar, ci: CostInputs, years: number, tota
   const rate = bev ? ci.insuranceRateBev : ci.insuranceRateIce;
   const insMin = ci.insuranceMin;
   if (car.insurancePerYear !== null) {
-    lines.push({ part: 'insurance', label: 'Voluntary insurance', value: car.insurancePerYear * years, formula: `${money(car.insurancePerYear)} (cars.csv) × ${thousands(years)} years` });
+    lines.push({ part: 'insurance', label: 'Voluntary insurance', value: car.insurancePerYear * years, formula: `${money(car.insurancePerYear)} (offers.csv) × ${thousands(years)} years` });
   } else if (price !== null) {
     if (rate === null || insMin === null || dep === null)
       lines.push(gap('insurance', 'Voluntary insurance', [rate === null && 'voluntary insurance', insMin === null && 'lowest premium', dep === null && 'loss of value']));
@@ -283,7 +283,7 @@ export function ownership(car: OwnershipCar, ci: CostInputs, years: number, tota
       part: 'servicing',
       label: 'Servicing',
       value: servicing * years,
-      formula: `${money(servicing)}${car.servicingPerYear !== null ? ' (cars.csv)' : ''} × ${thousands(years)} years`,
+      formula: `${money(servicing)}${car.servicingPerYear !== null ? ' (offers.csv)' : ''} × ${thousands(years)} years`,
     });
   const { repairsPct, warrantyYears } = ci;
   if (repairsPct === null || warrantyYears === null)
@@ -316,7 +316,7 @@ export function ownership(car: OwnershipCar, ci: CostInputs, years: number, tota
       part: 'tyres',
       label: 'Tyres',
       value: life > 0 ? (totalKm / life) * set : 0,
-      formula: `${thousands(totalKm)} km ÷ ${thousands(life)} km per set (${thousands(lifeKm)} km × ${thousands(refKg)} kg ÷ ${thousands(car.massKg)} kg) × ${money(set)}${car.tyreSetPrice !== null ? ' (cars.csv)' : ''}`,
+      formula: `${thousands(totalKm)} km ÷ ${thousands(life)} km per set (${thousands(lifeKm)} km × ${thousands(refKg)} kg ÷ ${thousands(car.massKg)} kg) × ${money(set)}${car.tyreSetPrice !== null ? ' (offers.csv)' : ''}`,
     });
   }
   return { resale, lines, warnings, missing: [...new Set(lines.flatMap((l) => l.missing ?? []))] };

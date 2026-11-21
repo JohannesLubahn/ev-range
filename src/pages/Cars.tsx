@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState, type ChangeEvent } from 'react';
 import { CarsButton } from '../components/CarPicker';
-import { bundledFiles } from '../data/bundled';
-import { parseCars } from '../data/parse';
+import { parseCars, perMarketCarsCsv } from '../data/parse';
 import type { FieldDef } from '../data/types';
 import type { DerivedCar, Provenance } from '../engine/derive';
 import { fixed, num } from '../format';
@@ -190,7 +189,7 @@ function download(name: string, text: string) {
 }
 
 export function CarsPage() {
-  const { selectedIds, derivedById, flagsById, allIds } = useEngine();
+  const { ds, selectedIds, derivedById, flagsById, allIds } = useEngine();
   const carsCsv = useStore((s) => s.carsCsv);
   const carsCsvName = useStore((s) => s.carsCsvName);
   const loadCarsCsv = useStore((s) => s.loadCarsCsv);
@@ -212,7 +211,7 @@ export function CarsPage() {
     const w: string[] = [];
     const { cars, columns } = parseCars(text, w);
     if (!columns.includes('name') || cars.length === 0) {
-      setError(`${file.name} has no "name" column or no rows. Use the layout of data/cars.csv (one row per car).`);
+      setError(`${file.name} has no "name" column or no rows. Use the layout of data/cars.csv (one numbered row per car) or of Download CSV (one row per car and market).`);
       return;
     }
     setError(null);
@@ -225,8 +224,17 @@ export function CarsPage() {
         <div className="stack" style={{ gap: 4 }}>
           <h1>Cars</h1>
           <p className="muted">
-            {allIds.length} cars from <span className="mono">{carsCsvName ?? 'data/cars.csv'}</span>. Showing the {ids.length} ticked cars of
-            the market. Edit the CSV (one row per car and market) to add cars or specs; new columns appear here automatically.
+            {allIds.length} cars from{' '}
+            {carsCsvName ? (
+              <span className="mono">{carsCsvName}</span>
+            ) : (
+              <>
+                <span className="mono">data/cars.csv</span> (one numbered row per car, its specs shared by every market) and each market&rsquo;s{' '}
+                <span className="mono">data/markets/&lt;id&gt;/offers.csv</span> (the cars it sells: local name, price and any value that differs
+                there)
+              </>
+            )}
+            . Showing the {ids.length} ticked cars of the market. New columns appear here automatically.
           </p>
         </div>
         <div className="row">
@@ -236,13 +244,13 @@ export function CarsPage() {
           </label>
           <input id="csv-file" type="file" accept=".csv,text/csv" onChange={onFile} hidden />
           {!EMBEDDED && (
-            <button type="button" className="btn" onClick={() => download('cars.csv', carsCsv ?? bundledFiles.cars)}>
+            <button type="button" className="btn" title="All cars in one file, one row per car and market" onClick={() => download('cars_by_market.csv', perMarketCarsCsv(ds))}>
               <IconDownload /> Download CSV
             </button>
           )}
           {carsCsv && (
             <button type="button" className="btn ghost" onClick={resetCarsCsv}>
-              Use data/cars.csv again
+              Use the built-in car data again
             </button>
           )}
         </div>
@@ -336,6 +344,15 @@ export function CarsPage() {
                               ) : (
                                 <span className="faint">–</span>
                               )}
+                              {derivedById[id].car.marketColumns.includes(r.key) && (
+                                <span
+                                  className="chip"
+                                  style={{ marginLeft: 6 }}
+                                  title={`This market's own value (data/markets/${derivedById[id].car.market}/offers.csv); data/cars.csv has another`}
+                                >
+                                  {derivedById[id].car.market}
+                                </span>
+                              )}
                               {c?.prov === 'estimated' && c.text !== '' && (
                                 <span className="chip est" style={{ marginLeft: 6 }}>
                                   est.
@@ -353,14 +370,15 @@ export function CarsPage() {
         </table>
       </div>
       <p className="faint" style={{ fontSize: 12.5 }}>
-        calc = calculated from other values · est. = estimated (missing in cars.csv) · ★ = best of the shown cars · – = missing
+        calc = calculated from other values · est. = estimated (missing in cars.csv) · TH, DE, … = this market&rsquo;s own value (its offers.csv)
+        · ★ = best of the shown cars · – = missing
       </p>
       <section className="panel stack" aria-labelledby="data-check">
         <div className="row">
           <h2 id="data-check">Data check</h2>
           <span className="chip warn">{warnings} warnings</span>
         </div>
-        <p className="muted">Missing, estimated or suspicious values per car. Fix them in data/cars.csv; the app reloads when you save.</p>
+        <p className="muted">Missing, estimated or suspicious values per car. Fix them in data/cars.csv (specs) or the market&rsquo;s offers.csv (price, local name); the app reloads when you save.</p>
         <div className="stack" style={{ gap: 6 }}>
           {allIds.map((id) => {
             const flags = flagsById[id] ?? [];

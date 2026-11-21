@@ -32,10 +32,13 @@ import { COST_ITEMS } from '../engine/costItems';
 export interface MarketFolderFiles {
   costs?: string;
   roadTax?: string;
+  /** The cars the market sells (offers.csv). */
+  offers?: string;
 }
 
 /** The raw text of every data file. Used for the bundled /data files and for CSV files loaded in the browser. */
 export interface RawFiles {
+  /** data/cars.csv: one numbered row per car (joined with the offers), or a file with one row per car and market. */
   cars: string;
   fields: string;
   assumptions: string;
@@ -51,7 +54,7 @@ export interface RawFiles {
   blocs?: string;
   /** data/costs/items.csv: the cost items every market folder follows (optional like markets). */
   costItems?: string;
-  /** The files of each folder data/markets/<id>/ (a market or bloc id): costs.csv and road_tax.csv. */
+  /** The files of each folder data/markets/<id>/ (a market or bloc id): costs.csv, road_tax.csv and offers.csv. */
   marketFiles?: Record<string, MarketFolderFiles>;
   /** data/terrain.csv (optional like markets). */
   terrain?: string;
@@ -119,28 +122,171 @@ function req(row: Row, key: string, warnings: string[], where: string, fallback 
   return v;
 }
 
+/** Where a row of the car table came from: a row of a market's offers.csv joined with its car in cars.csv. */
+interface CarOrigin {
+  /** e.g. "markets/TH/offers.csv". */
+  file: string;
+  line: number;
+  /** The car's number in cars.csv. */
+  car: string;
+  /** Columns the offer filled; the others come from cars.csv. */
+  fromOffer: string[];
+  /** Columns of cars.csv for which the offer gives another value: the car differs in this market. */
+  marketColumns: string[];
+}
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/**
+ * A cars file with one row per car and market (a market column): the layout before Nov 2026 and of the Cars page's
+ * download. data/cars.csv itself has one numbered row per car, shared by every market.
+ */
+export function isPerMarketCarsFile(columns: string[]): boolean {
+  return columns.includes('market');
+}
+
+/** A cars file with one row per car and market, read as it is. */
 export function parseCars(text: string, warnings: string[]): { cars: Car[]; columns: string[] } {
   const { rows, columns } = parseCsv(text);
+  return { cars: carsFromRows(rows, warnings), columns };
+}
+
+/** The car table as one file with one row per car and market (the Cars page's download); it loads back as it is. */
+export function perMarketCarsCsv(ds: { cars: Car[]; carColumns: string[] }): string {
+  const data = ds.cars.map((c) => ds.carColumns.map((k) => (k === 'id' ? c.id : (c.raw[k] ?? ''))));
+  return `${Papa.unparse({ fields: ds.carColumns, data }, { newline: '\n' })}\n`;
+}
+
+/** Columns only a market's offers.csv has: prices are in the market's currency, and the market is the folder. */
+export const OFFER_COLUMNS = ['car', 'market', 'currency', 'price', 'energy_price', 'maintenance_per_year', 'insurance_per_year', 'tyre_set_price'];
+/** Local names: an offer may name the car differently; that is not a different car. */
+const NAME_COLUMNS = ['name', 'brand', 'model', 'variant'];
+/** Columns where the offer's text is added to the car's (the price has its own sources and notes). */
+const ADDED_COLUMNS = ['source_url', 'notes', 'updated'];
+
+const plain = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function joinNotes(a: string, b: string): string {
+  if (!a || !b) return a || b;
+  return /[.!?]$/.test(a) ? `${a} ${b}` : `${a}. ${b}`;
+}
+
+/**
+ * The car table: each row of a market's offers.csv (data/markets/<id>/) joined with its car in cars.csv (one numbered
+ * row per car, shared by every market that sells it). The offer gives the local name, the price in the market's
+ * currency and any value that differs in that market; everything else comes from cars.csv.
+ */
+export function joinCars(
+  specs: { rows: Row[]; columns: string[] },
+  offerFiles: Record<string, string>,
+  markets: Market[],
+  blocs: Bloc[],
+  warnings: string[],
+): { cars: Car[]; columns: string[] } {
+  const byNo = new Map<string, Row>();
+  const misplaced = new Set<string>();
+  specs.rows.forEach((r, i) => {
+    const no = (r.id ?? '').trim();
+    if (!/^\d+$/.test(no)) {
+      warnings.push(`cars.csv row ${i + 2}: id "${no}" is not a number; row ignored (offers.csv refers to cars by number)`);
+      return;
+    }
+    if (byNo.has(no)) {
+      warnings.push(`cars.csv row ${i + 2}: number ${no} is used twice; the second row is ignored`);
+      return;
+    }
+    for (const c of OFFER_COLUMNS) if (r[c]) misplaced.add(c);
+    byNo.set(no, r);
+  });
+  for (const c of misplaced) warnings.push(`cars.csv: column ${c} belongs in the markets' offers.csv (data/markets/<id>/); ignored`);
+  const specColumns = specs.columns.filter((c) => c !== 'id' && !OFFER_COLUMNS.includes(c));
+  const columns = ['id', 'car', 'market', 'currency', ...specColumns];
+  const rows: Row[] = [];
+  const origins: CarOrigin[] = [];
+  const offered = new Set<string>();
+  // A folder that is neither a market nor a bloc is reported with its cost files.
+  for (const folder of Object.keys(offerFiles))
+    if (blocs.some((b) => b.id === folder.toUpperCase()))
+      warnings.push(`markets/${folder}/offers.csv: a bloc sells no cars itself; list them in each market's offers.csv (ignored)`);
+  // Markets in the order of markets.csv, cars in the order of their offers.csv.
+  for (const market of markets) {
+    const folder = Object.keys(offerFiles).find((f) => f.toUpperCase() === market.id);
+    if (folder === undefined) continue;
+    const marketId = market.id;
+    const file = `markets/${folder}/offers.csv`;
+    const offers = parseCsv(offerFiles[folder]);
+    for (const c of offers.columns) {
+      if (c === 'market' || c === 'currency') warnings.push(`${file}: column ${c} is set by the folder and markets.csv; ignored`);
+      else if (!columns.includes(c)) columns.push(c);
+    }
+    offers.rows.forEach((o, i) => {
+      const line = i + 2;
+      const no = (o.car ?? '').trim();
+      const spec = byNo.get(no);
+      if (!spec) {
+        warnings.push(`${file} row ${line}: car "${no}" is not a number in cars.csv; row ignored`);
+        return;
+      }
+      offered.add(no);
+      const row: Row = {};
+      for (const c of specColumns) row[c] = spec[c] ?? '';
+      const fromOffer: string[] = [];
+      const marketColumns: string[] = [];
+      for (const [k, v] of Object.entries(o)) {
+        if (v === '' || ADDED_COLUMNS.includes(k) || k === 'car' || k === 'market' || k === 'currency') continue;
+        if (specColumns.includes(k) && !NAME_COLUMNS.includes(k) && (spec[k] ?? '') !== v) marketColumns.push(k);
+        row[k] = v;
+        fromOffer.push(k);
+      }
+      row.id = o.id || `${slug(row.name ?? '')}-${folder.toLowerCase()}`;
+      row.car = no;
+      row.market = marketId;
+      row.currency = market.currency;
+      const urls = [o.source_url, spec.source_url].flatMap((u) => (u ?? '').split(';').map((x) => x.trim()));
+      row.source_url = [...new Set(urls.filter(Boolean))].join(' ; ');
+      row.notes = joinNotes(o.notes ?? '', spec.notes ?? '');
+      row.updated = [o.updated ?? '', spec.updated ?? ''].sort().pop() ?? '';
+      // A wrong number would give the car another maker's specs: the local name must contain the brand.
+      const brand = plain(row.brand ?? '').split(/[\s-]+/).filter(Boolean);
+      if (o.name && brand.length && !brand.some((b) => plain(o.name).includes(b)))
+        warnings.push(`${file} row ${line}: "${o.name}" does not contain the brand of car ${no} in cars.csv (${row.brand}); check the number`);
+      rows.push(row);
+      origins.push({ file, line, car: no, fromOffer, marketColumns });
+    });
+  }
+  const idle = [...byNo.keys()].filter((no) => !offered.has(no));
+  if (idle.length) {
+    const list = idle.slice(0, 5).map((no) => `${no} ${byNo.get(no)!.name ?? ''}`.trim());
+    warnings.push(`cars.csv: ${idle.length === 1 ? 'car' : `${idle.length} cars`} in no market's offers.csv: ${list.join(', ')}${idle.length > 5 ? ', …' : ''}`);
+  }
+  return { cars: carsFromRows(rows, warnings, origins), columns };
+}
+
+function carsFromRows(rows: Row[], warnings: string[], origins?: CarOrigin[]): Car[] {
   const seen = new Set<string>();
   const cars: Car[] = [];
   rows.forEach((row, i) => {
+    const o = origins?.[i];
     const name = row.name ?? '';
-    let id = (row.id ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    if (!id) id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `car-${i + 1}`;
+    let id = slug(row.id ?? '');
+    if (!id) id = slug(name) || `car-${i + 1}`;
     if (seen.has(id)) {
-      warnings.push(`cars.csv row ${i + 2}: id "${id}" is used twice; renamed to "${id}-${i + 2}"`);
+      warnings.push(`${o ? `${o.file} row ${o.line}` : `cars.csv row ${i + 2}`}: id "${id}" is used twice; renamed to "${id}-${i + 2}"`);
       id = `${id}-${i + 2}`;
     }
     seen.add(id);
-    const where = `cars.csv, ${name || id}`;
+    const where = `${o ? o.file : 'cars.csv'}, ${name || id}`;
+    // A value from cars.csv is reported once for the car, not once per market that sells it.
+    const at = (key: string) => (o && !o.fromOffer.includes(key) ? `cars.csv, car ${o.car}` : where);
     const ranges: Partial<Record<Basis, number>> = {};
     for (const b of BASES) {
-      const v = num(row, `range_${b.toLowerCase()}_km`, warnings, where);
+      const key = `range_${b.toLowerCase()}_km`;
+      const v = num(row, key, warnings, at(key));
       if (v !== null) ranges[b] = v;
     }
     const basisRaw = (row.consumption_basis ?? '').toUpperCase();
     const basis = (BASES as string[]).includes(basisRaw) ? (basisRaw as Basis) : null;
-    if (basisRaw && !basis) warnings.push(`${where}: consumption_basis "${row.consumption_basis}" is not one of ${BASES.join(', ')}`);
+    if (basisRaw && !basis) warnings.push(`${at('consumption_basis')}: consumption_basis "${row.consumption_basis}" is not one of ${BASES.join(', ')}`);
     cars.push({
       id,
       name: name || id,
@@ -149,43 +295,45 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       variant: row.variant || null,
       market: (row.market ?? '').toUpperCase(),
       currency: (row.currency || 'THB').toUpperCase(),
-      price: num(row, 'price', warnings, where),
+      price: num(row, 'price', warnings, at('price')),
       powertrain: (row.powertrain ?? '').toUpperCase() === 'ICE' ? 'ICE' : 'BEV',
       bodyType: row.body_type ?? '',
       carClass: (row.car_class || 'regular').toLowerCase(),
-      batteryKwh: num(row, 'battery_kwh', warnings, where),
-      endOfLifeCapacityPct: num(row, 'end_of_life_capacity_pct', warnings, where),
+      batteryKwh: num(row, 'battery_kwh', warnings, at('battery_kwh')),
+      endOfLifeCapacityPct: num(row, 'end_of_life_capacity_pct', warnings, at('end_of_life_capacity_pct')),
       batteryType: row.battery_type ? row.battery_type.toUpperCase() : null,
-      batteryCycles: num(row, 'battery_cycles', warnings, where),
+      batteryCycles: num(row, 'battery_cycles', warnings, at('battery_cycles')),
       batteryCyclesSources: ids(row.battery_cycles_source),
-      consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, where),
+      consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, at('consumption_kwh_per_km')),
       ranges,
       consumptionBasis: basis,
-      chargeFromPct: num(row, 'charge_from_pct', warnings, where),
-      chargeToPct: num(row, 'charge_to_pct', warnings, where),
-      chargeTimeMin: num(row, 'charge_time_min', warnings, where),
-      fastWindowFromPct: num(row, 'fast_window_from_pct', warnings, where),
-      fastWindowToPct: num(row, 'fast_window_to_pct', warnings, where),
-      dragCoefficient: num(row, 'drag_coefficient', warnings, where),
-      frontalAreaM2: num(row, 'frontal_area_m2', warnings, where),
-      widthMm: num(row, 'width_mm', warnings, where),
-      heightMm: num(row, 'height_mm', warnings, where),
-      weightKg: num(row, 'weight_kg', warnings, where),
-      tyreRr: num(row, 'tyre_rr', warnings, where),
-      heatPump: parseYesNo(row.heat_pump, warnings, `${where}, column heat_pump`),
-      powerKw: num(row, 'power_kw', warnings, where),
-      energyPrice: num(row, 'energy_price', warnings, where),
-      maintenancePerYear: num(row, 'maintenance_per_year', warnings, where),
-      insurancePerYear: num(row, 'insurance_per_year', warnings, where),
-      tyreSetPrice: num(row, 'tyre_set_price', warnings, where),
-      engineCc: num(row, 'engine_cc', warnings, where),
-      co2GPerKm: num(row, 'co2_g_km', warnings, where),
-      topSpeedKmh: num(row, 'top_speed_kmh', warnings, where),
+      chargeFromPct: num(row, 'charge_from_pct', warnings, at('charge_from_pct')),
+      chargeToPct: num(row, 'charge_to_pct', warnings, at('charge_to_pct')),
+      chargeTimeMin: num(row, 'charge_time_min', warnings, at('charge_time_min')),
+      fastWindowFromPct: num(row, 'fast_window_from_pct', warnings, at('fast_window_from_pct')),
+      fastWindowToPct: num(row, 'fast_window_to_pct', warnings, at('fast_window_to_pct')),
+      dragCoefficient: num(row, 'drag_coefficient', warnings, at('drag_coefficient')),
+      frontalAreaM2: num(row, 'frontal_area_m2', warnings, at('frontal_area_m2')),
+      widthMm: num(row, 'width_mm', warnings, at('width_mm')),
+      heightMm: num(row, 'height_mm', warnings, at('height_mm')),
+      weightKg: num(row, 'weight_kg', warnings, at('weight_kg')),
+      tyreRr: num(row, 'tyre_rr', warnings, at('tyre_rr')),
+      heatPump: parseYesNo(row.heat_pump, warnings, `${at('heat_pump')}, column heat_pump`),
+      powerKw: num(row, 'power_kw', warnings, at('power_kw')),
+      energyPrice: num(row, 'energy_price', warnings, at('energy_price')),
+      maintenancePerYear: num(row, 'maintenance_per_year', warnings, at('maintenance_per_year')),
+      insurancePerYear: num(row, 'insurance_per_year', warnings, at('insurance_per_year')),
+      tyreSetPrice: num(row, 'tyre_set_price', warnings, at('tyre_set_price')),
+      engineCc: num(row, 'engine_cc', warnings, at('engine_cc')),
+      co2GPerKm: num(row, 'co2_g_km', warnings, at('co2_g_km')),
+      topSpeedKmh: num(row, 'top_speed_kmh', warnings, at('top_speed_kmh')),
+      specId: o?.car ?? (row.car || null),
+      marketColumns: o?.marketColumns ?? [],
       notes: row.notes ?? '',
       raw: { ...row },
     });
   });
-  return { cars, columns };
+  return cars;
 }
 
 /** data/markets.csv: one row per market (its currency). */
@@ -277,7 +425,15 @@ function checkHierarchy(markets: Market[], blocs: Bloc[], warnings: string[]): v
 
 export function parseDataset(files: RawFiles): Dataset {
   const warnings: string[] = [];
-  const { cars, columns } = parseCars(files.cars, warnings);
+  const markets = parseMarkets(files.markets ?? '', warnings);
+  const marketIds = new Set(markets.map((m) => m.id));
+  const blocs = parseBlocs(files.blocs ?? '', warnings);
+  const carsFile = parseCsv(files.cars);
+  const offerFiles: Record<string, string> = {};
+  for (const [folder, f] of Object.entries(files.marketFiles ?? {})) if (f.offers) offerFiles[folder] = f.offers;
+  const { cars, columns } = isPerMarketCarsFile(carsFile.columns)
+    ? { cars: carsFromRows(carsFile.rows, warnings), columns: carsFile.columns }
+    : joinCars(carsFile, offerFiles, markets, blocs, warnings);
 
   const fields: FieldDef[] = parseCsv(files.fields).rows.map((r) => ({
     key: r.key,
@@ -302,8 +458,6 @@ export function parseDataset(files: RawFiles): Dataset {
     };
   }
 
-  const markets = parseMarkets(files.markets ?? '', warnings);
-  const marketIds = new Set(markets.map((m) => m.id));
   for (const c of cars) {
     if (c.market && !marketIds.has(c.market)) warnings.push(`cars.csv, ${c.name}: market "${c.market}" is not in markets.csv (listed only under All markets)`);
   }
@@ -493,7 +647,6 @@ export function parseDataset(files: RawFiles): Dataset {
   }
 
   const standard = parseStandard(files.standard, warnings);
-  const blocs = parseBlocs(files.blocs ?? '', warnings);
   checkHierarchy(markets, blocs, warnings);
   const costItems = parseCostItems(files.costItems ?? '', warnings);
   // Each folder data/markets/<id>/ belongs to a market or a bloc; a bloc passes on only inheritable items and has no road tax.
@@ -534,9 +687,10 @@ export function parseDataset(files: RawFiles): Dataset {
     for (const id of c.ratedCyclesSources) if (!sourceIds.has(id)) warnings.push(`battery/chemistries.csv, ${c.chemistry}: source "${id}" is not in sources.csv`);
   // Car-specific rated cycles need their source (cars.csv battery_cycles_source).
   for (const c of cars) {
+    const car = c.specId ? `car ${c.specId}` : c.id;
     for (const id of c.batteryCyclesSources)
-      if (!sourceIds.has(id)) warnings.push(`cars.csv, ${c.id}: battery_cycles_source "${id}" is not in sources.csv`);
-    if (c.batteryCycles !== null && c.batteryCyclesSources.length === 0) warnings.push(`cars.csv, ${c.id}: battery_cycles without battery_cycles_source`);
+      if (!sourceIds.has(id)) warnings.push(`cars.csv, ${car}: battery_cycles_source "${id}" is not in sources.csv`);
+    if (c.batteryCycles !== null && c.batteryCyclesSources.length === 0) warnings.push(`cars.csv, ${car}: battery_cycles without battery_cycles_source`);
   }
 
   return {
@@ -563,7 +717,8 @@ export function parseDataset(files: RawFiles): Dataset {
     terrain,
     profiles,
     realWorldFuel,
-    loadWarnings: warnings,
+    // A car sold in several markets reports a problem of its cars.csv row once.
+    loadWarnings: [...new Set(warnings)],
   };
 }
 

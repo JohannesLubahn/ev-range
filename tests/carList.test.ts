@@ -1,6 +1,6 @@
 // The car list: markets (data/markets.csv), model / variant columns, filters, sorting and grouping.
 import { describe, expect, it } from 'vitest';
-import { bundledFiles, loadBundledDataset } from '../src/data/bundled';
+import { bundledFiles } from '../src/data/bundled';
 import { parseDataset, parseMarkets } from '../src/data/parse';
 import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { deriveAll, type DerivedCar } from '../src/engine/derive';
@@ -20,12 +20,19 @@ import {
 } from '../src/state/carList';
 import { useStore } from '../src/state/store';
 
-const ds = loadBundledDataset();
+// The bundled cars plus a Thai offer without a price (car 3 again, under another name) for the "blanks last" checks.
+const TH_OFFERS = bundledFiles.marketFiles!.TH.offers!;
+const ds = parseDataset({
+  ...bundledFiles,
+  marketFiles: { ...bundledFiles.marketFiles, TH: { ...bundledFiles.marketFiles!.TH, offers: `${TH_OFFERS.trimEnd()}\nno-price,3,BYD Atto 3 without price,,,,,\n` } },
+});
 const a = assumptionsFromDataset(ds);
 const th = ds.markets.find((m) => m.id === 'TH')!;
 const derived = deriveAll(ds, applyMarket(a, th));
 const byId = (id: string) => derived.find((d) => d.car.id === id) as DerivedCar;
 const ids = (cars: DerivedCar[]) => cars.map((d) => d.car.id);
+/** A cars file with one row per car and market (the layout before Nov 2026, and of the Cars page's download). */
+const PER_MARKET = 'id,name,brand,market,currency,price,powertrain,battery_kwh,range_wltp_km\nno-market,X EV,X,,EUR,,BEV,50,400\nelsewhere,Y EV,Y,XX,EUR,30000,BEV,50,400\n';
 
 describe('data/markets.csv and the market', () => {
   it('reads the markets; every market of cars.csv is listed or blank', () => {
@@ -38,7 +45,8 @@ describe('data/markets.csv and the market', () => {
     const w: string[] = [];
     parseMarkets('id,name,currency\nTH,Thailand,THB\nth,Again,THB\n', w);
     expect(w.some((x) => x.includes('twice'))).toBe(true);
-    const d2 = parseDataset({ ...bundledFiles, cars: bundledFiles.cars.replace('neta-v,Neta V,Neta,,,TH,', 'neta-v,Neta V,Neta,,,XX,') });
+    // A loaded file with one row per car and market can name any market.
+    const d2 = parseDataset({ ...bundledFiles, cars: PER_MARKET });
     expect(d2.loadWarnings.some((x) => x.includes('"XX" is not in markets.csv'))).toBe(true);
   });
   it('reads model and variant', () => {
@@ -75,7 +83,8 @@ describe('data/markets.csv and the market', () => {
     expect(de).not.toContain('byd-atto-3');
     expect(shownIds(derived, ALL_MARKETS, EMPTY_FILTERS)).toHaveLength(ds.cars.length);
     expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(false);
-    expect(byId('mg-windsor').flags.some((f) => f.field === 'market')).toBe(true);
+    const loose = deriveAll(parseDataset({ ...bundledFiles, cars: PER_MARKET }), a).find((d) => d.car.id === 'no-market')!;
+    expect(loose.flags.some((f) => f.field === 'market')).toBe(true);
   });
   it('switching the market resets the cost inputs to its values (empty where it has none) and the price filter', () => {
     const scenario = spreadsheetScenario(ds, a);
@@ -100,7 +109,7 @@ describe('data/markets.csv and the market', () => {
 
 describe('filters', () => {
   it('body type, chemistry, price and seats', () => {
-    const f = (p: Partial<typeof EMPTY_FILTERS>) => shownIds(derived, 'TH', { ...EMPTY_FILTERS, ...p });
+    const f = (p: Partial<typeof EMPTY_FILTERS> = {}) => shownIds(derived, 'TH', { ...EMPTY_FILTERS, ...p });
     expect(f({ bodyTypes: ['SUV'] }).every((id) => byId(id).bodyType === 'SUV')).toBe(true);
     expect(f({ bodyTypes: ['SUV', 'sedan'] }).length).toBeGreaterThan(f({ bodyTypes: ['SUV'] }).length);
     expect(f({ chemistries: ['NMC'] }).every((id) => byId(id).chemistry === 'NMC')).toBe(true);
@@ -109,7 +118,8 @@ describe('filters', () => {
     expect(mid.every((id) => (byId(id).priceDisplay.value ?? 0) >= 800000 && (byId(id).priceDisplay.value ?? 0) <= 1200000)).toBe(true);
     expect(mid).toContain('byd-atto-3');
     // A car without a price drops out once a lower price bound is set.
-    expect(f({ priceMin: 1 })).not.toContain('mg-windsor-lg');
+    expect(f()).toContain('no-price');
+    expect(f({ priceMin: 1 })).not.toContain('no-price');
     expect(f({ search: 'byd seal' })).toEqual(['byd-seal-low', 'byd-seal-high']);
     expect(f({ search: 'hatchback' }).every((id) => byId(id).bodyType === 'hatchback')).toBe(true);
     const seats = filterOptions(derived, 'TH').seats;
@@ -153,10 +163,10 @@ describe('sorting and grouping', () => {
     expect(up[1]).toBe('honda-city'); // 599,000 THB
     expect(up[2]).toBe('byd-dolphin'); // 599,900 THB
     expect(up[3]).toBe('dolphin-er'); // kept with its model
-    expect(up[up.length - 1]).toBe('mg-windsor-lg'); // no price
+    expect(up[up.length - 1]).toBe('no-price');
     const down = flat(listCars(thCars, { key: 'price', dir: -1 }, 'none', 'THB'));
     expect(down[0]).toBe('avatar-11');
-    expect(down[down.length - 1]).toBe('mg-windsor-lg');
+    expect(down[down.length - 1]).toBe('no-price');
     const prices = up.map((id) => byId(id).priceDisplay.value).filter((v): v is number => v !== null);
     // Ascending except where a model's dearer variant follows its cheapest one.
     const models = listCars(thCars, { key: 'price', dir: 1 }, 'none', 'THB')[0].models;
@@ -172,7 +182,7 @@ describe('sorting and grouping', () => {
     }
     expect(g.reduce((s, x) => s + x.ids.length, 0)).toBe(thCars.length);
     const b = listCars(thCars, { key: 'model', dir: 1 }, 'brand', 'THB');
-    expect(b.find((x) => x.label === 'BYD')!.ids).toHaveLength(5);
+    expect(b.find((x) => x.label === 'BYD')!.ids).toHaveLength(6); // 5 + the test offer without a price
   });
   it('price bands have round edges, at most 6 bands', () => {
     expect(priceBandEdges([500000, 860000, 1200000, 2100000])).toEqual([1e6, 1.5e6, 2e6]);

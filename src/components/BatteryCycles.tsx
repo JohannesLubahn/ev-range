@@ -8,9 +8,16 @@ import { SourceText } from './RunningCosts';
 export function BatteryCyclesTable() {
   const { ds, baseAssumptions: a } = useEngine();
   const chems = Object.values(ds.chemistries).filter((c) => c.ratedCycles !== null);
-  // Every row of cars.csv with its own figure (all markets), grouped by model name.
-  const makers = ds.cars.filter((c) => c.powertrain === 'BEV' && c.batteryCycles !== null);
-  const defaults = (chem: string) => ds.cars.filter((c) => c.powertrain === 'BEV' && c.batteryCycles === null && c.batteryType === chem).length;
+  // Every car of cars.csv with its own figure, once, with the markets that sell it (a market may rate it differently).
+  const groups = new Map<string, typeof ds.cars>();
+  for (const c of ds.cars) {
+    if (c.powertrain !== 'BEV' || c.batteryCycles === null) continue;
+    const key = [c.specId ?? c.id, c.batteryCycles, c.endOfLifeCapacityPct, c.batteryCyclesSources.join(';')].join('|');
+    groups.set(key, [...(groups.get(key) ?? []), c]);
+  }
+  const makers = [...groups.values()].map((cs) => ({ ...cs[0], markets: cs.map((c) => c.market).filter(Boolean) }));
+  const defaults = (chem: string) =>
+    new Set(ds.cars.filter((c) => c.powertrain === 'BEV' && c.batteryCycles === null && c.batteryType === chem).map((c) => c.specId ?? c.id)).size;
   if (chems.length === 0 && makers.length === 0) return null;
   const capacity = (pct: number | null) => `${num(pct ?? a.ratedCyclesEndCapacityPct, 0)} %${pct === null ? ' (assumed)' : ''}`;
   return (
@@ -48,7 +55,7 @@ export function BatteryCyclesTable() {
                 <tr className="main">
                   <td>
                     {c.chemistry} default
-                    <div className="faint">{defaults(c.chemistry)} rows of cars.csv without a maker figure</div>
+                    <div className="faint">{defaults(c.chemistry)} cars of cars.csv without a maker figure</div>
                   </td>
                   <td className="r num">{num(c.ratedCycles ?? 0, 0)}</td>
                   <td className="r num">{capacity(null)}</td>
@@ -63,12 +70,12 @@ export function BatteryCyclesTable() {
             {makers.map((c) => {
               const used = c.batteryCyclesSources.map((id) => ds.sources.find((x) => x.id === id)?.usedFor).filter(Boolean);
               return (
-                <Fragment key={`${c.id}-${c.market}`}>
+                <Fragment key={c.id}>
                   <tr className="main">
                     <td>
                       {c.name}
                       <div className="faint">
-                        {c.batteryType ?? ''} · market {c.market || '–'}
+                        {c.batteryType ?? ''} · {c.markets.length > 1 ? 'markets' : 'market'} {c.markets.join(', ') || '–'}
                       </div>
                     </td>
                     <td className="r num">{num(c.batteryCycles ?? 0, 0)}</td>

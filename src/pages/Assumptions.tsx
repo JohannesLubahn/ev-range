@@ -185,9 +185,9 @@ export function AssumptionsPage() {
           <h2>Markets</h2>
           <p className="muted">
             The market picked in the car list sets the cars listed, the currency and the running costs below. Kept in{' '}
-            <span className="mono">data/markets.csv</span> (ISO country codes; the <span className="mono">market</span> column of cars.csv refers to
-            them), each market&rsquo;s costs in its folder <span className="mono">data/markets/&lt;id&gt;/</span> following{' '}
-            <span className="mono">data/costs/items.csv</span>. A market inherits engineering values and labelled judgements (tyre life, repairs, …)
+            <span className="mono">data/markets.csv</span> (ISO country codes), each market&rsquo;s folder{' '}
+            <span className="mono">data/markets/&lt;id&gt;/</span> holds the cars it sells (<span className="mono">offers.csv</span>) and its costs
+            following <span className="mono">data/costs/items.csv</span>. A market inherits engineering values and labelled judgements (tyre life, repairs, …)
             from its bloc in <span className="mono">data/blocs.csv</span>, then World; prices, taxes, insurance and loss of value are never
             inherited or borrowed from another market: values a market lacks are shown as missing, and its costs have a gap until you type them on
             the Cost of ownership page.

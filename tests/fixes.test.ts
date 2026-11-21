@@ -29,9 +29,9 @@ describe('1+2: charging time uses consistent units and the fast window correctly
   });
 });
 
-describe('3: every car gets a sprint result from the physics (the sheet showed 0.8 kWh for the MG Windsor)', () => {
-  it('MG Windsor uses more per km at 120 km/h than at 70 km/h and needs a sensible battery', () => {
-    const m = model('mg-windsor');
+describe('3: every car gets a sprint result from the physics (the sheet showed 0.8 kWh for the MG Windsor, since removed)', () => {
+  it('Deepal S05 (no consumption or weight in the data) uses more per km at 120 km/h than at 70 km/h and needs a sensible battery', () => {
+    const m = model('deepal-s05');
     const sp = sprint(m, sc.sprint);
     expect(sp.average.driving).toBeGreaterThan(noCharger(m, sc.noCharger).average.driving);
     expect(sp.requiredKwh).toBeGreaterThan(15);

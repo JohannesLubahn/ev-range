@@ -1,0 +1,12 @@
+id,car,name,price,energy_price,source_url,notes,updated
+hyundai-inster,18,Hyundai Inster Standard Range,24650,,https://ev-database.org/car/2230/Hyundai-INSTER-Standard-Range,Price: German list price on EV Database (Nov 2026).,2026-11-20
+hyundai-inster-lr,19,Hyundai Inster Long Range,26150,,https://ev-database.org/car/2231/Hyundai-INSTER-Long-Range,Price: German list price on EV Database (Nov 2026).,2026-11-20
+skoda-elroq-60,20,Škoda Elroq 60,37890,,https://ev-database.org/car/3565/Skoda-Elroq-60,Price: German list price on EV Database (Nov 2026). Germany's best-selling EV Jan–Oct 2026 (KBA),2026-11-20
+vw-id3-neo-58,21,Volkswagen ID.3 Neo 58 kWh,39195,,https://ev-database.org/car/3521/Volkswagen-ID3-Neo-140-kW---58-kWh,Price: German list price on EV Database (Nov 2026).,2026-11-20
+vw-id7-77,22,Volkswagen ID.7 77 kWh,54505,,https://ev-database.org/car/3599/Volkswagen-ID7-77-kWh,Price: German list price on EV Database (Nov 2026). Most registered EV in Germany in October 2026 (KBA).,2026-11-20
+tesla-model-y-rwd,23,Tesla Model Y RWD,40970,,https://ev-database.org/car/3741/Tesla-Model-Y-RWD,Price: German list price on EV Database (Nov 2026).,2026-11-20
+bmw-ix1-edrive20,24,BMW iX1 eDrive20,49400,,https://ev-database.org/car/3458/BMW-iX1-eDrive20,Price: German list price on EV Database (Nov 2026).,2026-11-20
+mercedes-cla-250,25,Mercedes-Benz CLA 250+,55728,,https://ev-database.org/car/3139/Mercedes-Benz-CLA-250plus,Price: German list price on EV Database (Nov 2026).,2026-11-20
+citroen-e-c3,26,Citroën ë-C3,23450,,https://ev-database.org/de/pkw/2039/Citroen-e-C3-Standard-Range-44-kWh,Price: German list price on EV Database (Nov 2026).,2026-11-21
+dacia-spring-80,27,Dacia Spring Electric 80,17900,,https://ev-database.org/car/3729/Dacia-Spring-Electric-80,Price: German list price on EV Database (Nov 2026).,2026-11-20
+vw-golf-15-tsi,28,Volkswagen Golf 1.5 TSI,30210,1.978,https://presse.adac.de/meldungen/adac-ev/verkehr/kraftstoffpreise-super-e10-wieder-unter-2-euro.html ; https://de.motor1.com/news/783763/meistverkaufte-autos-in-deutschland-2025/,"The representative petrol car. The Golf was Germany's best-selling car in 2025 (85,023, KBA via Motor1) and the most registered car in October 2026. Fuel price: Super E10, national weekly average 1.978 EUR/l (ADAC, 11 Nov 2026). Kfz-Steuer 85 EUR/year (ADAC) = 2 EUR per 100 cc + CO₂ above 95 g/km.",2026-11-20

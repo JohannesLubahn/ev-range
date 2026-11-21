@@ -192,7 +192,7 @@ describe('ownership', () => {
 });
 
 describe('cost of ownership per car', () => {
-  const ids = ['byd-atto-3', 'tesla-model-3-2021', 'honda-city', 'neta-v'];
+  const ids = ['byd-atto-3', 'aion-hyptec-ht', 'honda-city', 'neta-v'];
   const r = run(std, ids);
   it('the parts add up to the total: purchase − value at the end + running costs', () => {
     for (const id of ids) {
@@ -206,10 +206,10 @@ describe('cost of ownership per car', () => {
   });
   it('depends on the car: weight (tax, tyres), price (insurance, resale), powertrain (servicing, petrol tax by cc)', () => {
     const part = (id: string, key: string) => r[id].cost.parts.find((p) => p.key === key)?.value as number;
-    // Tesla Model 3 (2,150 kg in cars.csv, premium) pays more tax and tyres than the Atto 3 (1,750 kg).
-    expect(part('tesla-model-3-2021', 'tax')).toBeGreaterThan(part('byd-atto-3', 'tax'));
-    expect(part('tesla-model-3-2021', 'tyres')).toBeGreaterThan(part('byd-atto-3', 'tyres'));
-    expect(part('tesla-model-3-2021', 'insurance')).toBeGreaterThan(part('byd-atto-3', 'insurance'));
+    // Aion Hyptec HT (2,220 kg, premium, 1,199,000) pays more tax, tyres and insurance than the Atto 3 (1,750 kg, 899,900).
+    expect(part('aion-hyptec-ht', 'tax')).toBeGreaterThan(part('byd-atto-3', 'tax'));
+    expect(part('aion-hyptec-ht', 'tyres')).toBeGreaterThan(part('byd-atto-3', 'tyres'));
+    expect(part('aion-hyptec-ht', 'insurance')).toBeGreaterThan(part('byd-atto-3', 'insurance'));
     // Honda City: 988 cc → 882 THB/year, less from year 6; servicing of a petrol car.
     expect(part('honda-city', 'tax')).toBeLessThan(882 * 20);
     expect(part('honda-city', 'tax')).toBeGreaterThan(882 * 10);

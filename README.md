@@ -45,7 +45,8 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 
 | File | What it holds |
 |---|---|
-| `data/cars.csv` | **One row per car and market.** Blank cell = unknown (the app estimates it and marks it, or flags it as missing). |
+| `data/cars.csv` | **One row per car**, numbered (`id` 1, 2, …; never reused): its specs, shared by every market that sells it, under whatever name. No prices or markets. Blank cell = unknown (the app estimates it and marks it, or flags it as missing). |
+| `data/markets/<id>/offers.csv` | **The cars one market sells:** `car` (the number in `cars.csv`), the local `name`, the `price` in the market's currency, the car's own costs there (`energy_price` for petrol, servicing, insurance, tyres), and any `cars.csv` column whose value differs in that market (marked with the market code on the Cars page). `id` = the car's id in that market (share links); blank = name + market code. The name must contain the brand (catches a wrong number). |
 | `data/markets.csv` | One row per market: ISO 3166 code (`DE`, or `US-CA` for a state), name, **parent** (the bloc it inherits cost values from) and currency. |
 | `data/blocs.csv` | Blocs that pass cost values on to their markets: `WORLD` (top) and `EU`. Only for inherited cost values, not for which cars a market sells. |
 | `data/costs/items.csv` | The **template** of a market's costs: every cost item with label, unit, money (yes/no), **inherit** (may come from the bloc / World) and required. |
@@ -54,7 +55,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
 | `data/profiles.csv` | Driving profiles (Steady, City, Rural, Highway, Motorway, Mixed, the traffic jam): speed trace (cycle and phases), what the speed set means, the speeds each allows, with why and sources. |
 | `data/real_world_fuel.csv` | Measured drives of petrol cars (route or profile, speed, air, AC, load, l/100 km, sources): petrol cars with rows are calibrated on them instead of their official (lab) value. |
-| `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
+| `data/fields.csv` | One row per column of `cars.csv` and `offers.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): test rows = its trip inputs and its own conditions, each with the reason; `all` rows = the conditions of the Spreadsheet preset (and of any test without its own row). The `spreadsheet` column keeps the Spreadsheet preset's trip input where it differs (`default` = from an assumption). Blank = from an assumption or the market. |
 | `data/assumptions.csv` | Every constant the model uses, with description and source. |
 | `data/body_types.csv` | Default drag coefficient and frontal area per body type (only used when a car lacks them). |
@@ -65,15 +66,20 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/cycles/*.csv` | Official test-cycle speed traces (WLTP, NEDC, EPA) used for the calibration. |
 | `data/sources.csv` | Every source the data and the model rest on, with links (shown on the Assumptions page). |
 
-- **Add a car:** add a line to `cars.csv`. Fill `brand`, and `model` / `variant` when a model comes in several
-  versions (e.g. BYD · Seal · low): variants then sit together under their model in the car list.
+- **Add a car:** add a line to `cars.csv` with the next free number, then a line in the `offers.csv` of each market
+  that sells it (its number, local name, price). Fill `brand`, and `model` / `variant` when a model comes in several
+  versions (e.g. BYD · Seal · low): variants then sit together under their model in the car list. The same car under
+  another name in another market (e.g. ORA 03 / Good Cat) is one row in `cars.csv` and one offer per market; a market
+  where it differs (another battery, another rated range) gives that column in its offer.
 - **Add a market:** add a line to `markets.csv` (ISO code, parent bloc, currency), a folder `data/markets/<id>/` with
   `costs.csv` (the items of `data/costs/items.csv`; tyre life, repairs, warranty and 12 V battery life may be left to
   the bloc or World) and `road_tax.csv`. What it lacks is shown as missing: its costs have a gap until the values are
-  typed on the Cost page; it never borrows another market's. The Assumptions page lists each market's gaps. Then a line per car sold
-  there in `cars.csv` with that `market` code, its `currency` and `price`, and a unique `id` (e.g. `byd-atto-3-de`).
-  A car sold in two markets has two rows.
+  typed on the Cost page; it never borrows another market's. The Assumptions page lists each market's gaps. Then its
+  `offers.csv`: one line per car sold there (see Add a car).
 - **Add a spec:** add a column to `cars.csv` and a line to `fields.csv`; it appears on the Cars page.
+- **One file instead:** Download CSV on the Cars page gives all cars with one row per car and market (the layout
+  before 21 Nov 2026, also written by `npm run import-ods`). Load CSV takes that layout as it is (the offers are then
+  not used), or a file in the layout of `cars.csv`, joined with the built-in offers.
 - **Consumption standard:** a car's consumption comes from the same source as its rated range, so the filled
   range column (`range_nedc_km`, `range_wltp_km`, `range_epa_km`, `range_cltc_km`) tells the model which test
   cycle to calibrate on. Only when a car has several ranges, set `consumption_basis`.
@@ -137,7 +143,7 @@ below. What depends on the car:
 - **Repairs:** % of the purchase price per year after the warranty.
 
 Cars can override servicing (`maintenance_per_year`), insurance (`insurance_per_year`), the tyre set
-(`tyre_set_price`) and the energy price in `cars.csv`. The electricity standard is the public DC price (7.5 THB/kWh in
+(`tyre_set_price`) and the energy price in their market's `offers.csv`. The electricity standard is the public DC price (7.5 THB/kWh in
 Thailand, 0.65 EUR/kWh in Germany); set it lower when you charge at home. A battery replacement is not included (user's choice).
 
 ## Inputs

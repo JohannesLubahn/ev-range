@@ -32,10 +32,12 @@ const cycleFiles = import.meta.glob('../../data/cycles/*.csv', { query: '?raw', 
 // Every market and bloc folder data/markets/<id>/ is picked up automatically (add a folder + a row in markets.csv).
 const costFiles = import.meta.glob('../../data/markets/*/costs.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const roadTaxFiles = import.meta.glob('../../data/markets/*/road_tax.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const offerFiles = import.meta.glob('../../data/markets/*/offers.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const folderOf = (path: string) => path.split('/').slice(-2)[0];
 const marketFiles: Record<string, MarketFolderFiles> = {};
 for (const [path, text] of Object.entries(costFiles)) (marketFiles[folderOf(path)] ??= {}).costs = text;
 for (const [path, text] of Object.entries(roadTaxFiles)) (marketFiles[folderOf(path)] ??= {}).roadTax = text;
+for (const [path, text] of Object.entries(offerFiles)) (marketFiles[folderOf(path)] ??= {}).offers = text;
 
 export const bundledFiles: RawFiles = {
   cars,

@@ -152,7 +152,7 @@ export function CostPage() {
                   hint={mc.market === 'TH' ? 'Standard: public DC chargers (5.3–9.5 THB/kWh). Charging at home: about 4.2, off-peak (TOU) about 2.6 THB/kWh.' : undefined}
                   {...trip<number | null>('energyPrice')}
                 />
-                {anyIce && <p className="faint">Petrol cars use their own price per litre from cars.csv.</p>}
+                {anyIce && <p className="faint">Petrol cars use their own price per litre from the market&rsquo;s offers.csv.</p>}
               </Group>
               <Group gap={gap}
                 title="Insurance & tax"
@@ -191,7 +191,7 @@ export function CostPage() {
                 <NumberField label="Warranty" unit="years" min={0} max={40} sliderMax={15} {...trip<number | null>('warrantyYears')} />
                 <NumberField label={`12 V battery (${cur})`} unit="" min={0} max={1_000_000} sliderMax={15000} step={100} {...trip<number | null>('battery12vPrice')} />
                 <NumberField label="12 V battery lasts" unit="years" min={1} max={20} sliderMax={10} {...trip<number | null>('battery12vYears')} />
-                <p className="faint">Repairs: % of the purchase price each year after the warranty. Cars with their own servicing cost in cars.csv keep it.</p>
+                <p className="faint">Repairs: % of the purchase price each year after the warranty. Cars with their own servicing cost in the market&rsquo;s offers.csv keep it.</p>
               </Group>
               <Group gap={gap} title="Tyres" summary={`${compact(c.tyreSetRegular)} ${cur} per ${compact(c.tyreLifeKm)} km`} keys={['tyreSetRegular', 'tyreSetPremium', 'tyreLifeKm']}>
                 <NumberField label={`Set of 4${anyPremium ? ', regular car' : ''} (${cur})`} unit="" min={0} max={10_000_000} sliderMax={80000} step={500} {...trip<number | null>('tyreSetRegular')} />
@@ -233,7 +233,7 @@ export function CostPage() {
                   &ldquo;missing&rdquo; to get totals; the market does not borrow another market&rsquo;s values.
                 </p>
               )}
-              {noPrice.length > 0 && <p className="faint">No price in cars.csv: {noPrice.map(name).join(', ')}</p>}
+              {noPrice.length > 0 && <p className="faint">No price in the market&rsquo;s offers.csv: {noPrice.map(name).join(', ')}</p>}
               <p className="faint">
                 Totals over {num(c.years, 0)} years and {compact(c.years * c.kmPerYear)} km in {cur}: purchase − value at the end + running costs. The
                 bar ends show the cost per km.

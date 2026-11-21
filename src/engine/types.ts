@@ -218,7 +218,7 @@ export interface SprintInputs extends TripTerrain {
  * The cost of ownership's inputs. Amounts are in the display currency; the standard of each comes from the market
  * (data/markets/<id>/costs.csv, with what its blocs pass on). Null = the market's data lacks the value and the user
  * has not typed one: the lines that need it show a gap. Cars can override energy price, servicing, insurance and tyre
- * price in cars.csv.
+ * price in their market's offers.csv.
  */
 export interface CostInputs extends LifeDriving {
   /** Price per kWh paid for charging. */

@@ -3,9 +3,17 @@
 export type Basis = 'CLTC' | 'NEDC' | 'WLTP' | 'EPA';
 export const BASES: Basis[] = ['CLTC', 'NEDC', 'WLTP', 'EPA'];
 
-/** One car = one row of data/cars.csv. Blank cells become null. */
+/**
+ * One car in one market: a row of data/markets/<id>/offers.csv joined with its car in data/cars.csv (or a row of a
+ * cars file with one row per car and market). Blank cells become null.
+ */
 export interface Car {
+  /** The car's id in its market (offers.csv; used in share links). */
   id: string;
+  /** Its number in data/cars.csv, shared by every market that sells it; null when unknown (a loaded file without it). */
+  specId: string | null;
+  /** Columns of cars.csv the market's offers.csv gives another value for: the car differs in this market. */
+  marketColumns: string[];
   name: string;
   brand: string;
   /** Model without brand and variant; null = the name is the model. */

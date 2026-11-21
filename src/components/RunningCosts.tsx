@@ -97,7 +97,7 @@ export function RunningCostRows({ a }: { a: Assumptions }) {
       <p className="faint assumption-note">
         The standard of the Cost of ownership&rsquo;s inputs (<span className="mono">data/markets/{mc.market}/</span>, plus values its blocs pass on,
         see <a href="#markets" onClick={jump('markets')}>Markets</a>); change them on the <a href="#cost">Cost of ownership</a> page. Cars can
-        override servicing, insurance, tyre price and energy price in cars.csv.
+        override servicing, insurance, tyre price and energy price in the market's offers.csv.
       </p>
       {a.costItems.flatMap((def) => {
         const item = def.item as CostItem;
