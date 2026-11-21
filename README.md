@@ -1,4 +1,4 @@
-# EV Compare
+# EV Range
 
 A website that compares electric cars in the stress tests of `EV Calculations.ods` (traffic jam, no charger,
 sprint, long trip, battery life) and in their cost of ownership. Consumption is calculated from first principles (air
@@ -35,7 +35,7 @@ npm install        # once
 npm run dev        # then open http://localhost:5173
 ```
 
-Without a server: `npm run build:single` writes `dist-single/ev-compare.html`, a single file you can open
+Without a server: `npm run build:single` writes `dist-single/ev-range.html`, a single file you can open
 directly in a browser (and `dist-single/artifact.html`, the same app for the hosted preview).
 
 ## Edit the data

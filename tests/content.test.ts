@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { firstHeading, parseBlocks, parseInline, safeHref } from '../src/content/markdown';
-import { parseKnownIssues, parseNotes } from '../src/content/parse';
+import { parseKnownIssues, parseNotes, parseVersions } from '../src/content/parse';
 
 describe('markdown subset', () => {
   it('reads headings, paragraphs, lists, quotes and rules; drops comments', () => {
@@ -101,6 +101,25 @@ describe('notes', () => {
       ['2026-01-05-old', '2026-01-05', 'Old one'],
       ['undated', '', 'Undated'],
     ]);
+  });
+});
+
+describe('version tracker', () => {
+  it('reads rows in file order and skips rows without a version', () => {
+    const w: string[] = [];
+    const v = parseVersions('version,date,description,author\nR0,22.11.2026,Initial Draft,JLN\n,1.1.2027,No id,JLN\nR1,1.2.2027,"Fixes, more cars",JLN\n', w);
+    expect(v.map((x) => [x.version, x.date, x.description, x.author])).toEqual([
+      ['R0', '22.11.2026', 'Initial Draft', 'JLN'],
+      ['R1', '1.2.2027', 'Fixes, more cars', 'JLN'],
+    ]);
+    expect(w).toHaveLength(1);
+  });
+
+  it('the shipped file starts with R0, no warnings', () => {
+    const w: string[] = [];
+    const v = parseVersions(readFileSync('content/versions.csv', 'utf8'), w);
+    expect(w).toEqual([]);
+    expect(v[0]).toEqual({ version: 'R0', date: '22.11.2026', description: 'Initial Draft', author: 'JLN' });
   });
 });
 

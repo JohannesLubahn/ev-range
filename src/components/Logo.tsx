@@ -1,7 +1,7 @@
 import { useId, type SVGProps } from 'react';
 
 /**
- * The EV Compare mark: a lightning bolt in front of a tyre. The tyre (a plain ring, in the text colour) sits
+ * The EV Range mark: a lightning bolt in front of a tyre. The tyre (a plain ring, in the text colour) sits
  * behind and to the right; the bolt (accent colour) cuts a gap into it where they overlap. The master copy is
  * docs/logo/logo.svg; the favicon in index.html is the same drawing. Keep the three in step.
  */

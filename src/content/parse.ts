@@ -76,3 +76,30 @@ export function parseNotes(files: Record<string, string>): Note[] {
   }
   return notes.sort((a, b) => (a.date && b.date ? b.date.localeCompare(a.date) : a.date ? -1 : b.date ? 1 : 0) || a.slug.localeCompare(b.slug));
 }
+
+export interface VersionEntry {
+  /** e.g. "R0". */
+  version: string;
+  /** As written (e.g. 22.11.2026). */
+  date: string;
+  description: string;
+  /** Initials. */
+  author: string;
+}
+
+export const VERSION_COLUMNS = ['version', 'date', 'description', 'author'] as const;
+
+/** The version tracker (content/versions.csv), in file order. */
+export function parseVersions(csv: string, warnings: string[] = []): VersionEntry[] {
+  const { rows, columns } = parseCsv(csv);
+  for (const c of VERSION_COLUMNS) if (!columns.includes(c)) warnings.push(`content/versions.csv: column "${c}" is missing`);
+  const out: VersionEntry[] = [];
+  rows.forEach((r, i) => {
+    if (!r.version) {
+      warnings.push(`content/versions.csv, row ${i + 2}: no version, row skipped`);
+      return;
+    }
+    out.push({ version: r.version, date: r.date ?? '', description: r.description ?? '', author: r.author ?? '' });
+  });
+  return out;
+}

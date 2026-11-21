@@ -8,7 +8,7 @@ export function Footer({ view }: { view: View }) {
       <div className="footer-inner">
         <span className="footer-brand">
           <Logo size={18} />
-          EV Compare
+          EV Range
         </span>
         <nav className="footer-nav" aria-label="About this site">
           {FOOTER_VIEWS.map((v) => (

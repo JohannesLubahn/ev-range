@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- EV Compare: a lightning bolt in front of a tyre. Same drawing as src/components/Logo.tsx and the favicon in index.html. -->
+  <!-- EV Range: a lightning bolt in front of a tyre. Same drawing as src/components/Logo.tsx and the favicon in index.html. -->
   <style>
     .tyre { stroke: #0b0b0b; }
     .bolt { fill: #0f6e63; }

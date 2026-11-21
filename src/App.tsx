@@ -57,7 +57,7 @@ export function App() {
   useApplyTheme(theme);
   useEffect(() => {
     const label = ALL_VIEWS.find((v) => v.id === view)?.label;
-    document.title = view === 'compare' ? 'EV Compare' : `${label} · EV Compare`;
+    document.title = view === 'compare' ? 'EV Range' : `${label} · EV Range`;
   }, [view]);
 
   return (
@@ -66,7 +66,7 @@ export function App() {
         <div className="topbar-inner">
           <a href="#compare" className="brand" style={{ color: 'inherit', textDecoration: 'none' }}>
             <Logo size={26} />
-            EV Compare
+            EV Range
           </a>
           <nav className="nav" aria-label="Views">
             {VIEWS.map((v) => (

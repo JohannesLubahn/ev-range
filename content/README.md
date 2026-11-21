@@ -7,6 +7,7 @@ Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssu
 | Where | File | Route |
 | --- | --- | --- |
 | Notes tab (after Assumptions): Personal notes | `notes/*.md`, one file per note | `#notes` |
+| Notes tab, after the notes: Version Tracker | `versions.csv` | `#notes` |
 | Notes tab, at the bottom: Known issues | `known_issues.csv` | `#notes` (`#known-issues` jumps there) |
 | Impressum, linked from the footer of every page | `impressum.md` | `#impressum` |
 
@@ -22,6 +23,12 @@ One row per issue. Columns:
 - `added`, `resolved`: dates as `YYYY-MM-DD`
 
 Open issues are listed; fixed and won't-fix ones fold away under "Closed".
+
+## versions.csv
+
+One row per release, shown as a table in file order (add new versions at the bottom). Columns: `version` (e.g.
+`R1`), `date` (as written, e.g. `22.11.2026`), `description` (inline Markdown works; quote it if it contains
+commas), `author` (initials).
 
 ## notes/
 

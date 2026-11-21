@@ -1686,3 +1686,18 @@ table {
 .issue-meta {
   font-size: 12.5px;
 }
+/* Version tracker on the Notes page. */
+.version-panel {
+  padding: 0;
+  overflow-x: auto;
+}
+.version-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.version-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.version-table td:nth-child(3) {
+  width: 100%;
+}
