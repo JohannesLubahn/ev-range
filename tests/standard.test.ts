@@ -6,6 +6,7 @@ import { loadBundledDataset } from '../src/data/bundled';
 import { parseStandard } from '../src/data/parse';
 import { TEST_KEYS, getInput, linkedInputs, marketCostInputs, setInputs, testInputs } from '../src/engine/inputs';
 import { runEngine } from '../src/engine/run';
+import { previousStandard } from './previousStandard';
 import { baseConditions, spreadsheetScenario, standardScenario, withDefaults } from '../src/engine/scenario';
 import type { Conditions, Scenario } from '../src/engine/types';
 import { builtInScenario } from '../src/state/store';
@@ -87,12 +88,26 @@ describe('data/standard.csv', () => {
     expect(s.cost).toEqual({ ...marketCostInputs(a), years: 20, kmPerYear: 15000, speedKmh: 90, cabinC: c, profile: 'mixed', ...lifeFlat });
     expect(s.cost.energyPrice).toBe(OLD_TRIPS.cost.energyPrice);
   });
-  it('the standard fits the conditions to each test', () => {
+  it("the standard is the user's own setup of 2026-11-21 (conditions of every test)", () => {
     const s = standardScenario(ds, a);
-    expect(s.conditions.trafficJam).toEqual({ ...OLD_CONDITIONS, airTemperatureC: 35, solarWm2: 800 });
-    expect(s.conditions.longTrip).toEqual({ ...OLD_CONDITIONS, payloadKg: 350 });
-    expect(s.conditions.sprint).toEqual({ ...OLD_CONDITIONS, airTemperatureC: 30 });
-    for (const t of ['noCharger', 'batteryLife', 'cost'] as const) expect(s.conditions[t]).toEqual(OLD_CONDITIONS);
+    expect(s.conditions.trafficJam).toEqual({ airTemperatureC: 35, solarWm2: 1100, humidityPct: 80, altitudeM: 200, payloadKg: 120, tyrePressurePct: 80, drivingStylePct: 100, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+    expect(s.conditions.noCharger).toEqual({ airTemperatureC: 35, solarWm2: 900, humidityPct: 80, altitudeM: 100, payloadKg: 150, tyrePressurePct: 100, drivingStylePct: 130, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+    expect(s.conditions.sprint).toEqual({ airTemperatureC: 35, solarWm2: 1000, humidityPct: 80, altitudeM: 100, payloadKg: 150, tyrePressurePct: 100, drivingStylePct: 170, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+    expect(s.conditions.longTrip).toEqual({ airTemperatureC: 35, solarWm2: 800, humidityPct: 80, altitudeM: 300, payloadKg: 350, tyrePressurePct: 100, drivingStylePct: 90, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+    expect(s.conditions.batteryLife).toEqual({ airTemperatureC: 25, solarWm2: 800, humidityPct: 60, altitudeM: 200, payloadKg: 120, tyrePressurePct: 100, drivingStylePct: 120, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+    expect(s.conditions.cost).toEqual({ airTemperatureC: 35, solarWm2: 800, humidityPct: 60, altitudeM: 200, payloadKg: 120, tyrePressurePct: 100, drivingStylePct: 120, batteryKm: 100000, thermalMode: 'managed', preconditionedC: 20 });
+  });
+  it('the standard keeps the market-specific running costs; the Spreadsheet preset keeps the old trip inputs', () => {
+    const s = standardScenario(ds, a);
+    expect(s.cost).toMatchObject(marketCostInputs(a));
+    expect(s.noCharger).toMatchObject({ distanceKm: 350, speedKmh: 120, profile: 'highway', climbM: 100, ascentM: 500, slopePct: 2 });
+    expect(s.batteryLife).toMatchObject({ dcSharePct: 90, highSocTimePct: 10, ascentPer100Km: 300 });
+    const sheet = spreadsheetScenario(ds, a);
+    expect(sheet.noCharger).toMatchObject({ distanceKm: 300, speedKmh: 90, climbM: 0, ascentM: 0, slopePct: a.hillSlopeDefaultPct });
+    expect(sheet.batteryLife).toMatchObject({ dcSharePct: a.careTypicalDcSharePct, highSocTimePct: a.careTypicalHighSocTimePct });
+    const w: string[] = [];
+    parseStandard('test,input,value,spreadsheet\nsprint,speedKmh,160,fast\n', w);
+    expect(w.some((x) => x.includes('spreadsheet column'))).toBe(true);
   });
 });
 
@@ -160,7 +175,7 @@ describe('each test has its own inputs', () => {
   it('tests with the same conditions share one model; every model shares one calibration', () => {
     const same = runEngine(ds, a, base, settings, ['byd-atto-3']).models['byd-atto-3'];
     for (const t of TEST_KEYS) expect(same[t]).toBe(same.noCharger);
-    const std = runEngine(ds, a, standardScenario(ds, a), settings, ['byd-atto-3']).models['byd-atto-3'];
+    const std = runEngine(ds, a, previousStandard(ds, a), settings, ['byd-atto-3']).models['byd-atto-3'];
     expect(std.trafficJam).not.toBe(std.noCharger);
     expect(std.noCharger).toBe(std.batteryLife);
     expect(std.trafficJam.calibration()).toBe(std.noCharger.calibration());

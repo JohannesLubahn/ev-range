@@ -1,5 +1,5 @@
 import type { Dataset } from '../data/types';
-import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, type InputKind, type InputValue, type TestKey } from './inputs';
+import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, spreadsheetValue, type InputKind, type InputValue, type TestKey } from './inputs';
 import type { Assumptions, Conditions, Scenario } from './types';
 
 /** Tyre pressure in bar that older versions of the app treated as "as recommended" for every car. */
@@ -37,12 +37,16 @@ function migrateDriving(tests: Record<TestKey, Loose>): void {
   }
 }
 
-/** Values of the rows of data/standard.csv for one test ('all' = the shared conditions). */
-function rowsOf(ds: Dataset, a: Assumptions, test: string, table: Record<string, InputKind>): Loose {
+/**
+ * Values of the rows of data/standard.csv for one test ('all' = the shared conditions). `spreadsheet` reads the
+ * Spreadsheet preset's column where it has a value.
+ */
+function rowsOf(ds: Dataset, a: Assumptions, test: string, table: Record<string, InputKind>, spreadsheet = false): Loose {
   const out: Loose = {};
   for (const r of ds.standard) {
     if (r.test !== test || !(r.input in table)) continue;
-    const { value } = parseInputValue(table[r.input], r.value, a);
+    const raw = spreadsheet && r.spreadsheet ? spreadsheetValue(r.spreadsheet) : r.value;
+    const { value } = parseInputValue(table[r.input], raw, a);
     if (value !== undefined) out[r.input] = value;
   }
   return out;
@@ -61,25 +65,26 @@ function build(ds: Dataset, a: Assumptions): { standard: Scenario; spreadsheet: 
   const hit = byA.get(a);
   if (hit) return hit;
   const all = baseConditions(ds);
-  const trip = (t: TestKey) => rowsOf(ds, a, t, TRIP_INPUTS[t] as Record<string, InputKind>);
+  const trip = (t: TestKey, spreadsheet = false) => rowsOf(ds, a, t, TRIP_INPUTS[t] as Record<string, InputKind>, spreadsheet);
   const cond = (t: TestKey) => ({ ...all, ...rowsOf(ds, a, t, CONDITION_INPUTS) }) as Conditions;
   const parts = Object.fromEntries(TEST_KEYS.map((t) => [t, trip(t)])) as unknown as Omit<Scenario, 'conditions'>;
   const standard: Scenario = { version: SCENARIO_VERSION, ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, cond(t)])) as Scenario['conditions'] };
-  const spreadsheet: Scenario = { version: SCENARIO_VERSION, ...parts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, { ...all }])) as Scenario['conditions'] };
+  const sheetParts = Object.fromEntries(TEST_KEYS.map((t) => [t, trip(t, true)])) as unknown as Omit<Scenario, 'conditions'>;
+  const spreadsheet: Scenario = { version: SCENARIO_VERSION, ...sheetParts, conditions: Object.fromEntries(TEST_KEYS.map((t) => [t, { ...all }])) as Scenario['conditions'] };
   const r = { standard, spreadsheet };
   byA.set(a, r);
   return r;
 }
 
 /**
- * The standard inputs (data/standard.csv): the spreadsheet's trip inputs and conditions fitted to each test (e.g. the
- * traffic jam on a hot afternoon). ↺ on an input goes back to this value. Do not change the returned object.
+ * The standard inputs (data/standard.csv): since 2026-11-21 the user's own setup for every test (trip inputs,
+ * conditions, hills); the market-specific running costs stay the market's. ↺ on an input goes back to this value. Do not change the returned object.
  */
 export function standardScenario(ds: Dataset, a: Assumptions): Scenario {
   return build(ds, a).standard;
 }
 
-/** The spreadsheet's inputs: the standard trip inputs, with the same conditions (the "all" rows) in every test. */
+/** The spreadsheet's inputs: the trip inputs of the `spreadsheet` column, with the same conditions (the "all" rows) in every test. */
 export function spreadsheetScenario(ds: Dataset, a: Assumptions): Scenario {
   return structuredClone(build(ds, a).spreadsheet);
 }
@@ -117,16 +122,20 @@ function isPerTest(c: unknown): c is Partial<Record<TestKey, Loose>> {
 }
 
 /**
- * Fills in fields that scenarios saved by an older version of the app do not have yet (from the standard), and
+ * Fills in fields that scenarios saved by an older version of the app do not have yet (from the Spreadsheet
+ * preset's values: flat, typical battery care, the 2026-11-20 driving), and
  * converts older shapes:
  * - one set of conditions for all tests → the same conditions in each test (filled up to the old defaults, the
  *   "all" rows), so an old scenario gives the same results;
  * - Cost without its own years / distance / driving → Battery life's; one maintenance per year → servicing;
  * - absolute tyre pressure (bar) → % of the recommended pressure; heating / AC usage % → a cabin temperature;
- * - before version 2 (speed = average incl. stops): the old standard driving → the new standard (see migrateDriving).
+ * - before version 2 (speed = average incl. stops): the old standard driving → the 2026-11-20 driving (see migrateDriving).
  */
 export function withDefaults(s: Scenario, ds: Dataset, a: Assumptions): Scenario {
-  const base = standardScenario(ds, a);
+  // Inputs a saved scenario lacks (added after it was saved: hills, battery care, ...) take the Spreadsheet preset's
+  // values (flat, typical care, the 2026-11-20 driving), which is what the scenario meant before they existed; not the
+  // user's standard of 2026-11-21, which would add hills and hard battery care to it.
+  const base = build(ds, a).spreadsheet;
   const raw = s.conditions as unknown;
   let conditions: Scenario['conditions'];
   if (isPerTest(raw)) {

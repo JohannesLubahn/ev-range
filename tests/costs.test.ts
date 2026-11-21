@@ -7,13 +7,14 @@ import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { COST_ITEMS } from '../src/engine/costItems';
 import { carValue, marketCosts, ownership, roadTaxBase, roadTaxDiscountPct, type OwnershipCar } from '../src/engine/costs';
 import { runEngine } from '../src/engine/run';
-import { standardScenario, withDefaults } from '../src/engine/scenario';
+import { withDefaults } from '../src/engine/scenario';
+import { previousStandard } from './previousStandard';
 import type { CostInputs, Scenario } from '../src/engine/types';
 
 const ds = loadBundledDataset();
 const a = applyMarket(assumptionsFromDataset(ds), ds.markets.find((m) => m.id === 'TH'));
 const mc = marketCosts(a);
-const std = standardScenario(ds, a);
+const std = previousStandard(ds, a);
 const settings = { battery: 'chemistry' } as const;
 const run = (s: Scenario, ids: string[]) => runEngine(ds, a, s, settings, ids).results;
 

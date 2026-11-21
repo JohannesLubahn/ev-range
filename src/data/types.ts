@@ -340,6 +340,11 @@ export interface StandardRow {
   input: string;
   /** As written in the file; blank = from an assumption or the market. */
   value: string;
+  /**
+   * The Spreadsheet preset's value where it differs from the standard (blank = same as `value`; "default" = blank,
+   * i.e. from an assumption). Since 2026-11-21 the standard is the user's own setup.
+   */
+  spreadsheet: string;
   unit: string;
   why: string;
 }

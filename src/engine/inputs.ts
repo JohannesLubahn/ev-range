@@ -140,6 +140,11 @@ export function marketCostInputs(a: Assumptions): Partial<CostInputs> {
   return out as Partial<CostInputs>;
 }
 
+/** The `spreadsheet` column of data/standard.csv as a value: "default" stands for blank (from an assumption). */
+export function spreadsheetValue(cell: string): string {
+  return cell.toLowerCase() === 'default' ? '' : cell;
+}
+
 /**
  * Reads one value of data/standard.csv. Returns the value, or an error message. A blank cell gives the kind's
  * fallback (cabin: the default cabin temperature), or `undefined` when there is none.

@@ -10,7 +10,8 @@ import { linkedInputs, TEST_KEYS } from '../src/engine/inputs';
 import { CarModel, type SegmentSpec } from '../src/engine/model';
 import { terrainMix } from '../src/engine/physics/terrain';
 import { runEngine } from '../src/engine/run';
-import { spreadsheetScenario, standardScenario } from '../src/engine/scenario';
+import { spreadsheetScenario } from '../src/engine/scenario';
+import { previousStandard } from './previousStandard';
 import type { Profile, Scenario } from '../src/engine/types';
 
 const ds = loadBundledDataset();
@@ -123,8 +124,8 @@ describe('terrain inputs', () => {
     parseTerrain('id,label,climb_per_100km_m,slope_pct\nx,X,-1,5\ny,Y,100,50\n', w);
     expect(w.length).toBe(2);
   });
-  it('the standard is flat at the typical slope', () => {
-    const s = standardScenario(ds, a);
+  it('the Spreadsheet preset is flat at the typical slope', () => {
+    const s = spreadsheetScenario(ds, a);
     for (const t of ['trafficJam', 'noCharger', 'sprint', 'longTrip'] as const) expect([s[t].climbM, s[t].ascentM, s[t].slopePct]).toEqual([0, 0, a.hillSlopeDefaultPct]);
     for (const t of ['batteryLife', 'cost'] as const) expect([s[t].ascentPer100Km, s[t].slopePct]).toEqual([0, a.hillSlopeDefaultPct]);
   });
@@ -134,7 +135,7 @@ describe('terrain inputs', () => {
     expect(linkedInputs({ test: 'noCharger', group: 'trip', key: 'ascentM' })).toEqual([]);
   });
   it('hills raise the stress tests and the cost; a descent to the finish lowers the energy', () => {
-    const std = standardScenario(ds, a);
+    const std = previousStandard(ds, a);
     const run = (s: Scenario) => runEngine(ds, a, s, { battery: 'chemistry' }, ['byd-atto-3']).results['byd-atto-3'];
     const base = run(std);
     const hilly = run({

@@ -53,7 +53,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/real_world_fuel.csv` | Measured drives of petrol cars (route or profile, speed, air, AC, load, l/100 km, sources): petrol cars with rows are calibrated on them instead of their official (lab) value. |
 | `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
-| `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): `all` rows = the conditions every test starts from, test rows = its trip inputs and its own conditions (e.g. the traffic jam at 35 °C), each with the reason. Blank = from an assumption or the market. |
+| `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): test rows = its trip inputs and its own conditions, each with the reason; `all` rows = the conditions of the Spreadsheet preset (and of any test without its own row). The `spreadsheet` column keeps the Spreadsheet preset's trip input where it differs (`default` = from an assumption). Blank = from an assumption or the market. |
 | `data/assumptions.csv` | Every constant the model uses, with description and source. |
 | `data/body_types.csv` | Default drag coefficient and frontal area per body type (only used when a car lacks them). |
 | `data/onboard/classes.csv` | Electronics and cabin properties per car class (walls, fresh air, sun area, heat capacity), with sources. |
@@ -139,8 +139,9 @@ Thailand, 0.65 EUR/kWh in Germany); set it lower when you charge at home. A batt
 
 Every test keeps its own inputs: Traffic jam, No charger, Sprint, Long trip, Battery life and Cost of ownership
 each have their own trip inputs **and their own Conditions** (air, sun, load, driving style, km driven, …). The
-standard is in `data/standard.csv`: your spreadsheet's trip inputs, and conditions fitted to each test (traffic jam
-on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30 °C; judgement values).
+standard is in `data/standard.csv`: since 2026-11-21 your own setup for every test (trip inputs, conditions, hills,
+battery care); the market-specific running costs of Cost of ownership (electricity price to loss of value) stay the
+market's (`data/running_costs.csv`). The spreadsheet's trip inputs live on as the Spreadsheet preset.
 
 - **↺** next to an input puts it back to its standard (shown while it differs; the standard is shown under it).
 - **⇉** uses the value in the other tests too (shown while another test differs): a condition goes to all six
@@ -148,7 +149,7 @@ on a hot afternoon at 35 °C and 800 W/m², long trip with +350 kg, sprint at 30
   speed / profile / climb per 100 km between Battery life and Cost.
 - **Reset this test** puts every input and condition of the test back to its standard.
 - **Compare → Edit conditions** sets a condition in all tests at once; where the tests differ it says so.
-- **Scenario:** Standard (fitted to each test), Spreadsheet values (25 °C everywhere), Hot or Cold day (in every
+- **Scenario:** Standard (your setup), Spreadsheet values (the spreadsheet's trips, flat, 25 °C everywhere), Hot or Cold day (in every
   test), or your saved scenarios. Scenarios saved before have their one set of conditions copied to every test.
 - The battery's wear after the km driven uses the Battery life page's driving, battery care and climate (the
   battery's past), not the weather of the test.

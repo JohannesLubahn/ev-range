@@ -7,7 +7,7 @@ import { assumptionsFromDataset } from '../src/engine/assumptions';
 import { batteryLife } from '../src/engine/cases';
 import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
-import { standardScenario } from '../src/engine/scenario';
+import { previousStandard } from './previousStandard';
 
 const ds = loadBundledDataset();
 const a = assumptionsFromDataset(ds);
@@ -53,7 +53,7 @@ describe('rated battery cycles', () => {
   });
 
   it("a rating to 70 % (XPeng) sets the cycle wear, but 'years until' uses the same 80 % for every car", () => {
-    const sc = standardScenario(ds, a);
+    const sc = previousStandard(ds, a);
     const life = (id: string) => {
       const m = new CarModel(byId(id), { ds, a, conditions: sc.conditions.batteryLife, settings: { battery: 'chemistry' }, life: sc.batteryLife });
       return batteryLife(m, sc.batteryLife);

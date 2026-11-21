@@ -23,7 +23,7 @@ import type {
   StandardRow,
 } from './types';
 import { BASES } from './types';
-import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, type InputKind, type TestKey } from '../engine/inputs';
+import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, spreadsheetValue, type InputKind, type TestKey } from '../engine/inputs';
 import { COST_ITEMS } from '../engine/costItems';
 
 /** The raw text of every data file. Used for the bundled /data files and for CSV files loaded in the browser. */
@@ -495,10 +495,15 @@ export function parseStandard(text: string, warnings: string[]): StandardRow[] {
       warnings.push(`${where}: ${error}`);
       continue;
     }
+    const spreadsheet = (r.spreadsheet ?? '').trim();
+    if (spreadsheet) {
+      const bad = parseInputValue(kind, spreadsheetValue(spreadsheet)).error;
+      if (bad) warnings.push(`${where}, spreadsheet column: ${bad}`);
+    }
     const id = `${test}|${input}`;
     if (seen.has(id)) warnings.push(`${where}: listed twice; the last row counts`);
     seen.add(id);
-    rows.push({ test, input, value: r.value ?? '', unit: r.unit ?? '', why: r.why ?? '' });
+    rows.push({ test, input, value: r.value ?? '', spreadsheet, unit: r.unit ?? '', why: r.why ?? '' });
   }
   for (const key of Object.keys(CONDITION_INPUTS)) if (!seen.has(`all|${key}`)) warnings.push(`standard.csv: no "all" row for the condition ${key}`);
   for (const t of TEST_KEYS) {

@@ -8,7 +8,7 @@ import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { trafficJam } from '../src/engine/cases';
 import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
-import { standardScenario } from '../src/engine/scenario';
+import { previousStandard } from './previousStandard';
 import type { Conditions, TrafficJamInputs } from '../src/engine/types';
 
 const ds = loadBundledDataset();
@@ -18,7 +18,7 @@ function setup(id: string, airC = 35, solar = 800) {
   const d0 = deriveAll(ds, assumptionsFromDataset(ds)).find((x) => x.car.id === id)!;
   const a = applyMarket(assumptionsFromDataset(ds), ds.markets.find((m) => m.id === d0.car.market));
   const d = deriveAll(ds, a).find((x) => x.car.id === id)!;
-  const sc = standardScenario(ds, a);
+  const sc = previousStandard(ds, a);
   const conditions: Conditions = { ...sc.conditions.trafficJam, airTemperatureC: airC, solarWm2: solar };
   const m = new CarModel(d, { ds, a, conditions, settings: { battery: 'chemistry' } });
   return { m, a, jam: sc.trafficJam as TrafficJamInputs };

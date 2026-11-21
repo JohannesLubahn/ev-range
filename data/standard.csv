@@ -1,88 +1,117 @@
-test,input,value,unit,why
-all,airTemperatureC,25,°C,"Conditions every test starts from unless its own row below says otherwise. 25 °C: the spreadsheet's Battery Sizing tab"
-all,solarWm2,400,W/m²,"Sun of a partly cloudy day; judgement value (app default since the cabin heat balance was added)"
-all,humidityPct,60,%,"Judgement value (app default since the cabin heat balance was added)"
-all,altitudeM,0,m,"Sea level"
-all,payloadKg,100,kg,"Driver and a little luggage; judgement value (app default)"
-all,tyrePressurePct,100,%,"Tyres at the car's recommended pressure"
-all,drivingStylePct,100,%,"Normal: the accelerations and braking of the WLTP test cycle"
-all,batteryKm,100000,km,"Battery wear in the stress tests after 100,000 km (your choice, 2026-11-19)"
-all,thermalMode,managed,,"Battery heated and cooled by the car (managed)"
-all,preconditionedC,20,°C,"Only used when the battery temperature is set to preconditioned"
-trafficJam,startPct,60,%,"Battery Sizing tab, column D"
-trafficJam,endPct,5,%,"Battery Sizing tab, column D"
-trafficJam,distBeforeKm,10,km,"Battery Sizing tab, column D"
-trafficJam,distJamKm,10,km,"Battery Sizing tab, column D"
-trafficJam,timeJamH,5,h,"Battery Sizing tab, column D"
-trafficJam,distAfterKm,10,km,"Battery Sizing tab, column D"
-trafficJam,speedOutsideKmh,50,km/h,"Cruising speed in town: 50 km/h, the town speed limit in Germany; with the stops of the City profile the average is about 18 km/h (judgement, your choice 2026-11-20; the spreadsheet had a 40 km/h average)"
-trafficJam,profileOutside,city,,"Stop-and-go town driving before and after the jam"
-trafficJam,cabinOutsideC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-trafficJam,cabinJamC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-trafficJam,airTemperatureC,35,°C,"Fitted to the test (judgement, user's choice 2026-11-20): a jam on a hot afternoon, the hard case for the AC. Same weather as the Hot sunny day scenario"
-trafficJam,solarWm2,800,W/m²,"Fitted to the test (judgement, user's choice 2026-11-20): clear afternoon sun on the standing car"
-trafficJam,climbM,0,m,"Altitude change start → finish; Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-trafficJam,ascentM,0,m,"Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-trafficJam,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
-noCharger,distanceKm,300,km,"Battery Sizing tab, column D"
-noCharger,startPct,95,%,"Battery Sizing tab, column D"
-noCharger,endPct,5,%,"Battery Sizing tab, column D"
-noCharger,speedKmh,90,km/h,"Cruising speed on the highway: 90 km/h, the Thai highway speed limit (120 km/h only on signed four-lane sections since 2021); with the stops of the Highway profile the average is about 72 km/h (your choice 2026-11-20; the spreadsheet had a 70 km/h average)"
-noCharger,cabinC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-noCharger,profile,highway,,"Highway with a stop now and then (US EPA highway cycle; your choice 2026-11-20, in place of the WLTP high phase, whose speed changes need about twice the acceleration per km: RPA 0.12 vs. 0.06 m/s²)"
-noCharger,climbM,0,m,"Battery Sizing tab, column D"
-noCharger,ascentM,0,m,"Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-noCharger,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
-sprint,distanceKm,140,km,"Battery Sizing tab, column D"
-sprint,startPct,95,%,"Battery Sizing tab, column D"
-sprint,endPct,5,%,"Battery Sizing tab, column D"
-sprint,speedKmh,120,km/h,"Battery Sizing tab, column D"
-sprint,cabinC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-sprint,profile,steady,,"Cruise control on the motorway"
-sprint,climbM,0,m,"Battery Sizing tab, column D"
-sprint,ascentM,0,m,"Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-sprint,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
-sprint,airTemperatureC,30,°C,"Fitted to the test (judgement, user's choice 2026-11-20): a warm day, AC on at motorway speed"
-longTrip,distanceKm,800,km,"Battery Sizing tab, column D"
-longTrip,speedKmh,90,km/h,"Cruising speed on the highway: 90 km/h, the Thai highway speed limit (120 km/h only on signed four-lane sections since 2021); average about 72 km/h (your choice 2026-11-20; the spreadsheet had a 60 km/h average)"
-longTrip,cabinC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-longTrip,climateWhileCharging,yes,,"People wait in the car while it charges"
-longTrip,chargeFromPct,20,%,"Battery Sizing tab, column D"
-longTrip,chargeToPct,80,%,"Battery Sizing tab, column D"
-longTrip,profile,highway,,"Highway with a stop now and then (US EPA highway cycle; your choice 2026-11-20)"
-longTrip,payloadKg,350,kg,"Fitted to the test (judgement, user's choice 2026-11-20): four people and holiday luggage"
-longTrip,climbM,0,m,"Altitude change start → finish; Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-longTrip,ascentM,0,m,"Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-longTrip,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
-batteryLife,years,20,years,"Battery Sizing tab, column D"
-batteryLife,kmPerYear,15000,km,"Battery Sizing tab, column D"
-batteryLife,speedKmh,90,km/h,"Only used with another profile than Mixed, which drives at the WLTP's own speeds (average 46.5 km/h; the spreadsheet had a 40 km/h average)"
-batteryLife,cabinC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-batteryLife,profile,mixed,,"Town, country roads and motorway: the whole WLTP at its own speeds"
-batteryLife,dcSharePct,,%,"Blank = Typical battery care (assumption care_typical_dc_share_pct)"
-batteryLife,highSocTimePct,,%,"Blank = Typical battery care (assumption care_typical_high_soc_time_pct)"
-batteryLife,ascentPer100Km,0,m,"Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-batteryLife,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
-cost,years,20,years,"Battery Sizing tab, column D (same as Battery life)"
-cost,kmPerYear,15000,km,"Battery Sizing tab, column D (same as Battery life)"
-cost,speedKmh,90,km/h,"Same driving as Battery life (only used with another profile than Mixed)"
-cost,cabinC,,°C,"Blank = the default cabin temperature (assumption cabin_setpoint_c)"
-cost,profile,mixed,,"Same driving as Battery life"
-cost,energyPrice,,per kWh,"Blank = the market's value (data/running_costs.csv: electricity_price)"
-cost,servicingBev,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, BEV)"
-cost,servicingIce,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, ICE)"
-cost,insuranceRateBev,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, BEV)"
-cost,insuranceRateIce,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, ICE)"
-cost,insuranceMin,,per year,"Blank = the market's value (data/running_costs.csv: insurance_min)"
-cost,compulsoryInsurance,,per year,"Blank = the market's value (data/running_costs.csv: compulsory_insurance)"
-cost,tyreSetRegular,,per set,"Blank = the market's value (data/running_costs.csv: tyre_set_regular)"
-cost,tyreSetPremium,,per set,"Blank = the market's value (data/running_costs.csv: tyre_set_premium)"
-cost,tyreLifeKm,,km,"Blank = the market's value (data/running_costs.csv: tyre_life_km)"
-cost,repairsPct,,% of price per year,"Blank = the market's value (data/running_costs.csv: repairs_pct)"
-cost,warrantyYears,,years,"Blank = the market's value (data/running_costs.csv: warranty_years)"
-cost,battery12vPrice,,per battery,"Blank = the market's value (data/running_costs.csv: battery_12v_price)"
-cost,battery12vYears,,years,"Blank = the market's value (data/running_costs.csv: battery_12v_years)"
-cost,depreciationBev,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, BEV)"
-cost,depreciationIce,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, ICE)"
-cost,ascentPer100Km,0,m,"Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
-cost,slopePct,,%,"Blank = the typical slope (assumption hill_slope_default_pct)"
+test,input,value,spreadsheet,unit,why
+all,airTemperatureC,25,,°C,Conditions every test starts from unless its own row below says otherwise. 25 °C: the spreadsheet's Battery Sizing tab
+all,solarWm2,400,,W/m²,Sun of a partly cloudy day; judgement value (app default since the cabin heat balance was added)
+all,humidityPct,60,,%,Judgement value (app default since the cabin heat balance was added)
+all,altitudeM,0,,m,Sea level
+all,payloadKg,100,,kg,Driver and a little luggage; judgement value (app default)
+all,tyrePressurePct,100,,%,Tyres at the car's recommended pressure
+all,drivingStylePct,100,,%,Normal: the accelerations and braking of the WLTP test cycle
+all,batteryKm,100000,,km,"Battery wear in the stress tests after 100,000 km (your choice, 2026-11-19)"
+all,thermalMode,managed,,,Battery heated and cooled by the car (managed)
+all,preconditionedC,20,,°C,Only used when the battery temperature is set to preconditioned
+trafficJam,startPct,50,60,%,"Your setup (2026-11-21); was 60: Battery Sizing tab, column D"
+trafficJam,endPct,5,,%,"Battery Sizing tab, column D"
+trafficJam,distBeforeKm,25,10,km,"Your setup (2026-11-21); was 10: Battery Sizing tab, column D"
+trafficJam,distJamKm,20,10,km,"Your setup (2026-11-21); was 10: Battery Sizing tab, column D"
+trafficJam,timeJamH,5,,h,"Battery Sizing tab, column D"
+trafficJam,distAfterKm,25,10,km,"Your setup (2026-11-21); was 10: Battery Sizing tab, column D"
+trafficJam,speedOutsideKmh,50,,km/h,"Cruising speed in town: 50 km/h, the town speed limit in Germany; with the stops of the City profile the average is about 18 km/h (judgement, your choice 2026-11-20; the spreadsheet had a 40 km/h average)"
+trafficJam,profileOutside,city,,,Stop-and-go town driving before and after the jam
+trafficJam,cabinOutsideC,22,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+trafficJam,cabinJamC,22,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+trafficJam,climbM,0,,m,Altitude change start → finish; Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
+trafficJam,ascentM,200,0,m,"Your setup (2026-11-21); was 0: Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
+trafficJam,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+trafficJam,airTemperatureC,35,,°C,"Your setup (2026-11-21); was 35: Fitted to the test (judgement, user's choice 2026-11-20): a jam on a hot afternoon, the hard case for the AC. Same weather as the Hot sunny day scenario"
+trafficJam,solarWm2,1100,,W/m²,"Your setup (2026-11-21); was 800: Fitted to the test (judgement, user's choice 2026-11-20): clear afternoon sun on the standing car"
+trafficJam,humidityPct,80,,%,Your setup (2026-11-21); was 60 (the all row)
+trafficJam,altitudeM,200,,m,Your setup (2026-11-21); was 0 (the all row)
+trafficJam,payloadKg,120,,kg,Your setup (2026-11-21); was 100 (the all row)
+trafficJam,tyrePressurePct,80,,%,Your setup (2026-11-21); was 100 (the all row)
+noCharger,distanceKm,350,300,km,"Your setup (2026-11-21); was 300: Battery Sizing tab, column D"
+noCharger,startPct,95,,%,"Battery Sizing tab, column D"
+noCharger,endPct,5,,%,"Battery Sizing tab, column D"
+noCharger,speedKmh,120,90,km/h,"Your setup (2026-11-21); was 90: Cruising speed on the highway: 90 km/h, the Thai highway speed limit (120 km/h only on signed four-lane sections since 2021); with the stops of the Highway profile the average is about 72 km/h (your choice 2026-11-20; the spreadsheet had a 70 km/h average)"
+noCharger,cabinC,26,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+noCharger,profile,highway,,,"Highway with a stop now and then (US EPA highway cycle; your choice 2026-11-20, in place of the WLTP high phase, whose speed changes need about twice the acceleration per km: RPA 0.12 vs. 0.06 m/s²)"
+noCharger,climbM,100,0,m,"Your setup (2026-11-21); was 0: Battery Sizing tab, column D"
+noCharger,ascentM,500,0,m,"Your setup (2026-11-21); was 0: Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
+noCharger,slopePct,2,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+noCharger,airTemperatureC,35,,°C,Your setup (2026-11-21); was 25 (the all row)
+noCharger,solarWm2,900,,W/m²,Your setup (2026-11-21); was 400 (the all row)
+noCharger,humidityPct,80,,%,Your setup (2026-11-21); was 60 (the all row)
+noCharger,altitudeM,100,,m,Your setup (2026-11-21); was 0 (the all row)
+noCharger,payloadKg,150,,kg,Your setup (2026-11-21); was 100 (the all row)
+noCharger,drivingStylePct,130,,%,Your setup (2026-11-21); was 100 (the all row)
+sprint,distanceKm,200,140,km,"Your setup (2026-11-21); was 140: Battery Sizing tab, column D"
+sprint,startPct,95,,%,"Battery Sizing tab, column D"
+sprint,endPct,5,,%,"Battery Sizing tab, column D"
+sprint,speedKmh,160,120,km/h,"Your setup (2026-11-21); was 120: Battery Sizing tab, column D"
+sprint,cabinC,26,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+sprint,profile,motorway,steady,,Your setup (2026-11-21); was steady: Cruise control on the motorway
+sprint,climbM,200,0,m,"Your setup (2026-11-21); was 0: Battery Sizing tab, column D"
+sprint,ascentM,500,0,m,"Your setup (2026-11-21); was 0: Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
+sprint,slopePct,2,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+sprint,airTemperatureC,35,,°C,"Your setup (2026-11-21); was 30: Fitted to the test (judgement, user's choice 2026-11-20): a warm day, AC on at motorway speed"
+sprint,solarWm2,1000,,W/m²,Your setup (2026-11-21); was 400 (the all row)
+sprint,humidityPct,80,,%,Your setup (2026-11-21); was 60 (the all row)
+sprint,altitudeM,100,,m,Your setup (2026-11-21); was 0 (the all row)
+sprint,payloadKg,150,,kg,Your setup (2026-11-21); was 100 (the all row)
+sprint,drivingStylePct,170,,%,Your setup (2026-11-21); was 100 (the all row)
+longTrip,distanceKm,1000,800,km,"Your setup (2026-11-21); was 800: Battery Sizing tab, column D"
+longTrip,speedKmh,110,90,km/h,"Your setup (2026-11-21); was 90: Cruising speed on the highway: 90 km/h, the Thai highway speed limit (120 km/h only on signed four-lane sections since 2021); average about 72 km/h (your choice 2026-11-20; the spreadsheet had a 60 km/h average)"
+longTrip,cabinC,26,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+longTrip,climateWhileCharging,yes,,,People wait in the car while it charges
+longTrip,chargeFromPct,20,,%,"Battery Sizing tab, column D"
+longTrip,chargeToPct,90,80,%,"Your setup (2026-11-21); was 80: Battery Sizing tab, column D"
+longTrip,profile,highway,,,Highway with a stop now and then (US EPA highway cycle; your choice 2026-11-20)
+longTrip,climbM,500,0,m,Your setup (2026-11-21); was 0: Altitude change start → finish; Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
+longTrip,ascentM,1000,0,m,"Your setup (2026-11-21); was 0: Total climb (all uphill metres, at least the altitude change); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page"
+longTrip,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+longTrip,airTemperatureC,35,,°C,Your setup (2026-11-21); was 25 (the all row)
+longTrip,solarWm2,800,,W/m²,Your setup (2026-11-21); was 400 (the all row)
+longTrip,humidityPct,80,,%,Your setup (2026-11-21); was 60 (the all row)
+longTrip,altitudeM,300,,m,Your setup (2026-11-21); was 0 (the all row)
+longTrip,payloadKg,350,,kg,"Your setup (2026-11-21); was 350: Fitted to the test (judgement, user's choice 2026-11-20): four people and holiday luggage"
+longTrip,drivingStylePct,90,,%,Your setup (2026-11-21); was 100 (the all row)
+batteryLife,years,20,,years,"Battery Sizing tab, column D"
+batteryLife,kmPerYear,15000,,km,"Battery Sizing tab, column D"
+batteryLife,speedKmh,60,90,km/h,"Your setup (2026-11-21); was 90: Only used with another profile than Mixed, which drives at the WLTP's own speeds (average 46.5 km/h; the spreadsheet had a 40 km/h average)"
+batteryLife,cabinC,26,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+batteryLife,profile,mixed,,,"Town, country roads and motorway: the whole WLTP at its own speeds"
+batteryLife,dcSharePct,90,default,%,Your setup (2026-11-21); was blank: Blank = Typical battery care (assumption care_typical_dc_share_pct)
+batteryLife,highSocTimePct,10,default,%,Your setup (2026-11-21); was blank: Blank = Typical battery care (assumption care_typical_high_soc_time_pct)
+batteryLife,ascentPer100Km,300,0,m,Your setup (2026-11-21); was 0: Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
+batteryLife,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+batteryLife,solarWm2,800,,W/m²,Your setup (2026-11-21); was 400 (the all row)
+batteryLife,altitudeM,200,,m,Your setup (2026-11-21); was 0 (the all row)
+batteryLife,payloadKg,120,,kg,Your setup (2026-11-21); was 100 (the all row)
+batteryLife,drivingStylePct,120,,%,Your setup (2026-11-21); was 100 (the all row)
+cost,years,20,,years,"Battery Sizing tab, column D (same as Battery life)"
+cost,kmPerYear,15000,,km,"Battery Sizing tab, column D (same as Battery life)"
+cost,speedKmh,90,,km/h,Same driving as Battery life (only used with another profile than Mixed)
+cost,cabinC,22,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
+cost,profile,mixed,,,Same driving as Battery life
+cost,energyPrice,,,per kWh,Blank = the market's value (data/running_costs.csv: electricity_price)
+cost,servicingBev,,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, BEV)"
+cost,servicingIce,,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, ICE)"
+cost,insuranceRateBev,,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, BEV)"
+cost,insuranceRateIce,,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, ICE)"
+cost,insuranceMin,,,per year,Blank = the market's value (data/running_costs.csv: insurance_min)
+cost,compulsoryInsurance,,,per year,Blank = the market's value (data/running_costs.csv: compulsory_insurance)
+cost,tyreSetRegular,,,per set,Blank = the market's value (data/running_costs.csv: tyre_set_regular)
+cost,tyreSetPremium,,,per set,Blank = the market's value (data/running_costs.csv: tyre_set_premium)
+cost,tyreLifeKm,,,km,Blank = the market's value (data/running_costs.csv: tyre_life_km)
+cost,repairsPct,,,% of price per year,Blank = the market's value (data/running_costs.csv: repairs_pct)
+cost,warrantyYears,,,years,Blank = the market's value (data/running_costs.csv: warranty_years)
+cost,battery12vPrice,,,per battery,Blank = the market's value (data/running_costs.csv: battery_12v_price)
+cost,battery12vYears,,,years,Blank = the market's value (data/running_costs.csv: battery_12v_years)
+cost,depreciationBev,,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, BEV)"
+cost,depreciationIce,,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, ICE)"
+cost,ascentPer100Km,300,0,m,Your setup (2026-11-21); was 0: Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
+cost,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
+cost,airTemperatureC,35,,°C,Your setup (2026-11-21); was 25 (the all row)
+cost,solarWm2,800,,W/m²,Your setup (2026-11-21); was 400 (the all row)
+cost,altitudeM,200,,m,Your setup (2026-11-21); was 0 (the all row)
+cost,payloadKg,120,,kg,Your setup (2026-11-21); was 100 (the all row)
+cost,drivingStylePct,120,,%,Your setup (2026-11-21); was 100 (the all row)

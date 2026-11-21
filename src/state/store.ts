@@ -50,7 +50,7 @@ export const BUILT_IN_PRESETS: BuiltInPreset[] = [
   {
     id: 'standard',
     label: 'Standard (fitted to each test)',
-    description: 'Your spreadsheet inputs, with conditions fitted to each test (data/standard.csv): traffic jam on a hot afternoon, long trip fully loaded, …',
+    description: 'Your own setup of every test (data/standard.csv): trip, conditions and hills per test; running costs of the market',
     conditions: {},
   },
   { id: 'spreadsheet', label: 'Spreadsheet values (25 °C everywhere)', description: 'The inputs of your Battery Sizing tab, with the same conditions in every test', conditions: {} },

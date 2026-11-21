@@ -10,12 +10,13 @@ import { deriveAll } from '../src/engine/derive';
 import { CarModel } from '../src/engine/model';
 import { countStops, profileDef, profileSpeed, profileTrace, recordedTrace, stretchTrace, traceStats } from '../src/engine/physics/profiles';
 import { traceDynamics } from '../src/engine/physics/style';
-import { SCENARIO_VERSION, standardScenario, withDefaults } from '../src/engine/scenario';
+import { SCENARIO_VERSION, withDefaults } from '../src/engine/scenario';
+import { previousStandard } from './previousStandard';
 import { PROFILE_IDS, type Profile, type Scenario } from '../src/engine/types';
 
 const ds = loadBundledDataset();
 const a = assumptionsFromDataset(ds);
-const sc = standardScenario(ds, a);
+const sc = previousStandard(ds, a);
 const derived = Object.fromEntries(deriveAll(ds, a).map((d) => [d.car.id, d]));
 const model = (id: string, test: keyof Scenario['conditions'] = 'noCharger') =>
   new CarModel(derived[id], { ds, a, conditions: sc.conditions[test], settings: { battery: 'chemistry' } });
