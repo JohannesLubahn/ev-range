@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- EV Compare: a lightning bolt in front of a tyre. Same drawing as src/components/Logo.tsx and the favicon in index.html. -->
+  <style>
+    .tyre { stroke: #0b0b0b; }
+    .bolt { fill: #0f6e63; }
+    @media (prefers-color-scheme: dark) {
+      .tyre { stroke: #f0efec; }
+      .bolt { fill: #45b8a7; }
+    }
+  </style>
+  <mask id="gap" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+    <rect width="32" height="32" fill="#fff"/>
+    <path d="M12.6 2 18.1 13.5 7.1 30 2.1 17z" fill="#000" stroke="#000" stroke-width="3.4" stroke-linejoin="round"/>
+  </mask>
+  <circle class="tyre" cx="17.6" cy="16" r="10" stroke-width="4.6" mask="url(#gap)"/>
+  <path class="bolt" d="M12.6 2 2.1 17h7.2L7.1 30l11-16.5h-7.4z"/>
+</svg>

@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
 import { CalcDrawer } from './components/CalcDrawer';
 import { CarPickerDrawer } from './components/CarPicker';
-import { IconBolt, IconMonitor, IconMoon, IconSun } from './components/Icons';
+import { Footer } from './components/Footer';
+import { IconMonitor, IconMoon, IconSun } from './components/Icons';
+import { Logo } from './components/Logo';
 import { AssumptionsPage } from './pages/Assumptions';
 import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
 import { CostPage } from './pages/Cost';
+import { ImpressumPage } from './pages/Impressum';
+import { KnownIssuesPage } from './pages/KnownIssues';
+import { NotesPage } from './pages/Notes';
 import { PhysicsPage } from './pages/Physics';
 import { BatteryLifePage, StressTestsPage } from './pages/StressTests';
 import { useEngine } from './state/engine';
-import { useStore, VIEWS, type Theme, type View } from './state/store';
+import { ALL_VIEWS, useStore, VIEWS, type Theme, type View } from './state/store';
 
 function viewFromHash(): View {
   const h = window.location.hash.replace(/^#/, '');
-  return (VIEWS.find((v) => v.id === h)?.id ?? 'compare') as View;
+  return ALL_VIEWS.find((v) => v.id === h)?.id ?? 'compare';
 }
 
 function useView(): View {
@@ -52,7 +57,7 @@ export function App() {
   const { ds } = useEngine();
   useApplyTheme(theme);
   useEffect(() => {
-    const label = VIEWS.find((v) => v.id === view)?.label;
+    const label = ALL_VIEWS.find((v) => v.id === view)?.label;
     document.title = view === 'compare' ? 'EV Compare' : `${label} · EV Compare`;
   }, [view]);
 
@@ -61,7 +66,7 @@ export function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <a href="#compare" className="brand" style={{ color: 'inherit', textDecoration: 'none' }}>
-            <IconBolt size={24} />
+            <Logo size={26} />
             EV Compare
           </a>
           <nav className="nav" aria-label="Views">
@@ -96,7 +101,11 @@ export function App() {
         {view === 'cars' && <CarsPage />}
         {view === 'physics' && <PhysicsPage />}
         {view === 'assumptions' && <AssumptionsPage />}
+        {view === 'known-issues' && <KnownIssuesPage />}
+        {view === 'notes' && <NotesPage />}
+        {view === 'impressum' && <ImpressumPage />}
       </main>
+      <Footer view={view} />
       <CalcDrawer />
       <CarPickerDrawer />
     </>

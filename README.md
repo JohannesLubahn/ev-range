@@ -193,6 +193,7 @@ in `data/assumptions.csv`) is lost to the friction brakes. The Physics page comp
 
 ```
 data/                  the CSV files above
+content/               the text pages: known issues, notes, impressum (see content/README.md)
 src/engine/            calculations only (no UI)
   physics/             air, rolling, road load, speed profiles, driving style, hills (terrain.ts), simulation
   battery/, onboard/   battery pack and ageing; electronics, cabin climate and battery temperature
@@ -200,9 +201,11 @@ src/engine/            calculations only (no UI)
   costs.ts, inputs.ts  cost of ownership; the inputs of every test, their standards and links
   run.ts, derive.ts    runs the ticked cars (with a cache); specs and estimates per car
 src/data/              CSV parsing and checks
+src/content/           reads content/ (a small, safe Markdown subset)
 src/state/             app state (Zustand), saved settings, car list, the engine provider
 src/components, pages/ the UI (React)
 tests/                 Vitest tests (see Scripts)
 scripts/               ods_to_csv.py, build_reference_data.py, inline_build.mjs
 docs/model.md          the model in detail, with sources
+docs/logo/logo.svg     the logo (bolt in front of a tyre); same drawing as src/components/Logo.tsx and the favicon
 ```

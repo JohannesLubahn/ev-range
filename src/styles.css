@@ -1534,3 +1534,155 @@ table {
   font-size: 12.5px;
   color: var(--ink-2);
 }
+
+/* ------------------------------------------------------------------ footer & text pages (content/) */
+/* The footer sits at the bottom of the window on short pages. */
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+#root > main.wrap {
+  flex: 1 0 auto;
+  width: 100%;
+}
+.footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.footer-inner {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 14px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--ink);
+}
+.footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.footer-nav a {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.footer-nav a:hover,
+.footer-nav a[aria-current='page'] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.text-page {
+  max-width: 760px;
+}
+.prose {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.prose > * + * {
+  margin-top: 10px;
+}
+.prose > h1 + *,
+.prose > h2 + *,
+.prose > h3 + *,
+.prose > h4 + * {
+  margin-top: 4px;
+}
+.prose > * + h2,
+.prose > * + h3,
+.prose > * + h4 {
+  margin-top: 22px;
+}
+.prose h4 {
+  font-size: 14px;
+  margin: 0;
+}
+.prose ul,
+.prose ol {
+  margin-bottom: 0;
+  padding-left: 22px;
+}
+.prose blockquote {
+  margin: 10px 0 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-2);
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.prose code {
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.note > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+.issue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.issue {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.issue-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.issue-status {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 0 8px;
+  border-radius: 10px;
+  line-height: 20px;
+}
+.issue-status.open {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+.issue-status.fixed {
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+.issue-status.wontfix {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.issue-meta {
+  font-size: 12.5px;
+}

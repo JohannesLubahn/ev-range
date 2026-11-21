@@ -36,13 +36,6 @@ export const IconInfo = (p: P) => (
   </svg>
 );
 
-export const IconBolt = (p: P) => (
-  <svg {...base(p)} viewBox="0 0 32 32">
-    <rect width="32" height="32" rx="7" fill="var(--accent)" />
-    <path d="M18 5L8 18h7l-2 9 10-13h-7z" fill="var(--accent-ink)" />
-  </svg>
-);
-
 export const IconClose = (p: P) => (
   <svg {...base(p)}>
     <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
