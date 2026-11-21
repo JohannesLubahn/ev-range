@@ -1,7 +1,7 @@
 import { FOOTER_VIEWS, type View } from '../state/store';
 import { Logo } from './Logo';
 
-/** On every page: the impressum, which must be reachable from everywhere. */
+/** On every page: the legal notice, which must be reachable from everywhere. */
 export function Footer({ view }: { view: View }) {
   return (
     <footer className="footer">

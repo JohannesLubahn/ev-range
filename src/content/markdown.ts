@@ -1,5 +1,5 @@
 /**
- * A small Markdown reader for the text pages (known issues, notes, impressum). It covers what those pages need
+ * A small Markdown reader for the text pages (known issues, notes, legal notice). It covers what those pages need
  * and nothing more: headings (#, ##, ###), paragraphs, bullet and numbered lists, block quotes, horizontal rules,
  * and inline **bold**, *italic* / _italic_, `code` and [links](url). HTML comments are dropped, so a file can
  * carry hints for whoever writes it. Raw HTML is shown as text: the pages never inject markup.

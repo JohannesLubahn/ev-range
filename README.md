@@ -194,7 +194,7 @@ in `data/assumptions.csv`) is lost to the friction brakes. The Physics page comp
 
 ```
 data/                  the CSV files above
-content/               text for the Notes tab (known issues, personal notes) and the impressum (see content/README.md)
+content/               text for the Notes tab (known issues, personal notes) and the legal notice (see content/README.md)
 src/engine/            calculations only (no UI)
   physics/             air, rolling, road load, speed profiles, driving style, hills (terrain.ts), simulation
   battery/, onboard/   battery pack and ageing; electronics, cabin climate and battery temperature
@@ -210,3 +210,10 @@ scripts/               ods_to_csv.py, build_reference_data.py, inline_build.mjs
 docs/model.md          the model in detail, with sources
 docs/logo/logo.svg     the logo (bolt in front of a tyre); same drawing as src/components/Logo.tsx and the favicon
 ```
+
+## Licence
+
+Code: MIT (`LICENSE`). Texts (`content/`, `docs/`) and the data compiled for the site (`data/`): CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/); credit "EV Range". Material from the sources in `data/sources.csv` stays
+with its owners and under their terms. The fonts are under the SIL Open Font License. The legal notice on the site
+(`content/legal.md`) says the same.

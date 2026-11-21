@@ -123,11 +123,14 @@ describe('version tracker', () => {
   });
 });
 
-describe('impressum', () => {
-  it('has its title and the § 5 DDG section', () => {
-    const md = readFileSync('content/impressum.md', 'utf8');
-    expect(firstHeading(md)).toBe('Impressum');
-    expect(parseBlocks(md).some((b) => b.type === 'heading' && b.text.includes('§ 5 DDG'))).toBe(true);
+describe('legal notice', () => {
+  it('has its title, contact, licence and privacy sections, and names no country-specific law', () => {
+    const md = readFileSync('content/legal.md', 'utf8');
+    expect(firstHeading(md)).toBe('Legal notice');
+    const headings = parseBlocks(md).flatMap((b) => (b.type === 'heading' ? [b.text] : []));
+    expect(headings).toEqual(expect.arrayContaining(['Who runs this site', 'Licence', 'Privacy']));
+    expect(md).toContain('mailto:johannes.lubahn@gmail.com');
+    expect(md).not.toMatch(/§|DDG|MStV|TMG|Impressum/);
     expect(readdirSync('content/notes').every((f) => f.endsWith('.md'))).toBe(true);
   });
 });

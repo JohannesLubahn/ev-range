@@ -1,7 +1,7 @@
 # content/
 
 The site's text pages, bundled into the app at build time (the dev server reloads when a file changes).
-Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssues.tsx`, `src/pages/Impressum.tsx`,
+Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssues.tsx`, `src/pages/Legal.tsx`,
 `src/components/Footer.tsx`.
 
 | Where | File | Route |
@@ -9,7 +9,7 @@ Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssu
 | Notes tab (after Assumptions): Personal notes | `notes/*.md`, one file per note | `#notes` |
 | Notes tab, after the notes: Version Tracker | `versions.csv` | `#notes` |
 | Notes tab, at the bottom: Known issues | `known_issues.csv` | `#notes` (`#known-issues` jumps there) |
-| Impressum, linked from the footer of every page | `impressum.md` | `#impressum` |
+| Legal notice, linked from the footer of every page | `legal.md` | `#legal` (`#impressum` still opens it) |
 
 ## known_issues.csv
 
@@ -35,9 +35,9 @@ commas), `author` (initials).
 One Markdown file per note, named `YYYY-MM-DD-short-name.md`. The first `# ` heading is the title; the date comes
 from the file name; newest first. Files starting with `_` (like `_template.md`) are not shown.
 
-## impressum.md
+## legal.md
 
-Markdown; its `# Impressum` heading is the page title.
+Markdown; its `# Legal notice` heading is the page title. Written for visitors anywhere, so it names no country's law.
 
 ## Markdown
 

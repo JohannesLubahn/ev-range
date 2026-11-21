@@ -1,6 +1,6 @@
 /**
  * Reads the site's text pages from content/ (see content/README.md): the known-issues list, the notes and the
- * impressum. Pure functions, so they can be tested without the bundler; src/content/bundled.ts feeds them the files.
+ * version tracker (the legal notice is shown as it is). Pure functions, so they can be tested without the bundler; src/content/bundled.ts feeds them the files.
  */
 import { parseCsv } from '../data/parse';
 import { firstHeading } from './markdown';

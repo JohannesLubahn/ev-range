@@ -8,7 +8,7 @@ import { AssumptionsPage } from './pages/Assumptions';
 import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
 import { CostPage } from './pages/Cost';
-import { ImpressumPage } from './pages/Impressum';
+import { LegalPage } from './pages/Legal';
 import { NotesPage } from './pages/Notes';
 import { PhysicsPage } from './pages/Physics';
 import { BatteryLifePage, StressTestsPage } from './pages/StressTests';
@@ -101,7 +101,7 @@ export function App() {
         {view === 'physics' && <PhysicsPage />}
         {view === 'assumptions' && <AssumptionsPage />}
         {view === 'notes' && <NotesPage />}
-        {view === 'impressum' && <ImpressumPage />}
+        {view === 'legal' && <LegalPage />}
       </main>
       <Footer view={view} />
       <CalcDrawer />

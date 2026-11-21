@@ -8,7 +8,7 @@ import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from '
 import { load, save } from './storage';
 
 export type View = 'compare' | 'stress-tests' | 'battery-life' | 'cost' | 'cars' | 'physics' | 'assumptions' | 'notes' | FooterView;
-export type FooterView = 'impressum';
+export type FooterView = 'legal';
 export const VIEWS: { id: View; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'stress-tests', label: 'Stress tests' },
@@ -20,9 +20,9 @@ export const VIEWS: { id: View; label: string }[] = [
   { id: 'notes', label: 'Notes' },
 ];
 /** Linked from the footer of every page (content in content/). */
-export const FOOTER_VIEWS: { id: FooterView; label: string }[] = [{ id: 'impressum', label: 'Impressum' }];
-/** Old addresses that now live inside another page: #known-issues is a section of Notes. */
-export const VIEW_ALIASES: Record<string, View> = { 'known-issues': 'notes' };
+export const FOOTER_VIEWS: { id: FooterView; label: string }[] = [{ id: 'legal', label: 'Legal notice' }];
+/** Old addresses: #known-issues is a section of Notes; #impressum is now the legal notice. */
+export const VIEW_ALIASES: Record<string, View> = { 'known-issues': 'notes', impressum: 'legal' };
 export const ALL_VIEWS: { id: View; label: string }[] = [...VIEWS, ...FOOTER_VIEWS];
 
 export type CaseKey = TestKey;

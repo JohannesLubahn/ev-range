@@ -1,6 +1,7 @@
 {
   "name": "ev-range",
   "private": true,
+  "license": "MIT",
   "version": "0.1.0",
   "description": "Compare electric cars in stress-case scenarios with a first-principles physics model",
   "type": "module",
