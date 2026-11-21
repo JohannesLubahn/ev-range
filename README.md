@@ -193,7 +193,7 @@ in `data/assumptions.csv`) is lost to the friction brakes. The Physics page comp
 
 ```
 data/                  the CSV files above
-content/               the text pages: known issues, notes, impressum (see content/README.md)
+content/               text for the Notes tab (known issues, personal notes) and the impressum (see content/README.md)
 src/engine/            calculations only (no UI)
   physics/             air, rolling, road load, speed profiles, driving style, hills (terrain.ts), simulation
   battery/, onboard/   battery pack and ageing; electronics, cabin climate and battery temperature

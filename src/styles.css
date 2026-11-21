@@ -1594,6 +1594,10 @@ table {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+.prose h4 {
+  font-size: 14px;
+  margin: 0;
+}
 .prose > * + * {
   margin-top: 10px;
 }
@@ -1607,10 +1611,6 @@ table {
 .prose > * + h3,
 .prose > * + h4 {
   margin-top: 22px;
-}
-.prose h4 {
-  font-size: 14px;
-  margin: 0;
 }
 .prose ul,
 .prose ol {

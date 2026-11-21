@@ -9,16 +9,15 @@ import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
 import { CostPage } from './pages/Cost';
 import { ImpressumPage } from './pages/Impressum';
-import { KnownIssuesPage } from './pages/KnownIssues';
 import { NotesPage } from './pages/Notes';
 import { PhysicsPage } from './pages/Physics';
 import { BatteryLifePage, StressTestsPage } from './pages/StressTests';
 import { useEngine } from './state/engine';
-import { ALL_VIEWS, useStore, VIEWS, type Theme, type View } from './state/store';
+import { ALL_VIEWS, useStore, VIEW_ALIASES, VIEWS, type Theme, type View } from './state/store';
 
 function viewFromHash(): View {
   const h = window.location.hash.replace(/^#/, '');
-  return ALL_VIEWS.find((v) => v.id === h)?.id ?? 'compare';
+  return ALL_VIEWS.find((v) => v.id === h)?.id ?? VIEW_ALIASES[h] ?? 'compare';
 }
 
 function useView(): View {
@@ -101,7 +100,6 @@ export function App() {
         {view === 'cars' && <CarsPage />}
         {view === 'physics' && <PhysicsPage />}
         {view === 'assumptions' && <AssumptionsPage />}
-        {view === 'known-issues' && <KnownIssuesPage />}
         {view === 'notes' && <NotesPage />}
         {view === 'impressum' && <ImpressumPage />}
       </main>

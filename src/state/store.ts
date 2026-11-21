@@ -7,8 +7,8 @@ import type { Assumptions, Conditions, CostInputs, ModelSettings, Scenario } fro
 import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from './carList';
 import { load, save } from './storage';
 
-export type View = 'compare' | 'stress-tests' | 'battery-life' | 'cost' | 'cars' | 'physics' | 'assumptions' | FooterView;
-export type FooterView = 'known-issues' | 'notes' | 'impressum';
+export type View = 'compare' | 'stress-tests' | 'battery-life' | 'cost' | 'cars' | 'physics' | 'assumptions' | 'notes' | FooterView;
+export type FooterView = 'impressum';
 export const VIEWS: { id: View; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'stress-tests', label: 'Stress tests' },
@@ -17,13 +17,12 @@ export const VIEWS: { id: View; label: string }[] = [
   { id: 'cars', label: 'Cars' },
   { id: 'physics', label: 'Physics' },
   { id: 'assumptions', label: 'Assumptions' },
-];
-/** The text pages, linked from the footer (content in content/). */
-export const FOOTER_VIEWS: { id: FooterView; label: string }[] = [
-  { id: 'known-issues', label: 'Known issues' },
   { id: 'notes', label: 'Notes' },
-  { id: 'impressum', label: 'Impressum' },
 ];
+/** Linked from the footer of every page (content in content/). */
+export const FOOTER_VIEWS: { id: FooterView; label: string }[] = [{ id: 'impressum', label: 'Impressum' }];
+/** Old addresses that now live inside another page: #known-issues is a section of Notes. */
+export const VIEW_ALIASES: Record<string, View> = { 'known-issues': 'notes' };
 export const ALL_VIEWS: { id: View; label: string }[] = [...VIEWS, ...FOOTER_VIEWS];
 
 export type CaseKey = TestKey;

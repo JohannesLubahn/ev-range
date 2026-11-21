@@ -1,14 +1,14 @@
 # content/
 
-The site's text pages. They are linked from the footer of every page and bundled into the app at build time
-(the dev server reloads when a file changes). Code: `src/content/` (reading), `src/pages/KnownIssues.tsx`,
-`Notes.tsx`, `Impressum.tsx`, `src/components/Footer.tsx`.
+The site's text pages, bundled into the app at build time (the dev server reloads when a file changes).
+Code: `src/content/` (reading), `src/pages/Notes.tsx`, `src/components/KnownIssues.tsx`, `src/pages/Impressum.tsx`,
+`src/components/Footer.tsx`.
 
-| Page | File | Route |
+| Where | File | Route |
 | --- | --- | --- |
-| Known issues | `known_issues.csv` | `#known-issues` |
-| Notes | `notes/*.md`, one file per note | `#notes` |
-| Impressum | `impressum.md` | `#impressum` |
+| Notes tab (after Assumptions), first section: Known issues | `known_issues.csv` | `#notes` (`#known-issues` jumps there) |
+| Notes tab, second section: Personal notes | `notes/*.md`, one file per note | `#notes` |
+| Impressum, linked from the footer of every page | `impressum.md` | `#impressum` |
 
 ## known_issues.csv
 
@@ -21,7 +21,7 @@ One row per issue. Columns:
 - `details`: a few sentences; inline Markdown works (bold, italic, `code`, links). Use quotes if it contains commas.
 - `added`, `resolved`: dates as `YYYY-MM-DD`
 
-Open issues are listed first; fixed and won't-fix ones fold away under "Closed".
+Open issues are listed; fixed and won't-fix ones fold away under "Closed".
 
 ## notes/
 
