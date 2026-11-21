@@ -22,8 +22,10 @@ export function BatteryCyclesTable() {
           stress tests. A car uses its maker's figure where one was found for that car's own battery (<span className="mono">data/cars.csv</span>,
           columns <span className="mono">battery_cycles</span> and <span className="mono">battery_cycles_source</span>); every other car uses its
           chemistry's default (<span className="mono">data/battery/chemistries.csv</span>). Makers rate their batteries under their own test conditions
-          and capacity limits, so the figures compare only roughly. Calendar ageing (time and heat) comes on top and is the same for every car of a
-          chemistry.
+          and capacity limits, so the figures compare only roughly. BYD states its 5,000 cycles without a capacity limit; they are read as running
+          down to the 70 % battery health BYD guarantees in its battery warranty, like XPeng's rating. That equals about 3,000 cycles to 80 %, the
+          figure BYD itself gave at the Blade battery's launch and still gives in some markets. Calendar ageing (time and heat) comes on top and is
+          the same for every car of a chemistry.
         </p>
         <p className="muted" style={{ marginTop: 8 }}>
           Not used: NREL's lab cells. Their cycle figures are higher than the defaults, but together with their own calendar ageing they predict more
@@ -59,7 +61,7 @@ export function BatteryCyclesTable() {
               </Fragment>
             ))}
             {makers.map((c) => {
-              const s = ds.sources.find((x) => x.id === c.batteryCyclesSource);
+              const used = c.batteryCyclesSources.map((id) => ds.sources.find((x) => x.id === id)?.usedFor).filter(Boolean);
               return (
                 <Fragment key={`${c.id}-${c.market}`}>
                   <tr className="main">
@@ -74,8 +76,8 @@ export function BatteryCyclesTable() {
                   </tr>
                   <tr className="note">
                     <td colSpan={3}>
-                      {s?.usedFor ? `${s.usedFor} · ` : ''}
-                      <SourceText ids={c.batteryCyclesSource ? [c.batteryCyclesSource] : []} sources={ds.sources} />
+                      {used.map((u) => `${u} · `).join('')}
+                      <SourceText ids={c.batteryCyclesSources} sources={ds.sources} />
                     </td>
                   </tr>
                 </Fragment>

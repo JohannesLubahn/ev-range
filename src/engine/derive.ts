@@ -203,7 +203,7 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
         ? { value: chemDef.ratedCycles, provenance: 'estimated', note: `${chemistry} default` }
         : { value: null, provenance: 'missing' };
   const ratedCyclesSources =
-    car.batteryCycles !== null ? (car.batteryCyclesSource ? [car.batteryCyclesSource] : []) : (chemDef?.ratedCyclesSources ?? []);
+    car.batteryCycles !== null ? car.batteryCyclesSources : (chemDef?.ratedCyclesSources ?? []);
 
   // --- costs
   if (!car.market) flag('info', 'market', 'No market set - listed only under All markets');

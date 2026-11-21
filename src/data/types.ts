@@ -25,8 +25,8 @@ export interface Car {
   batteryType: string | null;
   /** Rated full cycles the maker states for this car's battery; null = the chemistry default. */
   batteryCycles: number | null;
-  /** Source of `batteryCycles` (id in sources.csv). */
-  batteryCyclesSource: string | null;
+  /** Sources of `batteryCycles` and, where it is assumed, its capacity limit (ids in sources.csv). */
+  batteryCyclesSources: string[];
   consumptionKwhPerKm: number | null;
   ranges: Partial<Record<Basis, number>>;
   consumptionBasis: Basis | null;

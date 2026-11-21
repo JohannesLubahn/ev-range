@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { Fragment, useMemo, useState, type ChangeEvent } from 'react';
 import { CarsButton } from '../components/CarPicker';
 import { bundledFiles } from '../data/bundled';
 import { parseCars } from '../data/parse';
@@ -100,10 +100,14 @@ function useRows(ids: string[], showCalc: boolean): { group: string; rows: SpecR
           continue;
         }
         if (f.key === 'battery_cycles_source') {
-          const sid = d.ratedCyclesSources[0];
-          const s = sid ? ds.sources.find((x) => x.id === sid) : undefined;
-          const text = !s ? sid ?? '' : s.topic === 'Your files' ? `${s.title.split(' (')[0]} (${d.chemistry} default)` : [s.publisher || s.authors, s.year].filter(Boolean).join(' ');
-          cells[id] = { text: s?.url ? `${text}|${s.url}` : text, value: null };
+          // Each source as "label|url", joined with "||": the cycles' source and, for BYD, the warranty behind the 70 %.
+          const sids = d.car.batteryCycles !== null ? d.ratedCyclesSources : d.ratedCyclesSources.slice(0, 1);
+          const parts = sids.map((sid) => {
+            const s = ds.sources.find((x) => x.id === sid);
+            const text = !s ? sid : s.topic === 'Your files' ? `${s.title.split(' (')[0]} (${d.chemistry} default)` : [s.publisher || s.authors, s.year].filter(Boolean).join(' ');
+            return s?.url ? `${text}|${s.url}` : text;
+          });
+          cells[id] = { text: parts.join('||'), value: null };
           continue;
         }
         if (f.key === 'heat_pump') {
@@ -311,9 +315,21 @@ export function CarsPage() {
                                 r.key === 'source_url' ? (
                                   <SourceLinks text={c.text} />
                                 ) : r.key === 'battery_cycles_source' && c.text.includes('|') ? (
-                                  <a href={c.text.split('|')[1]} target="_blank" rel="noreferrer">
-                                    {c.text.split('|')[0]}
-                                  </a>
+                                  c.text.split('||').map((part, i) => {
+                                    const [label, url] = part.split('|');
+                                    return (
+                                      <Fragment key={i}>
+                                        {i > 0 && ' · '}
+                                        {url ? (
+                                          <a href={url} target="_blank" rel="noreferrer">
+                                            {label}
+                                          </a>
+                                        ) : (
+                                          label
+                                        )}
+                                      </Fragment>
+                                    );
+                                  })
                                 ) : (
                                   c.text
                                 )

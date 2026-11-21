@@ -143,7 +143,7 @@ export function parseCars(text: string, warnings: string[]): { cars: Car[]; colu
       endOfLifeCapacityPct: num(row, 'end_of_life_capacity_pct', warnings, where),
       batteryType: row.battery_type ? row.battery_type.toUpperCase() : null,
       batteryCycles: num(row, 'battery_cycles', warnings, where),
-      batteryCyclesSource: row.battery_cycles_source?.trim() || null,
+      batteryCyclesSources: ids(row.battery_cycles_source),
       consumptionKwhPerKm: num(row, 'consumption_kwh_per_km', warnings, where),
       ranges,
       consumptionBasis: basis,
@@ -433,9 +433,9 @@ export function parseDataset(files: RawFiles): Dataset {
     for (const id of c.ratedCyclesSources) if (!sourceIds.has(id)) warnings.push(`battery/chemistries.csv, ${c.chemistry}: source "${id}" is not in sources.csv`);
   // Car-specific rated cycles need their source (cars.csv battery_cycles_source).
   for (const c of cars) {
-    if (c.batteryCyclesSource && !sourceIds.has(c.batteryCyclesSource))
-      warnings.push(`cars.csv, ${c.id}: battery_cycles_source "${c.batteryCyclesSource}" is not in sources.csv`);
-    if (c.batteryCycles !== null && !c.batteryCyclesSource) warnings.push(`cars.csv, ${c.id}: battery_cycles without battery_cycles_source`);
+    for (const id of c.batteryCyclesSources)
+      if (!sourceIds.has(id)) warnings.push(`cars.csv, ${c.id}: battery_cycles_source "${id}" is not in sources.csv`);
+    if (c.batteryCycles !== null && c.batteryCyclesSources.length === 0) warnings.push(`cars.csv, ${c.id}: battery_cycles without battery_cycles_source`);
   }
 
   return {

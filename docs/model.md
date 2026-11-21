@@ -282,7 +282,7 @@ battery. Code: `src/engine/battery/ageing.ts`.
 - **Cycle wear** reaches 80 % capacity (assumption `rated_cycles_end_capacity_pct`, 80 %, or the
   car's `end_of_life_capacity_pct`) at the car's **rated cycles**, so the rating sets its size. Rated cycles
   (since 21 Nov 2026): the maker's figure for the car's own battery where one was found (`battery_cycles` +
-  `battery_cycles_source` in cars.csv: BYD Atto 3 / Dolphin / Seal 5,000, XPeng G6 2,000 to 70 %, Citroën ë-C3 1,000),
+  `battery_cycles_source` in cars.csv: BYD Atto 3 / Dolphin / Seal 5,000 to 70 % (BYD states no limit; its battery warranty guarantees 70 %), XPeng G6 2,000 to 70 %, Citroën ë-C3 1,000),
   otherwise the chemistry default in `data/battery/chemistries.csv` (the user's research: LFP 2,000, NMC 1,100). Makers
   rate under their own test conditions, so the figures compare only roughly. "Years until 80 %" uses the assumption
   for every car, whatever capacity a maker rates its cycles to. NREL's BLAST-Lite lab cells were checked as

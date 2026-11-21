@@ -14,7 +14,7 @@ battery_kwh,Battery capacity,kWh,Battery & charging,number,higher,"Usable (net) 
 end_of_life_capacity_pct,Capacity at the rated cycles,%,Battery & charging,number,higher,"Capacity left when the rated cycles are used up (% of nominal), as the maker states it with the cycles. Blank = assumption (80 %)"
 battery_type,Battery type,,Battery & charging,enum:LFP|NMC,,Cell chemistry; selects the temperature-dependent discharge curves
 battery_cycles,Battery cycles,full cycles,Battery & charging,number,higher,"Rated full charge cycles the maker states for this car's battery. Blank = the chemistry default (data/battery/chemistries.csv)"
-battery_cycles_source,Source of the battery cycles,,Battery & charging,text,,"Id of the source in data/sources.csv. Blank = the chemistry default"
+battery_cycles_source,Source of the battery cycles,,Battery & charging,text,,"Ids of the sources in data/sources.csv (separated by ;): the cycles and, where the maker states no capacity limit with them, the source of the assumed limit. Blank = the chemistry default"
 consumption_kwh_per_km,Consumption of motors,kWh/km,Consumption & range,number,lower,From the same source and standard as the rated range. Blank = battery ÷ rated range
 range_cltc_km,Rated range CLTC,km,Consumption & range,number,higher,Chinese test cycle
 range_nedc_km,Rated range NEDC,km,Consumption & range,number,higher,New European Driving Cycle
