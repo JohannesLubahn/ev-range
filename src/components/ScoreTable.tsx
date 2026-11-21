@@ -1,9 +1,9 @@
 import type { CarResults } from '../engine/types';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
-import { capacityLeft, compact, fixed, hours, lifeYears, plural } from '../format';
+import { compact, fixed, hours, lifeYears, plural } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore, type CaseKey, type SortKey } from '../state/store';
-import { PassFail } from './Status';
+import { CapacityLeft, capacityBand, PassFail } from './Status';
 
 type CapKey = 'trafficJam' | 'noCharger' | 'sprint';
 
@@ -19,7 +19,7 @@ export function sortIds(ids: string[], results: Record<string, CarResults>, name
       case 'sprint':
         return -r[key].margin;
       case 'batteryLife':
-        return r.batteryLife.margin === null ? null : -r.batteryLife.margin;
+        return r.batteryLife.capacityEndPct === null ? null : -r.batteryLife.capacityEndPct;
       case 'longTrip':
         return r.longTrip.tripTimeH;
       case 'cost':
@@ -53,6 +53,7 @@ function CapacityCell({ id, k, r, unit }: { id: string; k: CapKey; r: CarResults
 
 function LifeCell({ id, r, ice }: { id: string; r: CarResults; ice: boolean }) {
   const open = useStore((s) => s.openDrawer);
+  const { a } = useEngine();
   const b = r.batteryLife;
   // Not judged: a petrol car has no traction battery; an electric car may lack rated cycles or chemistry.
   const detail =
@@ -62,8 +63,12 @@ function LifeCell({ id, r, ice }: { id: string; r: CarResults; ice: boolean }) {
         ? 'petrol car: no traction battery'
         : 'not judged: rated cycles or chemistry missing';
   return (
-    <button type="button" className={`cell-btn ${b.pass === null ? '' : b.pass ? 'good' : 'bad'}`} onClick={() => open(id, 'batteryLife')}>
-      <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(b.capacityEndPct)} />
+    <button
+      type="button"
+      className={`cell-btn ${b.pass === null || b.capacityEndPct === null ? '' : capacityBand(b.capacityEndPct, a.capacityGoodPct, a.capacityPoorPct)}`}
+      onClick={() => open(id, 'batteryLife')}
+    >
+      {b.pass === null ? <PassFail pass={null} margin={null} /> : <CapacityLeft pct={b.capacityEndPct} />}
       <span className="detail">{detail}</span>
     </button>
   );
@@ -111,9 +116,9 @@ export function ScoreTable({ ids }: { ids: string[] }) {
               </button>
             </th>
             <th scope="col">
-              <button type="button" onClick={() => setSort('overall')} title="Checks passed, then cost per km">
+              <button type="button" onClick={() => setSort('overall')} title="Capacity checks passed (traffic jam, no charger, sprint), then cost per km">
                 Pass{arrow('overall')}
-                <span className="sub">of 4</span>
+                <span className="sub">of 3</span>
               </button>
             </th>
             {COLUMNS.map((c) => (

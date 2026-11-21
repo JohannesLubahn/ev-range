@@ -328,10 +328,12 @@ there. The km-driven wear of the stress tests uses the same habits.
 - **Effect** (100,000 km, 25 °C, Gentle / Typical / Hard): LFP cars 89–92 / 88–91 / 88–90 %, NMC cars 88–92 /
   85–90 / 82–87 %.
 
-**Battery-life verdict.** The battery passes when the capacity left after the chosen years (cycle wear + calendar
-ageing + care) is at least 80 % (or the car's `end_of_life_capacity_pct`); "years until
-80 %" is found by bisection over km (up to 60 years). Until 19 Nov 2026 it passed when the full cycles needed fitted
-within the rated cycles, so heat, age and care did not count. At the defaults (20 years × 15,000 km, 25 °C) only
+**Battery-life result.** The result is the capacity left after the chosen years (cycle wear + calendar ageing +
+care), without a pass or fail since 21 Nov 2026 (user's choice: users judge for themselves). It is shown green from
+80 %, orange from 60 % and red below (`capacity_good_pct`, `capacity_poor_pct`, judgement values) and no longer counts
+in Compare's checks. "Years until 80 %" (or the car's `end_of_life_capacity_pct`) is found by bisection over km (up
+to 60 years). Until 19 Nov 2026 it passed when the full cycles needed fitted within the rated cycles, so heat, age and
+care did not count; until 21 Nov 2026 it passed at 80 % capacity left. At the defaults (20 years × 15,000 km, 25 °C) only
 the Neta S keeps 80 % with typical care (Gentle: also the Atto 3, Nio ET7, Neta X and Aion Hyptec HT); most cars
 reach 80 % after 14–20 years, the Zeekr X after 11 and the Hyundai Inster after 9 (NMC with the placeholder 1,100
 rated cycles).

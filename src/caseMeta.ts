@@ -18,7 +18,7 @@ export const STRESS_TESTS: (CaseMeta & { key: StressTab })[] = [
 export const BATTERY_LIFE_CASE: CaseMeta & { key: 'batteryLife' } = {
   key: 'batteryLife',
   label: 'Battery life',
-  question: 'Does the battery last for the years I plan to keep the car?',
+  question: 'How much battery capacity is left after the years I plan to keep the car?',
 };
 
 export const COST_CASE: CaseMeta = { key: 'cost', label: 'Cost of ownership', question: 'What does the car cost over its life?' };

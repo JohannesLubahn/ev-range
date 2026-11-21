@@ -168,7 +168,8 @@ converted: the old standard driving becomes the new one.
 **Battery wear** (Conditions: km driven, default 100,000 km) sets the capacity the stress tests start from:
 cycle wear up to the car's rated cycles plus calendar ageing, per chemistry. **Battery care** (Battery life page:
 Gentle / Typical / Hard, or % of charging at DC fast chargers and % of the time parked above 80 %) speeds the wear
-up or slows it down. Battery life passes when the capacity left after the years is at least 80 %.
+up or slows it down. Battery life shows the capacity left after the years, without a pass or fail: green from 80 %, orange from 60 %,
+red below (`capacity_good_pct`, `capacity_poor_pct` in `data/assumptions.csv`).
 
 **Hills** (every test): a **Terrain** choice (Flat / Rolling / Hilly / Mountain, `data/terrain.csv`) fills in the
 hills, which you can then change. The trip tests take the **altitude change start → finish**, the **total climb**

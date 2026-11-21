@@ -15,7 +15,7 @@ import { ConditionsPanel, PresetPicker } from '../components/Conditions';
 import { CarsButton } from '../components/CarPicker';
 import { DrivingFields, drivingText } from '../components/Driving';
 import { CabinField, NumberField, SelectField } from '../components/Fields';
-import { PassFail } from '../components/Status';
+import { CapacityLeft, PassFail } from '../components/Status';
 import { LifeTerrainFields, TripTerrainFields } from '../components/Terrain';
 import { useNarrow } from '../components/useNarrow';
 import { carePresets, matchPreset, type CareHabits, type CarePreset } from '../engine/battery/ageing';
@@ -23,7 +23,7 @@ import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { DerivedCar } from '../engine/derive';
 import type { Dataset } from '../data/types';
 import type { AverageConsumption, CapacityCheck, CarResults, Scenario } from '../engine/types';
-import { capacityLeft, fixed, hours, lifeYears, num, plural, signedPct } from '../format';
+import { fixed, hours, lifeYears, num, plural, signedPct } from '../format';
 import { useEngine } from '../state/engine';
 import { useInputs, type InputProps } from '../state/inputs';
 import { useStore, type StressKey } from '../state/store';
@@ -343,7 +343,7 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
           label: names[id],
           value: cap,
           target: null,
-          end: <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(cap)} />,
+          end: <CapacityLeft pct={cap} />,
           tip: (
             <TipLines
               title={names[id]}

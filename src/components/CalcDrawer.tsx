@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 import { CASES } from '../caseMeta';
 import { YEARS_UNTIL_EOL_MAX } from '../engine/cases';
 import type { AverageConsumption, CapacityCheck, CarResults, Step } from '../engine/types';
-import { capacityLeft, fixed, hours, lifeYears, money, num, plural } from '../format';
+import { fixed, hours, lifeYears, money, num, plural } from '../format';
 import { useEngine } from '../state/engine';
 import { useStore, type CaseKey } from '../state/store';
 import { IconClose, IconInfo, IconWarning } from './Icons';
-import { PassFail } from './Status';
+import { CapacityLeft, PassFail } from './Status';
 
 function StepsTable({ steps }: { steps: Step[] }) {
   return (
@@ -88,9 +88,9 @@ function summaryFor(key: CaseKey, r: CarResults, unit: string, currency: string)
       }
       return (
         <div className="row">
-          <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(b.capacityEndPct)} />
+          <CapacityLeft pct={b.capacityEndPct} />
           <span className="muted">
-            must stay at or above {fixed(b.eolPct, 0)} % · {fixed(b.eolPct, 0)} % reached in {lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX)} ·{' '}
+            {fixed(b.eolPct, 0)} % reached in {lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX)} ·{' '}
             {num(b.cyclesRequired, 0)} of {num(b.cyclesAvailable, 0)} rated cycles used
             {averageText(b.average, unit)}
           </span>

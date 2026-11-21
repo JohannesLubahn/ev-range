@@ -14,6 +14,10 @@ export const PROFILE_IDS: Profile[] = ['steady', 'city', 'rural', 'highway', 'mo
 export interface Assumptions {
   /** Capacity at the end of the rated cycles (% of nominal), unless the car says otherwise. */
   ratedCyclesEndCapacityPct: number;
+  /** Battery life: capacity left from which it is shown green (colour only, no pass/fail; user's choice 2026-11-21). */
+  capacityGoodPct: number;
+  /** Battery life: capacity left below which it is shown red; orange in between. */
+  capacityPoorPct: number;
   /** Extra cycle wear of a fast-charged cycle per C of charging rate (battery care). */
   fastChargeWearPerC: number;
   /** Charging rate of the typical fleet car the ageing is fitted to (C). */

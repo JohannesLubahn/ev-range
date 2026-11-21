@@ -4,6 +4,8 @@ import type { Assumptions } from './types';
 
 export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
   rated_cycles_end_capacity_pct: 'ratedCyclesEndCapacityPct',
+  capacity_good_pct: 'capacityGoodPct',
+  capacity_poor_pct: 'capacityPoorPct',
   fast_charge_wear_per_c: 'fastChargeWearPerC',
   fast_charge_reference_c_rate: 'fastChargeReferenceCRate',
   care_high_soc_pct: 'careHighSocPct',
@@ -53,6 +55,8 @@ export const NUMERIC_KEYS: Record<string, Exclude<keyof Assumptions, "fx">> = {
 /** Fallbacks used only if a key is missing from assumptions.csv. */
 export const DEFAULT_ASSUMPTIONS: Assumptions = {
   ratedCyclesEndCapacityPct: 80,
+  capacityGoodPct: 80,
+  capacityPoorPct: 60,
   fastChargeWearPerC: 0.07,
   fastChargeReferenceCRate: 1,
   careHighSocPct: 90,

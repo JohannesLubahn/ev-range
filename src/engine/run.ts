@@ -40,7 +40,8 @@ export function evaluateCar(m: TestModels, scenario: Scenario): CarResults {
   const nc = noCharger(m.noCharger, scenario.noCharger);
   const sp = sprint(m.sprint, scenario.sprint);
   const bl = batteryLife(m.batteryLife, scenario.batteryLife);
-  const checks = [tj.pass, nc.pass, sp.pass, bl.pass];
+  // Battery life is not a check: users judge the capacity left themselves (user's choice 2026-11-21).
+  const checks = [tj.pass, nc.pass, sp.pass];
   return {
     carId: m.noCharger.d.car.id,
     trafficJam: tj,

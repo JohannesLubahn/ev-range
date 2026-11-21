@@ -559,7 +559,7 @@ export function batteryLife(m: CarModel, i: BatteryLifeInputs): BatteryLifeResul
           ...ageingSteps(m, g, i).slice(2),
           {
             label: `Capacity after ${fx(i.years, 0)} years`,
-            formula: `100 % − ${fx(g.cycleFadePct, 1)} % cycle wear − ${fx(g.calendarFadePct, 1)} % calendar ageing; must stay ≥ ${pct(eol)}`,
+            formula: `100 % − ${fx(g.cycleFadePct, 1)} % cycle wear − ${fx(g.calendarFadePct, 1)} % calendar ageing`,
             value: g.sohPct,
             unit: '%',
             kind: 'result',
