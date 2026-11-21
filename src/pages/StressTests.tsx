@@ -56,15 +56,17 @@ function inputSummary(tab: StressKey, s: Scenario, ds: Dataset): string {
   }
 }
 
-/** Battery life: a zoomed axis from a little below the lowest value (or the limit) to 100 %. */
+/**
+ * Battery life: the axis starts 10 % below the weakest car's capacity left, rounded down to 10 % (user's choice
+ * 2026-11-21: e.g. 83 % → 70 %), and ends at 100 %, with a grid line every 10 %.
+ */
 function lifeScale(rows: BulletRow[]): BulletScale | undefined {
-  const values = rows.flatMap((r) => [r.value, r.target ?? 100]).filter(Number.isFinite);
+  const values = rows.map((r) => r.value).filter(Number.isFinite);
   if (values.length === 0) return undefined;
-  const min = Math.max(0, Math.floor((Math.min(...values) - 3) / 5) * 5);
-  const step = 100 - min > 30 ? 10 : 5;
+  const min = Math.min(90, Math.max(0, Math.floor(Math.min(...values) / 10) * 10 - 10));
   const ticks: number[] = [];
-  for (let t = Math.ceil(min / step) * step; t <= 100; t += step) ticks.push(t);
-  return { min, max: 100, ticks, format: (t) => `${num(t, 0)} %` };
+  for (let t = min; t <= 100; t += 10) ticks.push(t);
+  return { min, max: 100, ticks, format: (t) => `${num(t, 0)} %`, grid: true };
 }
 
 /** Battery care: a preset (Gentle / Typical / Hard) or the two habits set by hand. */
@@ -340,15 +342,13 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
           id,
           label: names[id],
           value: cap,
-          target: b.eolPct,
+          target: null,
           end: <PassFail pass={b.pass} margin={b.margin} text={capacityLeft(cap)} />,
           tip: (
             <TipLines
               title={names[id]}
               lines={[
                 { color: 'var(--series-1)', value: `${fixed(cap, 1)} %`, label: `capacity left after ${num(life.years, 0)} years` },
-                { color: 'var(--ink)', value: `${fixed(b.eolPct, 0)} %`, label: 'must stay at or above' },
-                { value: lifeYears(b.yearsUntilEol, YEARS_UNTIL_EOL_MAX), label: `until ${fixed(b.eolPct, 0)} % is reached` },
                 { value: `${num(b.cyclesRequired, 0)} of ${num(b.cyclesAvailable, 0)}`, label: 'full cycles used of the rated cycles' },
               ]}
             />
@@ -361,8 +361,7 @@ function TestView({ tab, meta, title, intro, tabs, inputsTitle }: { tab: StressK
       <div className="stack">
         <BulletRows
           rows={rows}
-          valueName={`Capacity left after ${num(life.years, 0)} years: bar from the ${num(a.ratedCyclesEndCapacityPct, 0)} % line`}
-          targetName={`${num(a.ratedCyclesEndCapacityPct, 0)} % (must stay at or above)`}
+          valueName={`Capacity left after ${num(life.years, 0)} years`}
           side={side}
           scale={lifeScale(rows)}
         />

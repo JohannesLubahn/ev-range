@@ -872,6 +872,15 @@ table {
   background: var(--series-1);
   border-radius: 0 4px 4px 0;
 }
+/* Grid lines of a zoomed axis (BulletScale.grid): reach over the row gap so they read as one line. */
+.bars .grid-x {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--line);
+}
 .bars .avail {
   position: absolute;
   top: -2px;

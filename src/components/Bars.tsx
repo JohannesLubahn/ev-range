@@ -129,15 +129,16 @@ export interface BulletRow {
 }
 
 /**
- * A zoomed axis for values that all sit near a limit (e.g. 70–82 % capacity left against 80 %): each bar runs from
- * its row's target tick to the value (right = above, left = below), so the axis need not start at zero. Labelled
- * ticks below the rows carry the scale.
+ * A zoomed axis for values that all sit in a narrow band (e.g. 70–90 % capacity left). With a target tick, each bar
+ * runs from the tick to the value (right = above, left = below); without one, from the axis start to the value.
+ * Labelled ticks below the rows carry the scale; `grid` draws a recessive vertical line at each tick.
  */
 export interface BulletScale {
   min: number;
   max: number;
   ticks: number[];
   format: (v: number) => string;
+  grid?: boolean;
 }
 
 /** Horizontal bars with a target tick: needed vs. available. One baseline, thin marks, value at the bar end. */
@@ -150,7 +151,8 @@ export function BulletRows({
 }: {
   rows: BulletRow[];
   valueName: string;
-  targetName: string;
+  /** Legend entry of the target tick; omit when no row has one. */
+  targetName?: string;
   side?: SideColumn;
   scale?: BulletScale;
 }) {
@@ -173,10 +175,12 @@ export function BulletRows({
         <i style={{ background: 'var(--series-1)' }} />
         {valueName}
       </span>
-      <span>
-        <i className="tick" />
-        {targetName}
-      </span>
+      {targetName && (
+        <span>
+          <i className="tick" />
+          {targetName}
+        </span>
+      )}
     </>
   );
   return (
@@ -192,6 +196,8 @@ export function BulletRows({
               aria-label={`${r.label}: ${valueName} ${r.value.toFixed(1)}${r.target !== null ? `, ${targetName} ${r.target.toFixed(1)}` : ''}`}
               {...hoverProps(tt, r.tip, r.onClick)}
             >
+              {scale?.grid &&
+                scale.ticks.map((t) => <span key={t} className="grid-x" style={{ left: pct(t) }} aria-hidden="true" />)}
               <span className="bar" style={barStyle(r)} />
               {r.target !== null && <span className="avail" style={{ left: pct(r.target) }} />}
             </div>
