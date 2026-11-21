@@ -1,0 +1,4 @@
+item,powertrain,value,unit,why,source
+tyre_life_km,all,45000,km,"Life of a set at the reference mass: tyres are designed for 40,000–50,000 km (Pirelli). Wear grows about in proportion to the load on the tyres (KIT review), so heavier cars get a shorter life",pirelli-tyre-life;kit-tyre-wear
+tyre_reference_kg,all,1500,kg,"Judgement: the mass the tyre life applies to (a compact car of about 1,400 kg with a driver)",
+repairs_pct,all,1.0,% of the purchase price per year,"Judgement: repairs that the warranty no longer pays for (suspension, air conditioning, electronics), each year after the warranty",

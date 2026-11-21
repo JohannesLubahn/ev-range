@@ -1,0 +1,15 @@
+item,powertrain,value,unit,why,source
+electricity_price,all,7.5,THB/kWh,"Public DC fast charger price (your spreadsheet). Public networks charge 5.3–9.5 THB/kWh; at home about 4.2 THB/kWh (MEA standard tier), 2.6 THB/kWh off-peak (TOU). Petrol cars use their own energy_price per litre in cars.csv",your-ev-calculations;get-charging-2026
+compulsory_insurance,all,645.21,THB/year,"Compulsory motor insurance (Por Ror Bor), private car up to 7 seats: 600 THB net premium + duty + VAT, the OIC's fixed rate",roojai-compulsory
+insurance_rate_pct,BEV,3.0,% of the car's value per year,"Class-1 premium ÷ the car's value: BYD Atto 3 about 21,000 THB/year on 629,900 THB (3.3 %), BYD Dolphin from 11,417 THB/year on about 500,000–600,000 THB (about 2 %), Tesla Model 3 44,000–62,000 THB/year on 1.6 million (2.8–3.9 %)",get-tco-2026;prakanev-2026
+insurance_rate_pct,ICE,2.5,% of the car's value per year,"EV premiums are 15 % (Viriyah) to 30 % (Bangkok Post) above comparable petrol cars: the EV rate ÷ 1.2. Corolla Cross 12,000–15,000 THB/year on 959,000 THB (1.3–1.6 %) is a low quote",thaiexaminer-viriyah-2025;get-tco-2026
+insurance_min,all,6000,THB/year,"Judgement: lowest voluntary premium per year. Once the car's value is low, owners move to a class 2+ or 3 policy that costs a few thousand baht",
+servicing_per_year,BEV,5346,THB/year,"Scheduled servicing of a BYD Atto 3 at 15,000 km/year (Thaiger 2025, via Green Energy Thailand)",get-tco-2026
+servicing_per_year,ICE,17500,THB/year,"Scheduled servicing of a comparable petrol crossover (Toyota Corolla Cross) at 15,000 km/year (Thaiger 2025, via Green Energy Thailand)",get-tco-2026
+tyre_set_regular,all,20000,THB per 4 tyres,"4 × about 5,000 THB: 17-inch tyres such as 215/55 R17 cost 4,300–5,900 THB each in Thailand",thairath-tyres
+tyre_set_premium,all,32000,THB per 4 tyres,"Judgement: premium cars run 19–20-inch tyres at about 8,000 THB each",
+warranty_years,all,8,years,"Warranty of the Chinese brands in Thailand: 8 years / 160,000 km on the battery and drivetrain (BYD)",prakanev-2026
+battery_12v_price,all,3500,THB,"Judgement: a 12 V battery fitted in Thailand (2,500–4,500 THB)",
+battery_12v_years,all,4,years,Judgement: a 12 V battery lasts 3–5 years in the heat,
+depreciation_pct,BEV,6.5,% per year,Krungsri Research: EVs of 2021 lost 18.3 % of their value by 2024 = 6.5 % per year. Taken from 3 years of data and continued over the whole life (the price war of 2023–2025 is in it),get-tco-2026;krungsri-used-bevs-2024
+depreciation_pct,ICE,3.4,% per year,"Krungsri Research: comparable petrol cars lost about 10 % in the same 3 years = 3.4 % per year, continued over the whole life",get-tco-2026;krungsri-used-bevs-2024

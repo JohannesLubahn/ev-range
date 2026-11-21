@@ -30,7 +30,7 @@ const ids = (cars: DerivedCar[]) => cars.map((d) => d.car.id);
 describe('data/markets.csv and the market', () => {
   it('reads the markets; every market of cars.csv is listed or blank', () => {
     expect(th).toMatchObject({ name: 'Thailand', currency: 'THB' });
-    expect(ds.runningCosts.some((r) => r.market === 'TH')).toBe(true);
+    expect(ds.runningCosts.some((r) => r.market === "TH")).toBe(true);
     expect(ds.loadWarnings.filter((w) => w.includes('markets.csv'))).toEqual([]);
     for (const c of ds.cars) expect(c.market === '' || ds.markets.some((m) => m.id === c.market), c.id).toBe(true);
   });
@@ -46,21 +46,24 @@ describe('data/markets.csv and the market', () => {
     expect(byId('byd-dolphin').car).toMatchObject({ model: 'Dolphin', variant: null });
     expect(byId('byd-atto-3').car.model).toBeNull();
   });
-  it("sets the currency and running costs; a market without its own running costs uses the default market's, converted", () => {
+  it("sets the currency and running costs; a market without its own running costs has gaps, never another market's", () => {
     const at = applyMarket(a, th);
     expect(at.displayCurrency).toBe('THB');
     expect(at.costMarket).toBe('TH');
     expect(marketCosts(at).value('electricity_price', 'BEV')).toBe(7.5);
-    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR' });
-    expect(eu.displayCurrency).toBe('EUR');
-    expect(eu.costMarket).toBe('TH');
-    expect(marketCosts(eu).value('electricity_price', 'BEV')).toBeCloseTo(7.5 / a.fx.EUR, 6);
-    expect(marketCosts(eu).value('servicing_per_year', 'ICE')).toBeCloseTo(17500 / a.fx.EUR, 6);
+    const fr = applyMarket(a, { ...th, id: 'FR', parent: 'EU', currency: 'EUR' });
+    expect(fr.displayCurrency).toBe('EUR');
+    expect(fr.costMarket).toBe('FR');
+    expect(marketCosts(fr).value('electricity_price', 'BEV')).toBeNull();
+    // The cost market's money is converted to the display currency (All markets in another currency).
+    const eur = { ...a, displayCurrency: 'EUR' };
+    expect(marketCosts(eur).value('electricity_price', 'BEV')).toBeCloseTo(7.5 / a.fx.EUR, 6);
+    expect(marketCosts(eur).value('servicing_per_year', 'ICE')).toBeCloseTo(17500 / a.fx.EUR, 6);
     // Rates, years and km are not converted.
-    expect(marketCosts(eu).value('insurance_rate_pct', 'BEV')).toBe(3);
+    expect(marketCosts(eur).value('insurance_rate_pct', 'BEV')).toBe(3);
     expect(applyMarket(a, null)).toBe(a);
     // Prices follow the market's currency.
-    const dEu = deriveAll(ds, eu).find((d) => d.car.id === 'hyundai-inster')!;
+    const dEu = deriveAll(ds, fr).find((d) => d.car.id === 'hyundai-inster')!;
     expect(dEu.priceDisplay.value).toBe(24650);
   });
   it('lists only the cars of the market; All markets lists every car', () => {
@@ -74,17 +77,24 @@ describe('data/markets.csv and the market', () => {
     expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(false);
     expect(byId('mg-windsor').flags.some((f) => f.field === 'market')).toBe(true);
   });
-  it('switching the market resets the cost inputs to its defaults and the price filter', () => {
+  it('switching the market resets the cost inputs to its values (empty where it has none) and the price filter', () => {
     const scenario = spreadsheetScenario(ds, a);
     useStore.setState({ scenario: { ...scenario, cost: { ...scenario.cost, energyPrice: 99, servicingBev: 99, years: 7 } }, filters: { ...EMPTY_FILTERS, priceMax: 1e6 } });
-    const eu = applyMarket(a, { ...th, id: 'EU', currency: 'EUR' });
-    useStore.getState().setMarket('EU', marketCostInputs(eu));
-    const s = useStore.getState();
-    expect(s.market).toBe('EU');
-    expect(s.scenario?.cost.energyPrice).toBeCloseTo(7.5 / a.fx.EUR, 6);
-    expect(s.scenario?.cost.servicingBev).toBeCloseTo(5346 / a.fx.EUR, 6);
+    const de = applyMarket(a, ds.markets.find((m) => m.id === 'DE'));
+    useStore.getState().setMarket('DE', marketCostInputs(de));
+    let s = useStore.getState();
+    expect(s.market).toBe('DE');
+    expect(s.scenario?.cost.energyPrice).toBe(0.65);
+    expect(s.scenario?.cost.servicingBev).toBe(250);
+    expect(s.scenario?.cost.tyreLifeKm).toBe(45000); // from World
     expect(s.scenario?.cost.years).toBe(7);
     expect(s.filters.priceMax).toBeNull();
+    // A market without cost data: its fields are empty, not the previous market's values.
+    useStore.getState().setMarket('FR', marketCostInputs(applyMarket(a, { ...th, id: 'FR', parent: 'EU', currency: 'EUR' })));
+    s = useStore.getState();
+    expect(s.scenario?.cost.energyPrice).toBeNull();
+    expect(s.scenario?.cost.servicingBev).toBeNull();
+    expect(s.scenario?.cost.tyreLifeKm).toBe(45000);
   });
 });
 

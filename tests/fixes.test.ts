@@ -45,7 +45,7 @@ describe('4: total cost includes the onboard systems and the charging losses', (
     const c = cost(m, sc.cost);
     expect(life.average.onboard).toBeGreaterThan(0);
     expect(c.energyPerKm * life.totalKm * (a.chargingEfficiencyPct / 100)).toBeCloseTo(life.energyKwh, 6);
-    expect(c.energyCost).toBeCloseTo(sc.cost.energyPrice * c.energyPerKm * life.totalKm, 6);
+    expect(c.energyCost).toBeCloseTo(sc.cost.energyPrice! * c.energyPerKm * life.totalKm, 6);
   });
 });
 

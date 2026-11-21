@@ -117,6 +117,9 @@ export const DEFAULT_ASSUMPTIONS: Assumptions = {
   runningCosts: [],
   roadTax: [],
   marketCurrencies: {},
+  marketParents: {},
+  marketNames: {},
+  costItems: [],
   fx: { THB: 1 },
 };
 
@@ -133,6 +136,9 @@ export function assumptionsFromDataset(ds: Dataset): Assumptions {
   a.runningCosts = ds.runningCosts;
   a.roadTax = ds.roadTax;
   a.marketCurrencies = Object.fromEntries(ds.markets.map((m) => [m.id, m.currency]));
+  a.marketParents = Object.fromEntries([...ds.blocs, ...ds.markets].map((m) => [m.id, m.parent]));
+  a.marketNames = Object.fromEntries([...ds.blocs, ...ds.markets].map((m) => [m.id, m.name]));
+  a.costItems = ds.costItems;
   for (const def of Object.values(ds.assumptions)) {
     const m = /^fx_([A-Za-z]{3})$/.exec(def.key);
     const v = parseNumber(def.value);
@@ -154,11 +160,22 @@ export function toDisplayCurrency(amount: number, currency: string, a: Assumptio
 
 /**
  * The assumptions for one market (data/markets.csv): its currency becomes the display currency, and its running costs
- * (data/running_costs.csv) apply. A market without rows of its own keeps cost_default_market's, converted. No market
- * (All markets) leaves the assumptions as they are.
+ * (data/markets/<id>/, with what its blocs pass on) apply. A market never borrows another market's costs: values it
+ * lacks are gaps (see marketCosts). No market (All markets) leaves the assumptions as they are.
  */
 export function applyMarket(a: Assumptions, market: Market | null | undefined): Assumptions {
   if (!market) return a;
-  const hasCosts = a.runningCosts.some((r) => r.market === market.id);
-  return { ...a, displayCurrency: market.currency, costMarket: hasCosts ? market.id : a.costMarket };
+  const known = a.marketParents[market.id] === market.parent && market.id in a.marketCurrencies;
+  return {
+    ...a,
+    displayCurrency: market.currency,
+    costMarket: market.id,
+    ...(known
+      ? {}
+      : {
+          marketParents: { ...a.marketParents, [market.id]: market.parent },
+          marketCurrencies: { ...a.marketCurrencies, [market.id]: market.currency },
+          marketNames: { ...a.marketNames, [market.id]: market.name },
+        }),
+  };
 }

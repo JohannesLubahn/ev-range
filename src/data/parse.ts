@@ -2,9 +2,11 @@ import Papa from 'papaparse';
 import type {
   AssumptionDef,
   Basis,
+  Bloc,
   BodyType,
   Car,
   Chemistry,
+  CostItemDef,
   Cycle,
   Dataset,
   DegradationMeasurement,
@@ -26,6 +28,12 @@ import { BASES } from './types';
 import { CONDITION_INPUTS, TEST_KEYS, TRIP_INPUTS, parseInputValue, spreadsheetValue, type InputKind, type TestKey } from '../engine/inputs';
 import { COST_ITEMS } from '../engine/costItems';
 
+/** The files of one folder data/markets/<id>/. */
+export interface MarketFolderFiles {
+  costs?: string;
+  roadTax?: string;
+}
+
 /** The raw text of every data file. Used for the bundled /data files and for CSV files loaded in the browser. */
 export interface RawFiles {
   cars: string;
@@ -39,9 +47,12 @@ export interface RawFiles {
   sources: string;
   /** data/markets.csv; optional so a cars file loaded on its own still works. */
   markets?: string;
-  /** data/running_costs.csv and data/road_tax.csv (optional like markets). */
-  runningCosts?: string;
-  roadTax?: string;
+  /** data/blocs.csv: groups of markets that pass cost values on (optional like markets). */
+  blocs?: string;
+  /** data/costs/items.csv: the cost items every market folder follows (optional like markets). */
+  costItems?: string;
+  /** The files of each folder data/markets/<id>/ (a market or bloc id): costs.csv and road_tax.csv. */
+  marketFiles?: Record<string, MarketFolderFiles>;
   /** data/terrain.csv (optional like markets). */
   terrain?: string;
   /** data/profiles.csv: the driving profiles. */
@@ -189,15 +200,79 @@ export function parseMarkets(text: string, warnings: string[]): Market[] {
       continue;
     }
     seen.add(id);
+    if (!MARKET_ID.test(id)) warnings.push(`markets.csv: "${id}" is not an ISO 3166 code (e.g. DE, or US-CA for a state)`);
     out.push({
       id,
       name: r.name || id,
+      parent: (r.parent ?? '').trim().toUpperCase() || null,
       currency: (r.currency || 'THB').toUpperCase(),
       description: r.description ?? '',
       source: r.source ?? '',
     });
   }
   return out;
+}
+
+/** Market ids: ISO 3166-1 alpha-2, or ISO 3166-2 for a state or province (US-CA). */
+const MARKET_ID = /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/;
+
+/** data/blocs.csv: groups of markets that pass cost values on (World, EU). */
+export function parseBlocs(text: string, warnings: string[]): Bloc[] {
+  const out: Bloc[] = [];
+  for (const r of parseCsv(text).rows) {
+    const id = (r.id ?? '').trim().toUpperCase();
+    if (!id) continue;
+    if (out.some((b) => b.id === id)) {
+      warnings.push(`blocs.csv: bloc "${id}" is listed twice; the second row is ignored`);
+      continue;
+    }
+    out.push({ id, name: r.name || id, parent: (r.parent ?? '').trim().toUpperCase() || null, description: r.description ?? '', source: r.source ?? '' });
+  }
+  return out;
+}
+
+const yes = (v: string | undefined) => /^(yes|true|1)$/i.test((v ?? '').trim());
+
+/**
+ * data/costs/items.csv: the cost items. Every item the cost of ownership uses (COST_ITEMS) must be listed; money is
+ * never inherited (a bloc has no currency).
+ */
+export function parseCostItems(text: string, warnings: string[]): CostItemDef[] {
+  const out: CostItemDef[] = [];
+  for (const r of parseCsv(text).rows) {
+    const item = (r.item ?? '').trim();
+    if (!item) continue;
+    if (!(COST_ITEMS as readonly string[]).includes(item)) {
+      warnings.push(`costs/items.csv: "${item}" is not used by the cost of ownership (known: ${COST_ITEMS.join(', ')})`);
+      continue;
+    }
+    const money = yes(r.money);
+    let inherit = yes(r.inherit);
+    if (money && inherit) {
+      warnings.push(`costs/items.csv: ${item} is money and cannot be inherited (blocs have no currency)`);
+      inherit = false;
+    }
+    out.push({ item, label: r.label || item, unit: r.unit ?? '', money, inherit, required: yes(r.required), description: r.description ?? '' });
+  }
+  for (const item of COST_ITEMS) if (!out.some((d) => d.item === item)) warnings.push(`costs/items.csv: ${item} is missing`);
+  return out;
+}
+
+/** Parents of markets and blocs must exist, without loops; bloc ids must differ from market ids. */
+function checkHierarchy(markets: Market[], blocs: Bloc[], warnings: string[]): void {
+  const parent = new Map<string, string | null>([...blocs.map((b) => [b.id, b.parent] as const), ...markets.map((m) => [m.id, m.parent] as const)]);
+  for (const b of blocs) if (markets.some((m) => m.id === b.id)) warnings.push(`blocs.csv: "${b.id}" is also a market id`);
+  for (const [id, p] of parent) {
+    if (p !== null && !parent.has(p)) warnings.push(`${markets.some((m) => m.id === id) ? 'markets' : 'blocs'}.csv: parent "${p}" of ${id} is neither a bloc nor a market`);
+    const seen = new Set([id]);
+    for (let q = p; q !== null && q !== undefined; q = parent.get(q) ?? null) {
+      if (seen.has(q)) {
+        warnings.push(`markets.csv / blocs.csv: the parents of ${id} go round in a loop`);
+        break;
+      }
+      seen.add(q);
+    }
+  }
 }
 
 export function parseDataset(files: RawFiles): Dataset {
@@ -418,14 +493,36 @@ export function parseDataset(files: RawFiles): Dataset {
   }
 
   const standard = parseStandard(files.standard, warnings);
-  const runningCosts = parseRunningCosts(files.runningCosts ?? '', warnings);
-  const roadTax = parseRoadTax(files.roadTax ?? '', warnings);
+  const blocs = parseBlocs(files.blocs ?? '', warnings);
+  checkHierarchy(markets, blocs, warnings);
+  const costItems = parseCostItems(files.costItems ?? '', warnings);
+  // Each folder data/markets/<id>/ belongs to a market or a bloc; a bloc passes on only inheritable items and has no road tax.
+  const runningCosts: RunningCostRow[] = [];
+  const roadTax: RoadTaxRow[] = [];
+  for (const [folder, f] of Object.entries(files.marketFiles ?? {}).sort(([x], [y]) => x.localeCompare(y))) {
+    const id = folder.toUpperCase();
+    const isBloc = blocs.some((b) => b.id === id);
+    if (!isBloc && !marketIds.has(id)) {
+      warnings.push(`markets/${folder}/: "${id}" is neither in markets.csv nor in blocs.csv; its files are ignored`);
+      continue;
+    }
+    for (const r of parseRunningCosts(f.costs ?? '', id, costItems, warnings)) {
+      if (isBloc && !costItems.find((d) => d.item === r.item)?.inherit) {
+        warnings.push(`markets/${id}/costs.csv: ${r.item} is market data (costs/items.csv: inherit no); put it in each market's folder`);
+        continue;
+      }
+      runningCosts.push(r);
+    }
+    const tax = parseRoadTax(f.roadTax ?? '', id, warnings);
+    if (isBloc && tax.length) warnings.push(`markets/${id}/road_tax.csv: road tax is set per market, not per bloc; ignored`);
+    else roadTax.push(...tax);
+  }
   const terrain = parseTerrain(files.terrain ?? '', warnings);
   const profiles = parseProfiles(files.profiles ?? '', cycles, warnings);
   const realWorldFuel = parseRealWorldFuel(files.realWorldFuel ?? '', cars, cycles, profiles, warnings);
   const sourceIds = new Set(sources.map((s) => s.id));
   for (const r of [...runningCosts, ...roadTax]) {
-    for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`${'item' in r ? 'running_costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
+    for (const id of r.sources) if (!sourceIds.has(id)) warnings.push(`markets/${r.market}/${'item' in r ? 'costs' : 'road_tax'}.csv: source "${id}" is not in sources.csv`);
   }
   for (const t of terrain) {
     for (const id of t.sources) if (!sourceIds.has(id)) warnings.push(`terrain.csv, ${t.id}: source "${id}" is not in sources.csv`);
@@ -459,6 +556,8 @@ export function parseDataset(files: RawFiles): Dataset {
     capacityNotes,
     cycles,
     standard,
+    blocs,
+    costItems,
     runningCosts,
     roadTax,
     terrain,
@@ -515,20 +614,21 @@ export function parseStandard(text: string, warnings: string[]): StandardRow[] {
 const ids = (v: string | undefined) => (v ?? '').split(/[;,\s]+/).filter(Boolean);
 
 /**
- * data/running_costs.csv: one value per market, item and powertrain ('all' = both). Unknown items, bad numbers and
- * duplicates are reported; a market must give every item for both powertrains.
+ * data/markets/<market>/costs.csv: one value per item and powertrain ('all' = both) of a market or bloc. Items not in
+ * data/costs/items.csv, bad numbers and duplicates are reported. Missing items are not an error here: the market
+ * inherits them or shows a gap (see marketCosts).
  */
-export function parseRunningCosts(text: string, warnings: string[]): RunningCostRow[] {
+export function parseRunningCosts(text: string, market: string, items: CostItemDef[], warnings: string[]): RunningCostRow[] {
   const rows: RunningCostRow[] = [];
   const seen = new Set<string>();
+  const known = items.map((d) => d.item);
   for (const r of parseCsv(text).rows) {
-    const market = (r.market ?? '').trim().toUpperCase();
     const item = (r.item ?? '').trim();
     const pt = (r.powertrain ?? '').trim();
-    const where = `running_costs.csv, ${market} ${item} ${pt}`;
-    if (!market) continue;
-    if (!(COST_ITEMS as readonly string[]).includes(item)) {
-      warnings.push(`${where}: unknown item "${item}" (use ${COST_ITEMS.join(', ')})`);
+    const where = `markets/${market}/costs.csv, ${item} ${pt}`;
+    if (!item) continue;
+    if (!known.includes(item)) {
+      warnings.push(`${where}: unknown item "${item}" (costs/items.csv: ${known.join(', ')})`);
       continue;
     }
     const powertrain = pt === 'BEV' || pt === 'ICE' ? pt : pt.toLowerCase() === 'all' || pt === '' ? 'all' : null;
@@ -546,23 +646,15 @@ export function parseRunningCosts(text: string, warnings: string[]): RunningCost
     seen.add(key);
     rows.push({ market, item, powertrain, value, unit: r.unit ?? '', why: r.why ?? '', sources: ids(r.source) });
   }
-  for (const market of new Set(rows.map((r) => r.market))) {
-    for (const item of COST_ITEMS) {
-      for (const pt of ['BEV', 'ICE']) {
-        if (!seen.has(`${market}|${item}|${pt}`) && !seen.has(`${market}|${item}|all`)) warnings.push(`running_costs.csv: ${market} has no ${item} for ${pt}`);
-      }
-    }
-  }
   return rows;
 }
 
-/** data/road_tax.csv: bands and rates of the yearly road tax per market and powertrain. */
-export function parseRoadTax(text: string, warnings: string[]): RoadTaxRow[] {
+/** data/markets/<market>/road_tax.csv: bands and rates of the market's yearly road tax per powertrain. */
+export function parseRoadTax(text: string, market: string, warnings: string[]): RoadTaxRow[] {
   const rows: RoadTaxRow[] = [];
   for (const r of parseCsv(text).rows) {
-    const market = (r.market ?? '').trim().toUpperCase();
-    if (!market) continue;
-    const where = `road_tax.csv, ${market} ${r.powertrain} ${r.basis} ${r.above}–${r.up_to}`;
+    if (!(r.powertrain ?? '').trim() && !(r.basis ?? '').trim()) continue;
+    const where = `markets/${market}/road_tax.csv, ${r.powertrain} ${r.basis} ${r.above}–${r.up_to}`;
     const powertrain = r.powertrain === 'BEV' || r.powertrain === 'ICE' ? r.powertrain : null;
     const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'co2_g_km' || r.basis === 'age_years' ? r.basis : null;
     const kind = r.kind === 'band' || r.kind === 'per_unit' || r.kind === 'discount_pct' ? r.kind : null;
@@ -589,8 +681,8 @@ export function parseRoadTax(text: string, warnings: string[]): RoadTaxRow[] {
     const s = [...g].sort((x, y) => x.above - y.above);
     for (let i = 1; i < s.length; i++) {
       const prev = s[i - 1].upTo;
-      if (prev === null || prev > s[i].above) warnings.push(`road_tax.csv, ${k}: rows overlap above ${s[i].above}`);
-      else if (prev < s[i].above) warnings.push(`road_tax.csv, ${k}: gap between ${prev} and ${s[i].above}`);
+      if (prev === null || prev > s[i].above) warnings.push(`markets/${market}/road_tax.csv, ${k}: rows overlap above ${s[i].above}`);
+      else if (prev < s[i].above) warnings.push(`markets/${market}/road_tax.csv, ${k}: gap between ${prev} and ${s[i].above}`);
     }
   }
   return rows;

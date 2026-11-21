@@ -19,25 +19,34 @@ export const TEST_LABELS: Record<TestKey, string> = {
 export type InputValue = number | string | boolean | null;
 
 export type InputKind =
-  /** A number in [min, max]; `fallback` gives the value of a blank cell in data/standard.csv. */
-  | { type: 'number'; min: number; max: number; fallback?: (a: Assumptions) => number }
+  /**
+   * A number in [min, max]; `fallback` gives the value of a blank cell in data/standard.csv (null for a cost value
+   * the market's data lacks: the field then waits for the user's value).
+   */
+  | { type: 'number'; min: number; max: number; fallback?: (a: Assumptions) => number | null }
   | { type: 'profile' }
   /** Cabin temperature (°C) or null = heating / AC off; blank = the default cabin temperature. */
   | { type: 'cabin' }
   | { type: 'bool' }
   | { type: 'thermal' };
 
-const n = (min: number, max: number, fallback?: (a: Assumptions) => number): InputKind => ({ type: 'number', min, max, fallback });
+const n = (min: number, max: number, fallback?: (a: Assumptions) => number | null): InputKind => ({ type: 'number', min, max, fallback });
 const PROFILE: InputKind = { type: 'profile' };
 /** Speed of a driving profile: each profile narrows it to its own range (data/profiles.csv). */
 const SPEED = n(10, 200);
-/** Cost inputs whose standard is the market's value (data/running_costs.csv). */
+/** Cost inputs whose standard is the market's value (data/markets/<id>/costs.csv, or what its blocs pass on). */
 const marketKinds = new WeakSet<InputKind>();
 const market = (min: number, max: number, item: CostItem, pt: Powertrain = 'BEV'): InputKind => {
   const k = n(min, max, (a) => marketCosts(a).value(item, pt));
   marketKinds.add(k);
   return k;
 };
+/**
+ * Road tax per year for a market without a road-tax table (data/markets/<id>/road_tax.csv): blank = the table. Reset
+ * like the other market values when the market changes.
+ */
+const ROAD_TAX_TYPED = n(0, 1_000_000, () => null);
+marketKinds.add(ROAD_TAX_TYPED);
 const CABIN: InputKind = { type: 'cabin' };
 /** Hills: altitude change start → finish, total climb, typical slope (blank = assumption hill_slope_default_pct). */
 const SLOPE = n(0.5, 20, (a) => a.hillSlopeDefaultPct);
@@ -116,6 +125,7 @@ export const TRIP_INPUTS: { [T in TestKey]: Record<keyof Scenario[T], InputKind>
     battery12vYears: market(1, 20, 'battery_12v_years'),
     depreciationBev: market(0, 50, 'depreciation_pct', 'BEV'),
     depreciationIce: market(0, 50, 'depreciation_pct', 'ICE'),
+    roadTaxPerYear: ROAD_TAX_TYPED,
   },
 };
 
@@ -133,7 +143,7 @@ export function inputKind(ref: InputRef): InputKind | undefined {
 
 /** The cost inputs whose standard is the market's value, at the market of `a` (switching the market sets them). */
 export function marketCostInputs(a: Assumptions): Partial<CostInputs> {
-  const out: Record<string, number> = {};
+  const out: Record<string, number | null> = {};
   for (const [key, kind] of Object.entries(TRIP_INPUTS.cost) as [string, InputKind][]) {
     if (marketKinds.has(kind) && kind.type === 'number' && kind.fallback) out[key] = kind.fallback(a);
   }

@@ -1,5 +1,5 @@
 // Shared types of the calculation engine. The engine is pure TypeScript: no UI, no browser APIs.
-import type { RoadTaxRow, RunningCostRow } from '../data/types';
+import type { CostItemDef, RoadTaxRow, RunningCostRow } from '../data/types';
 
 export type BatteryModel = 'chemistry' | 'ideal';
 export type ThermalMode = 'managed' | 'ambient' | 'preconditioned';
@@ -83,12 +83,18 @@ export interface Assumptions {
   testTemperatureC: number;
   defaultBasis: string;
   displayCurrency: string;
-  /** Market whose running costs apply (data/running_costs.csv): the chosen market, else cost_default_market. */
+  /** Market whose running costs apply (data/markets/<id>/): the chosen market; under All markets cost_default_market. */
   costMarket: string;
-  /** All markets' running costs and road tax, and each market's currency (from the dataset). */
+  /** All markets' and blocs' running costs and road tax, and each market's currency (from the dataset). */
   runningCosts: RunningCostRow[];
   roadTax: RoadTaxRow[];
   marketCurrencies: Record<string, string>;
+  /** Parent of every market and bloc (data/markets.csv, data/blocs.csv): the chain cost values are inherited along. */
+  marketParents: Record<string, string | null>;
+  /** Names of markets and blocs (e.g. EU → European Union). */
+  marketNames: Record<string, string>;
+  /** The cost items (data/costs/items.csv). */
+  costItems: CostItemDef[];
   /** Exchange rates: units of display currency (THB) per unit of the given currency. */
   fx: Record<string, number>;
 }
@@ -210,35 +216,39 @@ export interface SprintInputs extends TripTerrain {
 
 /**
  * The cost of ownership's inputs. Amounts are in the display currency; the standard of each comes from the market
- * (data/running_costs.csv). Cars can override energy price, servicing, insurance and tyre price in cars.csv.
+ * (data/markets/<id>/costs.csv, with what its blocs pass on). Null = the market's data lacks the value and the user
+ * has not typed one: the lines that need it show a gap. Cars can override energy price, servicing, insurance and tyre
+ * price in cars.csv.
  */
 export interface CostInputs extends LifeDriving {
   /** Price per kWh paid for charging. */
-  energyPrice: number;
+  energyPrice: number | null;
   /** Scheduled servicing per year, electric / petrol cars. */
-  servicingBev: number;
-  servicingIce: number;
+  servicingBev: number | null;
+  servicingIce: number | null;
   /** Voluntary (class-1) insurance per year, % of the car's value at the start of the year. */
-  insuranceRateBev: number;
-  insuranceRateIce: number;
+  insuranceRateBev: number | null;
+  insuranceRateIce: number | null;
   /** Lowest voluntary insurance premium per year (once the car's value is low). */
-  insuranceMin: number;
+  insuranceMin: number | null;
   /** Compulsory insurance per year. */
-  compulsoryInsurance: number;
+  compulsoryInsurance: number | null;
   /** Four tyres fitted, regular / premium cars. */
-  tyreSetRegular: number;
-  tyreSetPremium: number;
+  tyreSetRegular: number | null;
+  tyreSetPremium: number | null;
   /** Life of a set of tyres at the reference mass (km). */
-  tyreLifeKm: number;
+  tyreLifeKm: number | null;
   /** Repairs per year after the warranty (% of the purchase price), and the warranty (years). */
-  repairsPct: number;
-  warrantyYears: number;
+  repairsPct: number | null;
+  warrantyYears: number | null;
   /** 12 V battery: price and years between replacements. */
-  battery12vPrice: number;
-  battery12vYears: number;
+  battery12vPrice: number | null;
+  battery12vYears: number | null;
   /** Loss of value per year (% of the value at the start of the year), electric / petrol cars. */
-  depreciationBev: number;
-  depreciationIce: number;
+  depreciationBev: number | null;
+  depreciationIce: number | null;
+  /** Road tax per year typed by the user for a market without a road-tax table (null = the market's table). */
+  roadTaxPerYear: number | null;
 }
 
 export interface Scenario {
@@ -359,11 +369,14 @@ export interface CostResult {
   resale: number | null;
   /** Depreciation, energy, insurance, tax, servicing & repairs, tyres. */
   parts: CostPart[];
-  energyCost: number;
-  /** Everything except the purchase and resale. */
-  runningCost: number;
-  /** Purchase − resale + running costs (null without a price). */
+  /** Null when the electricity price is missing in the market's data. */
+  energyCost: number | null;
+  /** Everything except the purchase and resale (null when a value is missing in the market's data). */
+  runningCost: number | null;
+  /** Purchase − resale + running costs (null without a price or with a value missing in the market's data). */
   tco: number | null;
+  /** Values the market's data lacks for this car (the user can type them on the Cost of ownership page). */
+  missing: string[];
   costPerKm: number | null;
   /** Energy per km paid for (grid kWh or litres per km). */
   energyPerKm: number;

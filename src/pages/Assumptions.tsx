@@ -1,6 +1,8 @@
 import { IconExternal } from '../components/Icons';
 import type { Source } from '../data/types';
 import { NUMERIC_KEYS } from '../engine/assumptions';
+import type { CostItem } from '../engine/costItems';
+import { costChain, marketCosts } from '../engine/costs';
 import { PetrolEngineTable } from '../components/PetrolEngine';
 import type { Assumptions } from '../engine/types';
 import { RoadTaxTables, RunningCostRows } from '../components/RunningCosts';
@@ -183,7 +185,12 @@ export function AssumptionsPage() {
           <h2>Markets</h2>
           <p className="muted">
             The market picked in the car list sets the cars listed, the currency and the running costs below. Kept in{' '}
-            <span className="mono">data/markets.csv</span>; the <span className="mono">market</span> column of cars.csv refers to its ids.
+            <span className="mono">data/markets.csv</span> (ISO country codes; the <span className="mono">market</span> column of cars.csv refers to
+            them), each market&rsquo;s costs in its folder <span className="mono">data/markets/&lt;id&gt;/</span> following{' '}
+            <span className="mono">data/costs/items.csv</span>. A market inherits engineering values and labelled judgements (tyre life, repairs, …)
+            from its bloc in <span className="mono">data/blocs.csv</span>, then World; prices, taxes, insurance and loss of value are never
+            inherited or borrowed from another market: values a market lacks are shown as missing, and its costs have a gap until you type them on
+            the Cost of ownership page.
           </p>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -192,19 +199,47 @@ export function AssumptionsPage() {
               <tr>
                 <th>Market</th>
                 <th>Currency</th>
-                <th>Running costs</th>
+                <th>Inherits from</th>
+                <th>Cost data</th>
               </tr>
             </thead>
             <tbody>
-              {ds.markets.map((m) => (
-                <tr key={m.id}>
-                  <td>
-                    {m.name} <span className="faint mono">{m.id}</span>
-                  </td>
-                  <td>{m.currency}</td>
-                  <td className="muted">{ds.runningCosts.some((r) => r.market === m.id) ? 'own (below)' : `${baseAssumptions.costMarket}'s, converted`}</td>
-                </tr>
-              ))}
+              {ds.markets.map((m) => {
+                const ma = assumptionsFor(m.id);
+                const mc = marketCosts(ma);
+                const from = new Set<string>();
+                for (const d of ma.costItems) for (const pt of ['BEV', 'ICE'] as const) {
+                  const s = mc.source(d.item as CostItem, pt);
+                  if (s?.inherited) from.add(ma.marketNames[s.from] ?? s.from);
+                }
+                const label = (item: string) => ma.costItems.find((d) => d.item === item)?.label ?? item;
+                const gaps = [...new Set(mc.missing.map((x) => label(x.item)))];
+                if ((['BEV', 'ICE'] as const).some((pt) => !mc.roadTax.some((r) => r.powertrain === pt && r.basis !== 'age_years'))) gaps.push('Road tax');
+                return (
+                  <tr key={m.id}>
+                    <td>
+                      {m.name} <span className="faint mono">{m.id}</span>
+                    </td>
+                    <td>{m.currency}</td>
+                    <td className="muted">
+                      {costChain(m.id, ma.marketParents)
+                        .slice(1)
+                        .map((id) => ma.marketNames[id] ?? id)
+                        .join(' → ') || '–'}
+                    </td>
+                    <td className="muted">
+                      {gaps.length ? (
+                        <>
+                          <span className="chip warn">{gaps.length} missing</span> {gaps.join('; ')}
+                        </>
+                      ) : (
+                        'complete'
+                      )}
+                      {from.size > 0 && ` · some values from ${[...from].join(', ')}`}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

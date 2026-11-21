@@ -92,22 +92,23 @@ cost,kmPerYear,15000,,km,"Battery Sizing tab, column D (same as Battery life)"
 cost,speedKmh,90,,km/h,Same driving as Battery life (only used with another profile than Mixed)
 cost,cabinC,22,default,°C,Your setup (2026-11-21); was blank: Blank = the default cabin temperature (assumption cabin_setpoint_c)
 cost,profile,mixed,,,Same driving as Battery life
-cost,energyPrice,,,per kWh,Blank = the market's value (data/running_costs.csv: electricity_price)
-cost,servicingBev,,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, BEV)"
-cost,servicingIce,,,per year,"Blank = the market's value (data/running_costs.csv: servicing_per_year, ICE)"
-cost,insuranceRateBev,,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, BEV)"
-cost,insuranceRateIce,,,% of value,"Blank = the market's value (data/running_costs.csv: insurance_rate_pct, ICE)"
-cost,insuranceMin,,,per year,Blank = the market's value (data/running_costs.csv: insurance_min)
-cost,compulsoryInsurance,,,per year,Blank = the market's value (data/running_costs.csv: compulsory_insurance)
-cost,tyreSetRegular,,,per set,Blank = the market's value (data/running_costs.csv: tyre_set_regular)
-cost,tyreSetPremium,,,per set,Blank = the market's value (data/running_costs.csv: tyre_set_premium)
-cost,tyreLifeKm,,,km,Blank = the market's value (data/running_costs.csv: tyre_life_km)
-cost,repairsPct,,,% of price per year,Blank = the market's value (data/running_costs.csv: repairs_pct)
-cost,warrantyYears,,,years,Blank = the market's value (data/running_costs.csv: warranty_years)
-cost,battery12vPrice,,,per battery,Blank = the market's value (data/running_costs.csv: battery_12v_price)
-cost,battery12vYears,,,years,Blank = the market's value (data/running_costs.csv: battery_12v_years)
-cost,depreciationBev,,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, BEV)"
-cost,depreciationIce,,,% per year,"Blank = the market's value (data/running_costs.csv: depreciation_pct, ICE)"
+cost,energyPrice,,,per kWh,Blank = the market's value (data/markets/<id>/costs.csv: electricity_price)
+cost,servicingBev,,,per year,"Blank = the market's value (data/markets/<id>/costs.csv: servicing_per_year, BEV)"
+cost,servicingIce,,,per year,"Blank = the market's value (data/markets/<id>/costs.csv: servicing_per_year, ICE)"
+cost,insuranceRateBev,,,% of value,"Blank = the market's value (data/markets/<id>/costs.csv: insurance_rate_pct, BEV)"
+cost,insuranceRateIce,,,% of value,"Blank = the market's value (data/markets/<id>/costs.csv: insurance_rate_pct, ICE)"
+cost,insuranceMin,,,per year,Blank = the market's value (data/markets/<id>/costs.csv: insurance_min)
+cost,compulsoryInsurance,,,per year,Blank = the market's value (data/markets/<id>/costs.csv: compulsory_insurance)
+cost,tyreSetRegular,,,per set,Blank = the market's value (data/markets/<id>/costs.csv: tyre_set_regular)
+cost,tyreSetPremium,,,per set,Blank = the market's value (data/markets/<id>/costs.csv: tyre_set_premium)
+cost,tyreLifeKm,,,km,Blank = the market's value (data/markets/<id>/costs.csv: tyre_life_km)
+cost,repairsPct,,,% of price per year,Blank = the market's value (data/markets/<id>/costs.csv: repairs_pct)
+cost,warrantyYears,,,years,Blank = the market's value (data/markets/<id>/costs.csv: warranty_years)
+cost,battery12vPrice,,,per battery,Blank = the market's value (data/markets/<id>/costs.csv: battery_12v_price)
+cost,battery12vYears,,,years,Blank = the market's value (data/markets/<id>/costs.csv: battery_12v_years)
+cost,depreciationBev,,,% per year,"Blank = the market's value (data/markets/<id>/costs.csv: depreciation_pct, BEV)"
+cost,depreciationIce,,,% per year,"Blank = the market's value (data/markets/<id>/costs.csv: depreciation_pct, ICE)"
+cost,roadTaxPerYear,,,per year,"Blank = the market's road-tax table (data/markets/<id>/road_tax.csv). Only for a market without a table: the road tax per year you type"
 cost,ascentPer100Km,300,0,m,Your setup (2026-11-21); was 0: Climb per 100 km (you come back to where you started); Flat (no hills) so the results stay those of the spreadsheet; choose a terrain on the page
 cost,slopePct,5,default,%,Your setup (2026-11-21); was blank: Blank = the typical slope (assumption hill_slope_default_pct)
 cost,airTemperatureC,35,,°C,Your setup (2026-11-21); was 25 (the all row)

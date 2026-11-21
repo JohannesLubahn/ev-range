@@ -1,0 +1,12 @@
+powertrain,basis,above,up_to,amount,kind,source,why
+BEV,weight_kg,0,2000,0.028125,per_unit,kraftstg-9,"Kfz-Steuer of an electric car once its exemption ends: per started 200 kg of the permitted gross weight 11.25 EUR up to 2,000 kg, 12.02 EUR up to 3,000 kg, 12.78 EUR up to 3,500 kg, halved for electric cars (§ 9 KraftStG) = 0.028–0.032 EUR per kg. The app applies it to the curb weight: the gross weight is about 450–550 kg more, so the law asks about 15 EUR per year more"
+BEV,weight_kg,2000,3000,0.03005,per_unit,kraftstg-9,
+BEV,weight_kg,3000,,0.03195,per_unit,kraftstg-9,
+BEV,age_years,0,10,100,discount_pct,bundestag-kfz-2025,"Electric cars first registered by the end of 2030 pay no Kfz-Steuer for up to 10 years, at most until 31 Dec 2035 (Bundestag, 4 Dec 2025). A car bought in 2026 is free for about 9–10 years; the app counts 10"
+ICE,engine_cc,0,,0.02,per_unit,kraftstg-9,"Kfz-Steuer of a petrol car first registered since 2021 (§ 9 Abs. 1 Nr. 2 c KraftStG): 2 EUR per 100 cc of engine size (the law counts each started 100 cc: 1,498 cc pays 30 EUR, the app 29.96), plus for each g/km of CO₂ above 95 g/km 2.00 EUR up to 115, 2.20 up to 135, 2.50 up to 155, 2.90 up to 175, 3.40 up to 195 and 4.00 above, each gram at the rate of its band (ADAC gives 85 EUR for a Golf 1.5 TSI with 1,498 cc and 122 g/km: 30 + 40 + 15.40). Petrol cars get no discount with age"
+ICE,co2_g_km,95,115,2.00,per_unit,kraftstg-9;adac-golf-2026,
+ICE,co2_g_km,115,135,2.20,per_unit,kraftstg-9,
+ICE,co2_g_km,135,155,2.50,per_unit,kraftstg-9,
+ICE,co2_g_km,155,175,2.90,per_unit,kraftstg-9,
+ICE,co2_g_km,175,195,3.40,per_unit,kraftstg-9,
+ICE,co2_g_km,195,,4.00,per_unit,kraftstg-9,

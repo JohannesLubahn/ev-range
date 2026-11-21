@@ -1,9 +1,9 @@
-// Assumptions page: the running costs of the market in use (data/running_costs.csv) as rows of the Costs group, with
-// their sources like every other assumption, and the road-tax bands (data/road_tax.csv).
+// Assumptions page: the running costs of the market in use (data/markets/<id>/costs.csv, plus what its blocs pass on)
+// as rows of the Costs group, with their sources like every other assumption, and the road-tax bands (road_tax.csv).
 import { Fragment, type MouseEvent } from 'react';
-import type { RoadTaxRow, RunningCostRow, Source } from '../data/types';
-import { COST_ITEMS, COST_ITEM_LABELS, type CostItem } from '../engine/costItems';
-import { marketCosts } from '../engine/costs';
+import type { CostItemDef, RoadTaxRow, Source } from '../data/types';
+import type { CostItem } from '../engine/costItems';
+import { marketCosts, type CostSource, type Powertrain } from '../engine/costs';
 import type { Assumptions } from '../engine/types';
 import { num } from '../format';
 import { useEngine } from '../state/engine';
@@ -42,29 +42,52 @@ function jump(id: string) {
 }
 
 /**
- * The running costs as assumption rows (label, value, why · source). Values are the standard of the Cost page's inputs;
- * they are changed there (for the session) or in data/running_costs.csv, so they are read-only here.
+ * The running costs as assumption rows (label, value, where from · why · source). Values are the standard of the Cost
+ * page's inputs; they are changed there (for the session) or in data/markets/<id>/costs.csv, so they are read-only
+ * here. Values the market inherits name their bloc; values it lacks are shown as missing.
  */
 export function RunningCostRows({ a }: { a: Assumptions }) {
   const { ds } = useEngine();
   const mc = marketCosts(a);
-  const name = ds.markets.find((m) => m.id === mc.market)?.name ?? mc.market;
-  const unitOf = (r: RunningCostRow) => r.unit.replace(mc.currency, a.displayCurrency);
-  const row = (key: string, label: string, item: CostItem, r: RunningCostRow, pt: 'BEV' | 'ICE') => {
-    const v = mc.value(item, pt);
+  const name = a.marketNames[mc.market] ?? mc.market;
+  const unitOf = (unit: string) => unit.replace(mc.currency, a.displayCurrency).replace('currency', a.displayCurrency);
+  const row = (key: string, label: string, def: CostItemDef, s: CostSource | null, pt: Powertrain) => {
+    const v = mc.value(def.item as CostItem, pt);
     return (
       <div key={key} className="assumption">
         <label htmlFor={`rc-${key}`}>
-          {label} <span className="faint">({unitOf(r)})</span>
+          {label} <span className="faint">({unitOf(s ? s.row.unit : def.unit)})</span>
         </label>
-        <input id={`rc-${key}`} type="text" value={num(v, v % 1 === 0 ? 0 : 2)} readOnly title="Change it on the Cost of ownership page, or for good in data/running_costs.csv" />
+        <input
+          id={`rc-${key}`}
+          type="text"
+          value={v === null ? 'missing' : num(v, v % 1 === 0 ? 0 : 2)}
+          className={v === null ? 'missing' : undefined}
+          readOnly
+          title={`Change it on the Cost of ownership page, or for good in data/markets/${s?.from ?? mc.market}/costs.csv`}
+        />
         <span className="desc">
-          {r.why} · <SourceText ids={r.sources} sources={ds.sources} />
+          {s ? (
+            <>
+              {s.inherited && (
+                <>
+                  <b>From {a.marketNames[s.from] ?? s.from}</b> (<span className="mono">data/markets/{s.from}/</span>) ·{' '}
+                </>
+              )}
+              {s.row.why} · <SourceText ids={s.row.sources} sources={ds.sources} />
+            </>
+          ) : (
+            <>
+              Not in <span className="mono">data/markets/{mc.market}/costs.csv</span> yet{def.inherit ? ', nor in its blocs' : ''}: costs that need it show a gap until
+              you type a value on the <a href="#cost">Cost of ownership</a> page. {def.description}.
+            </>
+          )}
         </span>
       </div>
     );
   };
   const tax = mc.roadTax;
+  const taxMissing = (['BEV', 'ICE'] as const).filter((pt) => !tax.some((r) => r.powertrain === pt && r.basis !== 'age_years'));
   return (
     <>
       <h3 className="assumption-subhead">
@@ -72,32 +95,47 @@ export function RunningCostRows({ a }: { a: Assumptions }) {
         {mc.currency !== a.displayCurrency ? `, converted to ${a.displayCurrency}` : ''})
       </h3>
       <p className="faint assumption-note">
-        The standard of the Cost of ownership&rsquo;s inputs (<span className="mono">data/running_costs.csv</span>); change them on the{' '}
-        <a href="#cost">Cost of ownership</a> page. Cars can override servicing, insurance, tyre price and energy price in cars.csv.
+        The standard of the Cost of ownership&rsquo;s inputs (<span className="mono">data/markets/{mc.market}/</span>, plus values its blocs pass on,
+        see <a href="#markets" onClick={jump('markets')}>Markets</a>); change them on the <a href="#cost">Cost of ownership</a> page. Cars can
+        override servicing, insurance, tyre price and energy price in cars.csv.
       </p>
-      {COST_ITEMS.flatMap((item) => {
-        const bev = mc.row(item, 'BEV');
-        const ice = mc.row(item, 'ICE');
-        if (!bev || !ice) return [];
-        const label = COST_ITEM_LABELS[item];
-        if (bev === ice) return [row(item, label, item, bev, 'BEV')];
-        return [row(`${item}-bev`, `${label}, electric`, item, bev, 'BEV'), row(`${item}-ice`, `${label}, petrol`, item, ice, 'ICE')];
+      {a.costItems.flatMap((def) => {
+        const item = def.item as CostItem;
+        const bev = mc.source(item, 'BEV');
+        const ice = mc.source(item, 'ICE');
+        if (bev?.row === ice?.row) return [row(item, def.label, def, bev, 'BEV')];
+        return [row(`${item}-bev`, `${def.label}, electric`, def, bev, 'BEV'), row(`${item}-ice`, `${def.label}, petrol`, def, ice, 'ICE')];
       })}
-      {tax.length > 0 && (
-        <div className="assumption">
-          <label htmlFor="rc-road-tax">
-            Road tax <span className="faint">({a.displayCurrency}/year)</span>
-          </label>
-          <input id="rc-road-tax" type="text" value="table" readOnly title="Bands in the Road tax section (data/road_tax.csv)" />
-          <span className="desc">
-            Electric cars by curb weight, petrol cars by engine size (Germany: plus CO₂), less for older cars where the law says so: see{' '}
-            <a href="#road-tax" onClick={jump('road-tax')}>
-              Road tax
-            </a> ·{' '}
-            <SourceText ids={unique(tax.flatMap((r) => r.sources))} sources={ds.sources} />
-          </span>
-        </div>
-      )}
+      <div className="assumption">
+        <label htmlFor="rc-road-tax">
+          Road tax <span className="faint">({a.displayCurrency}/year)</span>
+        </label>
+        <input
+          id="rc-road-tax"
+          type="text"
+          value={taxMissing.length ? 'missing' : 'table'}
+          className={taxMissing.length ? 'missing' : undefined}
+          readOnly
+          title={`Bands in the Road tax section (data/markets/${mc.market}/road_tax.csv)`}
+        />
+        <span className="desc">
+          {taxMissing.length > 0 && (
+            <>
+              No {taxMissing.map((pt) => (pt === 'BEV' ? 'electric' : 'petrol')).join(' or ')} rows in{' '}
+              <span className="mono">data/markets/{mc.market}/road_tax.csv</span> yet (a tax-free market says so with a 0 row): costs show a gap.{' '}
+            </>
+          )}
+          {tax.length > 0 && (
+            <>
+              Electric cars by curb weight, petrol cars by engine size (Germany: plus CO₂), less for older cars where the law says so: see{' '}
+              <a href="#road-tax" onClick={jump('road-tax')}>
+                Road tax
+              </a>{' '}
+              · <SourceText ids={unique(tax.flatMap((r) => r.sources))} sources={ds.sources} />
+            </>
+          )}
+        </span>
+      </div>
     </>
   );
 }
@@ -121,11 +159,11 @@ function TaxRange({ r, unit }: { r: RoadTaxRow; unit: string }) {
   );
 }
 
-/** The road-tax bands of the market in use (in its own currency, as in data/road_tax.csv). */
+/** The road-tax bands of the market in use (in its own currency, as in data/markets/<id>/road_tax.csv). */
 export function RoadTaxTables({ a }: { a: Assumptions }) {
   const { ds } = useEngine();
   const mc = marketCosts(a);
-  const name = ds.markets.find((m) => m.id === mc.market)?.name ?? mc.market;
+  const name = a.marketNames[mc.market] ?? mc.market;
   const cur = mc.currency;
   const tax = ds.roadTax.filter((r) => r.market === mc.market);
   if (tax.length === 0) return null;
@@ -145,7 +183,7 @@ export function RoadTaxTables({ a }: { a: Assumptions }) {
       <div>
         <h2>Road tax ({name})</h2>
         <p className="muted">
-          Per year, in {cur}. Kept in <span className="mono">data/road_tax.csv</span>.{' '}
+          Per year, in {cur}. Kept in <span className="mono">data/markets/{mc.market}/road_tax.csv</span>.{' '}
           {unique(tax.map((r) => r.why).filter(Boolean))
             .map((w) => (/[.!?]$/.test(w) ? w : `${w}.`))
             .join(' ')}{' '}

@@ -150,7 +150,7 @@ describe('terrain inputs', () => {
     expect(down.noCharger.energyKwh).toBeLessThan(base.noCharger.energyKwh);
     expect(hilly.trafficJam.energyKwh).toBeGreaterThan(base.trafficJam.energyKwh);
     expect(hilly.longTrip.energyKwh).toBeGreaterThan(base.longTrip.energyKwh);
-    expect(hilly.cost.energyCost).toBeGreaterThan(base.cost.energyCost);
+    expect(hilly.cost.energyCost!).toBeGreaterThan(base.cost.energyCost!);
     expect(hilly.noCharger.steps.some((s) => s.label === 'Hills')).toBe(true);
   });
 });

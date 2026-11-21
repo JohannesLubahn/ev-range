@@ -53,7 +53,7 @@ test_payload_kg,100,kg,Payload during the official test,Test conditions,Driver a
 test_temperature_c,23,°C,Test temperature,Test conditions,Ambient temperature of the official tests,WLTP and CLTC: 23 °C; NEDC: 20–30 °C
 default_basis,WLTP,,Standard assumed when a car has no rated range,Test conditions,Used to calibrate cars without any rated range,Assumption
 display_currency,THB,,Currency for comparisons,Costs,"Currency for All markets; a market uses its own currency (data/markets.csv)",
-cost_default_market,TH,,Running costs for All markets,Costs,"Market whose running costs (data/running_costs.csv, data/road_tax.csv) apply under All markets and in markets without rows of their own, converted to the display currency",
+cost_default_market,TH,,Running costs for All markets,Costs,"Market whose running costs (data/markets/<id>/) apply under All markets, converted to the display currency. A chosen market always uses its own (gaps where it has none)",
 fx_EUR,38.2248,THB per EUR,Exchange rate EUR → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_USD,33.3550,THB per USD,Exchange rate USD → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)
 fx_CNY,4.9801,THB per CNY,Exchange rate CNY → THB,Exchange rates,Used to convert car prices and costs,Your Currency_Converter.ods (Frankfurter reference rates of 2026-09-18)

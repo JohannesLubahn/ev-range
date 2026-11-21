@@ -1,11 +1,14 @@
-// Running costs of the cost of ownership (user request 2026-11-20): data/running_costs.csv, data/road_tax.csv,
-// src/engine/costs.ts and cost() in src/engine/cases.ts.
+// Running costs of the cost of ownership (user request 2026-11-20): data/markets/<id>/ (costs.csv, road_tax.csv),
+// data/costs/items.csv, data/blocs.csv (user's choice 2026-11-21: a folder per market, values inherited along
+// market → bloc → World, gaps instead of borrowed values), src/engine/costs.ts and cost() in src/engine/cases.ts.
 import { describe, expect, it } from 'vitest';
 import { bundledFiles, loadBundledDataset } from '../src/data/bundled';
-import { parseDataset, parseRoadTax, parseRunningCosts } from '../src/data/parse';
+import { parseCostItems, parseDataset, parseRoadTax, parseRunningCosts } from '../src/data/parse';
 import { applyMarket, assumptionsFromDataset } from '../src/engine/assumptions';
 import { COST_ITEMS } from '../src/engine/costItems';
-import { carValue, marketCosts, ownership, roadTaxBase, roadTaxDiscountPct, type OwnershipCar } from '../src/engine/costs';
+import { carValue, costChain, marketCosts, ownership, roadTaxBase, roadTaxDiscountPct, type OwnershipCar } from '../src/engine/costs';
+import { marketCostInputs } from '../src/engine/inputs';
+import { standardScenario } from '../src/engine/scenario';
 import { runEngine } from '../src/engine/run';
 import { withDefaults } from '../src/engine/scenario';
 import { previousStandard } from './previousStandard';
@@ -18,10 +21,63 @@ const std = previousStandard(ds, a);
 const settings = { battery: 'chemistry' } as const;
 const run = (s: Scenario, ids: string[]) => runEngine(ds, a, s, settings, ids).results;
 
-describe('data/running_costs.csv and data/road_tax.csv', () => {
-  it('read without warnings; Thailand has every item for both powertrains', () => {
-    expect(ds.loadWarnings.filter((w) => w.includes('running_costs') || w.includes('road_tax'))).toEqual([]);
-    for (const item of COST_ITEMS) for (const pt of ['BEV', 'ICE'] as const) expect(mc.row(item, pt), `${item} ${pt}`).toBeDefined();
+describe('data/markets/<id>/ (costs.csv, road_tax.csv), data/costs/items.csv and data/blocs.csv', () => {
+  it('read without warnings; Thailand and Germany have every item for both powertrains, and a road-tax table', () => {
+    expect(ds.loadWarnings.filter((w) => /markets|blocs|costs\/items|road_tax/.test(w))).toEqual([]);
+    for (const id of ['TH', 'DE']) {
+      const m = marketCosts(applyMarket(assumptionsFromDataset(ds), ds.markets.find((x) => x.id === id)));
+      expect(m.missing, id).toEqual([]);
+      for (const item of COST_ITEMS) for (const pt of ['BEV', 'ICE'] as const) expect(m.value(item, pt), `${id} ${item} ${pt}`).not.toBeNull();
+      for (const pt of ['BEV', 'ICE']) expect(m.roadTax.some((r) => r.powertrain === pt && r.basis !== 'age_years'), `${id} road tax ${pt}`).toBe(true);
+    }
+  });
+  it('items.csv lists every item the cost of ownership uses; money is never inherited', () => {
+    expect(ds.costItems.map((d) => d.item).sort()).toEqual([...COST_ITEMS].sort());
+    for (const d of ds.costItems) if (d.money) expect(d.inherit, d.item).toBe(false);
+    const w: string[] = [];
+    parseCostItems('item,label,unit,money,inherit,required\nelectricity_price,x,y,yes,yes,yes\npetrol_tax,x,y,no,no,yes\n', w);
+    expect(w.some((x) => x.includes('electricity_price is money and cannot be inherited'))).toBe(true);
+    expect(w.some((x) => x.includes('"petrol_tax" is not used'))).toBe(true);
+    expect(w.some((x) => x.includes('depreciation_pct is missing'))).toBe(true);
+  });
+  it('markets inherit engineering values and judgements from their bloc, then World; own values come first', () => {
+    expect(ds.markets.find((m) => m.id === 'DE')?.parent).toBe('EU');
+    expect(costChain('DE', a.marketParents)).toEqual(['DE', 'EU', 'WORLD']);
+    expect(costChain('TH', a.marketParents)).toEqual(['TH', 'WORLD']);
+    const tyre = mc.source('tyre_life_km', 'BEV');
+    expect(tyre).toMatchObject({ from: 'WORLD', inherited: true });
+    expect(mc.value('tyre_life_km', 'BEV')).toBe(45000);
+    expect(mc.source('warranty_years', 'BEV')).toMatchObject({ from: 'TH', inherited: false });
+    // A bloc value counts for its markets unless they have their own; the market's own row wins over the bloc's.
+    const files = { ...bundledFiles.marketFiles, EU: { costs: 'item,powertrain,value,unit,why,source\nwarranty_years,all,2,years,Judgement,\nrepairs_pct,all,1.5,%,Judgement,\n' } };
+    const d2 = parseDataset({ ...bundledFiles, marketFiles: files });
+    const de = marketCosts(applyMarket(assumptionsFromDataset(d2), d2.markets.find((m) => m.id === 'DE')));
+    expect(de.source('repairs_pct', 'BEV')).toMatchObject({ from: 'EU', inherited: true });
+    expect(de.value('repairs_pct', 'BEV')).toBe(1.5);
+    expect(de.value('warranty_years', 'BEV')).toBe(3); // Germany's own
+    const th = marketCosts(applyMarket(assumptionsFromDataset(d2), d2.markets.find((m) => m.id === 'TH')));
+    expect(th.value('repairs_pct', 'BEV')).toBe(1); // Thailand is not in the EU: World's
+  });
+  it('a market without its own data has gaps, never another market’s values', () => {
+    const d2 = parseDataset({ ...bundledFiles, markets: bundledFiles.markets + 'FR,France,EU,EUR,,\n' });
+    expect(d2.loadWarnings).toEqual(ds.loadWarnings);
+    const fr = marketCosts(applyMarket(assumptionsFromDataset(d2), d2.markets.find((m) => m.id === 'FR')));
+    expect(fr.value('electricity_price', 'BEV')).toBeNull();
+    expect(fr.value('depreciation_pct', 'BEV')).toBeNull();
+    expect(fr.value('tyre_life_km', 'BEV')).toBe(45000); // inherited from World
+    expect(fr.missing.map((x) => x.item)).toContain('electricity_price');
+    expect(fr.missing.map((x) => x.item)).not.toContain('tyre_life_km');
+    expect(fr.roadTax).toEqual([]);
+  });
+  it('blocs pass on only inheritable items and no road tax; unknown folders and ids are reported', () => {
+    const w = (files: Record<string, { costs?: string; roadTax?: string }>, extra = {}) =>
+      parseDataset({ ...bundledFiles, ...extra, marketFiles: { ...bundledFiles.marketFiles, ...files } }).loadWarnings;
+    expect(w({ EU: { costs: 'item,powertrain,value\nelectricity_price,all,0.5\n' } }).some((x) => x.includes('electricity_price is market data'))).toBe(true);
+    expect(w({ EU: { roadTax: 'powertrain,basis,above,up_to,amount,kind,source\nBEV,weight_kg,0,,0,band,x\n' } }).some((x) => x.includes('not per bloc'))).toBe(true);
+    expect(w({ XX: { costs: 'item,powertrain,value\nrepairs_pct,all,1\n' } }).some((x) => x.includes('"XX" is neither in markets.csv nor in blocs.csv'))).toBe(true);
+    expect(w({}, { markets: bundledFiles.markets + 'Thai,Thailand again,WORLD,THB,,\n' }).some((x) => x.includes('not an ISO 3166 code'))).toBe(true);
+    expect(w({}, { blocs: bundledFiles.blocs + 'A,Loop A,B,,\nB,Loop B,A,,\n' }).some((x) => x.includes('loop'))).toBe(true);
+    expect(w({}, { markets: bundledFiles.markets + 'FR,France,NOPE,EUR,,\n' }).some((x) => x.includes('parent "NOPE"'))).toBe(true);
   });
   it('cites a listed source for every value, or says it is a judgement', () => {
     const ids = new Set(ds.sources.map((s) => s.id));
@@ -33,15 +89,15 @@ describe('data/running_costs.csv and data/road_tax.csv', () => {
   });
   it('reports unknown items, gaps and overlaps', () => {
     const w: string[] = [];
-    parseRunningCosts('market,item,powertrain,value\nXX,petrol_tax,all,1\nXX,servicing_per_year,BEV,-1\n', w);
-    expect(w.some((x) => x.includes('unknown item "petrol_tax"'))).toBe(true);
+    parseRunningCosts('item,powertrain,value\npetrol_tax,all,1\nservicing_per_year,BEV,-1\n', 'XX', ds.costItems, w);
+    expect(w.some((x) => x.includes('markets/XX/costs.csv') && x.includes('unknown item "petrol_tax"'))).toBe(true);
     expect(w.some((x) => x.includes('not a number ≥ 0'))).toBe(true);
-    expect(w.some((x) => x.includes('XX has no'))).toBe(false); // no valid row: the market is not listed at all
     const w2: string[] = [];
-    parseRoadTax('market,powertrain,basis,above,up_to,amount,kind\nXX,BEV,weight_kg,0,1000,1,band\nXX,BEV,weight_kg,900,2000,2,band\nXX,BEV,weight_kg,2500,3000,3,band\n', w2);
+    parseRoadTax('powertrain,basis,above,up_to,amount,kind\nBEV,weight_kg,0,1000,1,band\nBEV,weight_kg,900,2000,2,band\nBEV,weight_kg,2500,3000,3,band\n', 'XX', w2);
     expect(w2.some((x) => x.includes('overlap'))).toBe(true);
     expect(w2.some((x) => x.includes('gap between 2000 and 2500'))).toBe(true);
-    const d2 = parseDataset({ ...bundledFiles, runningCosts: bundledFiles.runningCosts + 'TH,tyre_life_km,all,50000,km,x,no-such-source\n' });
+    const th = bundledFiles.marketFiles!.TH;
+    const d2 = parseDataset({ ...bundledFiles, marketFiles: { ...bundledFiles.marketFiles, TH: { ...th, costs: th.costs + 'tyre_life_km,all,50000,km,x,no-such-source\n' } } });
     expect(d2.loadWarnings.some((x) => x.includes('"no-such-source" is not in sources.csv'))).toBe(true);
   });
   it('the standard of the cost inputs is the market', () => {
@@ -69,8 +125,8 @@ describe('road tax', () => {
   });
   it('Germany, petrol: engine size plus CO₂ above 95 g/km, each gram at its band rate (ADAC: Golf 1.5 TSI 85 and 83 EUR)', () => {
     const de = marketCosts(applyMarket(assumptionsFromDataset(ds), ds.markets.find((m) => m.id === 'DE'))).roadTax;
-    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 122).amount)).toBe(85); // Trend, 122 g/km
-    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 121).amount)).toBe(83); // Life, 121 g/km
+    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 122).amount!)).toBe(85); // Trend, 122 g/km
+    expect(Math.round(roadTaxBase(de, 'ICE', 1232, 1498, 121).amount!)).toBe(83); // Life, 121 g/km
     expect(roadTaxBase(de, 'ICE', 1232, 1498, 90).amount).toBeCloseTo(29.96, 9); // below 95 g/km: engine size only
     expect(roadTaxBase(de, 'ICE', 1500, 2000, 200).amount).toBeCloseTo(40 + 20 * 2 + 20 * 2.2 + 20 * 2.5 + 20 * 2.9 + 20 * 3.4 + 5 * 4, 9);
     const noCo2 = roadTaxBase(de, 'ICE', 1232, 1498, null);
@@ -173,5 +229,53 @@ describe('cost of ownership per car', () => {
     expect('maintenancePerYear' in s.cost).toBe(false);
     const untouched = withDefaults({ ...std, cost: { energyPrice: 7.5, maintenancePerYear: 8000 } } as unknown as Scenario, ds, a);
     expect(untouched.cost.servicingBev).toBe(5346);
+  });
+});
+
+describe('gaps: a market without cost data (user’s choice 2026-11-21: show the gap, let the user type the value)', () => {
+  const d2 = parseDataset({ ...bundledFiles, markets: bundledFiles.markets + 'FR,France,EU,EUR,,\n' });
+  const base = assumptionsFromDataset(d2);
+  const aFr = applyMarket(base, d2.markets.find((m) => m.id === 'FR'));
+  const aDe = applyMarket(base, d2.markets.find((m) => m.id === 'DE'));
+  const id = 'hyundai-inster';
+  const sc = standardScenario(d2, aFr);
+
+  it("the standard of a value the market lacks is empty, not another market's", () => {
+    expect(sc.cost.energyPrice).toBeNull();
+    expect(sc.cost.depreciationBev).toBeNull();
+    expect(sc.cost.roadTaxPerYear).toBeNull();
+    expect(sc.cost.tyreLifeKm).toBe(45000); // World's
+    expect(marketCostInputs(aFr).energyPrice).toBeNull(); // switching to the market empties the field
+  });
+  it('the lines that need a missing value show a gap; the total has none', () => {
+    const c = runEngine(d2, aFr, sc, settings, [id]).results[id].cost;
+    expect(c.tco).toBeNull();
+    expect(c.costPerKm).toBeNull();
+    expect(c.purchase).not.toBeNull();
+    expect(c.missing).toEqual(expect.arrayContaining(['electricity price', 'loss of value', 'compulsory insurance', 'road tax', 'servicing']));
+    expect(c.missing).not.toContain('tyre life');
+    expect(c.warnings.some((w) => w.startsWith("Missing in France's cost data"))).toBe(true);
+    expect(c.parts.find((p) => p.key === 'energy')?.value).toBeNull();
+    expect(c.steps.find((s) => s.label === 'Energy')?.formula).toMatch(/missing in the market's data: electricity price/);
+  });
+  it('typing the values (here Germany’s, and a road tax) gives the total', () => {
+    const typed = { ...sc, cost: { ...sc.cost, ...marketCostInputs(aDe), roadTaxPerYear: 50 } };
+    const c = runEngine(d2, aFr, typed, settings, [id]).results[id].cost;
+    expect(c.missing).toEqual([]);
+    expect(c.tco).not.toBeNull();
+    expect(c.parts.find((p) => p.key === 'tax')?.value).toBeCloseTo(50 * typed.cost.years, 6);
+    // A market with a road-tax table ignores a typed road tax.
+    const de = runEngine(d2, aDe, { ...standardScenario(d2, aDe), cost: { ...standardScenario(d2, aDe).cost, roadTaxPerYear: 999 } }, settings, [id]).results[id].cost;
+    expect(de.parts.find((p) => p.key === 'tax')?.value).toBe(runEngine(d2, aDe, standardScenario(d2, aDe), settings, [id]).results[id].cost.parts.find((p) => p.key === 'tax')?.value);
+  });
+  it('ownership: one missing value nulls its line and part, not the others', () => {
+    const car: OwnershipCar = { price: 1_000_000, powertrain: 'BEV', carClass: 'regular', curbKg: 1800, massKg: 1900, engineCc: null, co2GPerKm: null, servicingPerYear: null, insurancePerYear: null, tyreSetPrice: null };
+    const o = ownership(car, { ...std.cost, compulsoryInsurance: null }, 5, 75000, mc, 'THB');
+    expect(o.missing).toEqual(['compulsory insurance']);
+    expect(o.lines.find((l) => l.label === 'Compulsory insurance')?.value).toBeNull();
+    expect(o.lines.find((l) => l.label === 'Voluntary insurance')?.value).toBeGreaterThan(0);
+    expect(o.lines.find((l) => l.label === 'Servicing')?.value).toBeGreaterThan(0);
+    // A car's own servicing (cars.csv) does not need the market's.
+    expect(ownership({ ...car, servicingPerYear: 5000 }, { ...std.cost, servicingBev: null }, 5, 75000, mc, 'THB').missing).toEqual([]);
   });
 });

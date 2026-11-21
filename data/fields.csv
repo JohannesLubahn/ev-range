@@ -49,9 +49,9 @@ adjustable_headrest,Adjustable headrest,,Comfort,text,,
 acc,ACC,,Comfort,text,,Adaptive cruise control (yes / no)
 cameras,Cameras,,Comfort,text,,
 energy_price,Energy price override,currency/kWh,Costs,number,lower,"Per kWh (or per litre for ICE) in the car's currency. Blank = the electricity price of the Cost page"
-maintenance_per_year,Servicing override,currency/year,Costs,number,lower,"Scheduled servicing per year in the car's currency. Blank = the market's value for the powertrain (data/running_costs.csv)"
-insurance_per_year,Insurance override,currency/year,Costs,number,lower,"Voluntary (class-1) insurance per year in the car's currency, e.g. a quote. Blank = % of the car's value (data/running_costs.csv)"
-tyre_set_price,Tyre set price,currency,Costs,number,lower,"Four tyres fitted, in the car's currency. Blank = the market's price for the car class (data/running_costs.csv)"
+maintenance_per_year,Servicing override,currency/year,Costs,number,lower,"Scheduled servicing per year in the car's currency. Blank = the market's value for the powertrain (data/markets/<id>/costs.csv)"
+insurance_per_year,Insurance override,currency/year,Costs,number,lower,"Voluntary (class-1) insurance per year in the car's currency, e.g. a quote. Blank = % of the car's value (data/markets/<id>/costs.csv)"
+tyre_set_price,Tyre set price,currency,Costs,number,lower,"Four tyres fitted, in the car's currency. Blank = the market's price for the car class (data/markets/<id>/costs.csv)"
 engine_cc,Engine size,cc,Costs,number,lower,"Petrol cars: engine displacement, for the road tax. Electric cars are taxed by weight"
 co2_g_km,CO₂ emissions,g/km,Costs,number,lower,"Petrol cars: official CO₂ emissions (WLTP combined), for road taxes that depend on CO₂ (Germany: Kfz-Steuer above 95 g/km)"
 source_url,Source,,Notes,text,,

@@ -1,0 +1,15 @@
+item,label,unit,money,inherit,required,description
+electricity_price,Electricity price,currency/kWh,yes,no,yes,Price per kWh paid for charging (the standard is the public DC fast-charging price)
+compulsory_insurance,Compulsory insurance,currency/year,yes,no,yes,Third-party cover required by law
+insurance_rate_pct,Voluntary insurance,% of the car's value per year,no,no,yes,"Comprehensive cover (class 1, Vollkasko) ÷ the car's value at the start of the year, per powertrain"
+insurance_min,Lowest voluntary premium,currency/year,yes,no,yes,The premium once the car's value is low (owners move to cheaper cover)
+servicing_per_year,Servicing,currency/year,yes,no,yes,"Scheduled servicing per year, per powertrain"
+tyre_set_regular,"Tyre set, regular car",currency per 4 tyres,yes,no,yes,Four tyres fitted to a regular car
+tyre_set_premium,"Tyre set, premium car",currency per 4 tyres,yes,no,yes,Four tyres fitted to a premium car (larger wheels)
+tyre_life_km,Tyre life,km,no,yes,yes,Life of a set at the reference mass; heavier cars wear their tyres faster in proportion
+tyre_reference_kg,Tyre life applies at,kg,no,yes,yes,The mass the tyre life applies to
+repairs_pct,Repairs after the warranty,% of the purchase price per year,no,yes,yes,Repairs that the warranty no longer pays for
+warranty_years,Warranty,years,no,yes,yes,Years before the owner pays for repairs (a bloc's legal minimum or the brands' usual warranty)
+battery_12v_price,12 V battery,currency,yes,no,yes,A 12 V battery fitted
+battery_12v_years,12 V battery lasts,years,no,yes,yes,Years between 12 V battery replacements (fewer in hot climates)
+depreciation_pct,Loss of value,% per year,no,no,yes,"Loss of value per year (% of the value at the start of the year), per powertrain"

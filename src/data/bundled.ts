@@ -15,12 +15,12 @@ import temperature from '../../data/battery/temperature.csv?raw';
 import calendarSoc from '../../data/battery/calendar_soc.csv?raw';
 import cyclesIndex from '../../data/cycles/index.csv?raw';
 import standard from '../../data/standard.csv?raw';
-import runningCosts from '../../data/running_costs.csv?raw';
-import roadTax from '../../data/road_tax.csv?raw';
+import blocs from '../../data/blocs.csv?raw';
+import costItems from '../../data/costs/items.csv?raw';
 import terrain from '../../data/terrain.csv?raw';
 import profiles from '../../data/profiles.csv?raw';
 import realWorldFuel from '../../data/real_world_fuel.csv?raw';
-import { parseDataset, type RawFiles } from './parse';
+import { parseDataset, type MarketFolderFiles, type RawFiles } from './parse';
 import type { Dataset } from './types';
 
 // Every trace file in data/cycles is picked up automatically (add e.g. cltc_p.csv + a row in index.csv).
@@ -28,6 +28,14 @@ const cycleFiles = import.meta.glob('../../data/cycles/*.csv', { query: '?raw', 
   string,
   string
 >;
+
+// Every market and bloc folder data/markets/<id>/ is picked up automatically (add a folder + a row in markets.csv).
+const costFiles = import.meta.glob('../../data/markets/*/costs.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const roadTaxFiles = import.meta.glob('../../data/markets/*/road_tax.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const folderOf = (path: string) => path.split('/').slice(-2)[0];
+const marketFiles: Record<string, MarketFolderFiles> = {};
+for (const [path, text] of Object.entries(costFiles)) (marketFiles[folderOf(path)] ??= {}).costs = text;
+for (const [path, text] of Object.entries(roadTaxFiles)) (marketFiles[folderOf(path)] ??= {}).roadTax = text;
 
 export const bundledFiles: RawFiles = {
   cars,
@@ -46,8 +54,9 @@ export const bundledFiles: RawFiles = {
   calendarSoc,
   cyclesIndex,
   standard,
-  runningCosts,
-  roadTax,
+  blocs,
+  costItems,
+  marketFiles,
   terrain,
   profiles,
   realWorldFuel,

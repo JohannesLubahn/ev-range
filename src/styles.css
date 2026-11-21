@@ -448,6 +448,15 @@ main.wrap {
   color: var(--ink);
   border: 1px solid var(--line);
 }
+/* A cost value the market's data lacks (the user types it). */
+.field.missing input[type='number'],
+.assumption input.missing {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.missing-note {
+  color: var(--warn-ink);
+}
 
 /* ------------------------------------------------------------------ chips & status */
 .chip {

@@ -1,0 +1,3 @@
+id,name,parent,description,source
+WORLD,World,,"Values that hold in every market unless its bloc or the market has its own: engineering values and labelled judgements, never prices or taxes (data/markets/WORLD/)",
+EU,European Union,WORLD,"EU member states. Values that EU law sets for all of them would go in data/markets/EU/ (none yet). Blocs only pass on cost values; which cars a market sells is separate",

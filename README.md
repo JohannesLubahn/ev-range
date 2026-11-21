@@ -46,12 +46,14 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | File | What it holds |
 |---|---|
 | `data/cars.csv` | **One row per car and market.** Blank cell = unknown (the app estimates it and marks it, or flags it as missing). |
-| `data/markets.csv` | One row per market: name and currency. |
-| `data/running_costs.csv` | **Running costs per market** (in its currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). |
+| `data/markets.csv` | One row per market: ISO 3166 code (`DE`, or `US-CA` for a state), name, **parent** (the bloc it inherits cost values from) and currency. |
+| `data/blocs.csv` | Blocs that pass cost values on to their markets: `WORLD` (top) and `EU`. Only for inherited cost values, not for which cars a market sells. |
+| `data/costs/items.csv` | The **template** of a market's costs: every cost item with label, unit, money (yes/no), **inherit** (may come from the bloc / World) and required. |
+| `data/markets/<id>/costs.csv` | **Running costs of one market or bloc** (in the market's currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). `WORLD/` holds the values every market shares (tyre life, tyre reference mass, repairs). |
+| `data/markets/<id>/road_tax.csv` | Road tax of one market: electric cars by curb weight (bands), petrol cars by engine size (per cc) and CO₂, discount for older cars. |
 | `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
 | `data/profiles.csv` | Driving profiles (Steady, City, Rural, Highway, Motorway, Mixed, the traffic jam): speed trace (cycle and phases), what the speed set means, the speeds each allows, with why and sources. |
 | `data/real_world_fuel.csv` | Measured drives of petrol cars (route or profile, speed, air, AC, load, l/100 km, sources): petrol cars with rows are calibrated on them instead of their official (lab) value. |
-| `data/road_tax.csv` | Road tax per market: electric cars by curb weight (bands), petrol cars by engine size (per cc), discount for older cars. |
 | `data/fields.csv` | One row per column of `cars.csv`: label, unit, group, "higher/lower is better", description. |
 | `data/standard.csv` | The **standard inputs** of every test (what ↺ goes back to): test rows = its trip inputs and its own conditions, each with the reason; `all` rows = the conditions of the Spreadsheet preset (and of any test without its own row). The `spreadsheet` column keeps the Spreadsheet preset's trip input where it differs (`default` = from an assumption). Blank = from an assumption or the market. |
 | `data/assumptions.csv` | Every constant the model uses, with description and source. |
@@ -65,8 +67,10 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 
 - **Add a car:** add a line to `cars.csv`. Fill `brand`, and `model` / `variant` when a model comes in several
   versions (e.g. BYD · Seal · low): variants then sit together under their model in the car list.
-- **Add a market:** add a line to `markets.csv`, its running costs to `running_costs.csv` and `road_tax.csv` (without
-  them it uses `cost_default_market`'s, converted), then a line per car sold
+- **Add a market:** add a line to `markets.csv` (ISO code, parent bloc, currency), a folder `data/markets/<id>/` with
+  `costs.csv` (the items of `data/costs/items.csv`; tyre life, repairs, warranty and 12 V battery life may be left to
+  the bloc or World) and `road_tax.csv`. What it lacks is shown as missing: its costs have a gap until the values are
+  typed on the Cost page; it never borrows another market's. The Assumptions page lists each market's gaps. Then a line per car sold
   there in `cars.csv` with that `market` code, its `currency` and `price`, and a unique `id` (e.g. `byd-atto-3-de`).
   A car sold in two markets has two rows.
 - **Add a spec:** add a column to `cars.csv` and a line to `fields.csv`; it appears on the Cars page.
@@ -115,7 +119,8 @@ results compare with the spreadsheet.
 Total = purchase − value at the end + running costs, over the years of use (user request 2026-11-20). The chart
 splits it into **depreciation** (purchase − value at the end), **energy**, **insurance** (voluntary + compulsory),
 **road tax**, **servicing & repairs** (servicing, repairs after the warranty, 12 V battery) and **tyres**. The inputs
-sit in groups on the Cost page; their standard is the market's row in `data/running_costs.csv`. The Assumptions page
+sit in groups on the Cost page; their standard is the market's row in `data/markets/<id>/costs.csv` (or its bloc's /
+World's for inheritable items); a missing value leaves the field empty and the lines that need it show a gap. The Assumptions page
 lists each value in its **Costs** group with its source (linked to the numbered source list), and the road-tax bands
 below. What depends on the car:
 
@@ -141,7 +146,7 @@ Every test keeps its own inputs: Traffic jam, No charger, Sprint, Long trip, Bat
 each have their own trip inputs **and their own Conditions** (air, sun, load, driving style, km driven, …). The
 standard is in `data/standard.csv`: since 2026-11-21 your own setup for every test (trip inputs, conditions, hills,
 battery care); the market-specific running costs of Cost of ownership (electricity price to loss of value) stay the
-market's (`data/running_costs.csv`). The spreadsheet's trip inputs live on as the Spreadsheet preset.
+market's (`data/markets/<id>/costs.csv`). The spreadsheet's trip inputs live on as the Spreadsheet preset.
 
 - **↺** next to an input puts it back to its standard (shown while it differs; the standard is shown under it).
 - **⇉** uses the value in the other tests too (shown while another test differs): a condition goes to all six

@@ -82,17 +82,49 @@ export interface AssumptionDef {
   source: string;
 }
 
-/** A market (data/markets.csv): its currency. Its running costs are in data/running_costs.csv and data/road_tax.csv. */
+/**
+ * A market (data/markets.csv): its currency and the bloc (or market) it inherits cost values from. Its running costs
+ * are in data/markets/<id>/costs.csv and road_tax.csv. Ids are ISO 3166 codes (DE, or US-CA for a state).
+ */
 export interface Market {
   id: string;
   name: string;
+  /** Bloc or market whose cost values this market inherits (data/blocs.csv); null = none. */
+  parent: string | null;
   currency: string;
   description: string;
   source: string;
 }
 
-/** One row of data/running_costs.csv: one running-cost value of a market, for all cars or one powertrain. */
+/**
+ * A bloc (data/blocs.csv): a group of markets that passes cost values on to them (World, EU). Only items that
+ * data/costs/items.csv marks as inheritable are passed on; prices and taxes never are.
+ */
+export interface Bloc {
+  id: string;
+  name: string;
+  parent: string | null;
+  description: string;
+  source: string;
+}
+
+/** One item of data/costs/items.csv: the template every market's costs.csv follows. */
+export interface CostItemDef {
+  item: string;
+  label: string;
+  unit: string;
+  /** An amount of money in the market's currency (never inherited: blocs have no currency). */
+  money: boolean;
+  /** A market without its own value takes its bloc's (then World's). */
+  inherit: boolean;
+  /** The cost of ownership needs it: a market without it shows a gap. */
+  required: boolean;
+  description: string;
+}
+
+/** One row of data/markets/<id>/costs.csv: one running-cost value of a market or bloc, for all cars or one powertrain. */
 export interface RunningCostRow {
+  /** The folder the row is in: a market or a bloc id. */
   market: string;
   item: string;
   powertrain: 'all' | 'BEV' | 'ICE';
@@ -116,7 +148,7 @@ export interface TerrainPreset {
   sources: string[];
 }
 
-/** One row of data/road_tax.csv: a band or rate of the yearly road tax of a market. */
+/** One row of data/markets/<id>/road_tax.csv: a band or rate of the yearly road tax of a market. */
 export interface RoadTaxRow {
   market: string;
   powertrain: 'BEV' | 'ICE';
@@ -367,7 +399,11 @@ export interface Dataset {
   cycles: Record<string, Cycle>;
   /** The standard inputs of every test (data/standard.csv). */
   standard: StandardRow[];
-  /** Running costs per market (data/running_costs.csv) and road tax (data/road_tax.csv). */
+  /** Blocs that pass cost values on to their markets (data/blocs.csv). */
+  blocs: Bloc[];
+  /** The cost items (data/costs/items.csv). */
+  costItems: CostItemDef[];
+  /** Running costs and road tax of every market and bloc folder (data/markets/<id>/costs.csv, road_tax.csv). */
   runningCosts: RunningCostRow[];
   roadTax: RoadTaxRow[];
   /** Terrain presets (data/terrain.csv). */

@@ -192,7 +192,7 @@ describe('driving style reaches every stress test and the cost', () => {
       sp: sprint(m, s.sprint).energyKwh,
       lt: longTrip(m, s.longTrip).energyKwh,
       bl: batteryLife(m, s.batteryLife).energyKwh,
-      cost: cost(m, s.cost).energyCost,
+      cost: cost(m, s.cost).energyCost!,
       soh: m.ageing()?.sohPct ?? 0,
     };
   };

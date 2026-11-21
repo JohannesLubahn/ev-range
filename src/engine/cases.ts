@@ -654,7 +654,7 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
   const unitPrice = convert(d.car.energyPrice) ?? ci.energyPrice;
   const purchase = d.priceDisplay.value;
   if (purchase === null) warnings.push('Price missing');
-  const energyCost = unitPrice * energyPerKm * totalKm;
+  const energyCost = unitPrice === null ? null : unitPrice * energyPerKm * totalKm;
   // Insurance, tax, servicing, repairs, tyres and the value at the end (src/engine/costs.ts).
   const own = ownership(
     {
@@ -678,13 +678,17 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
   if (noRate) warnings.push(`No exchange rate for ${d.car.currency}`);
   warnings.push(...own.warnings);
   const u = d.energyUnit;
-  const lines: OwnershipLine[] = [
-    { part: 'energy', label: 'Energy', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} ${u}/km × ${fx(totalKm, 0)} km`, value: energyCost },
-    ...own.lines,
-  ];
+  const energyLine: OwnershipLine =
+    unitPrice === null
+      ? { part: 'energy', label: 'Energy', value: null, missing: ['electricity price'], formula: "missing in the market's data: electricity price (type a value on this page)" }
+      : { part: 'energy', label: 'Energy', formula: `${fx(unitPrice, 2)} ${currency}/${u} × ${fx(energyPerKm, 4)} ${u}/km × ${fx(totalKm, 0)} km`, value: energyCost };
+  const lines: OwnershipLine[] = [energyLine, ...own.lines];
+  const missing = [...(energyLine.missing ?? []), ...own.missing];
+  if (missing.length) warnings.push(`Missing in ${a.marketNames[a.costMarket] ?? a.costMarket}'s cost data: ${missing.join(', ')}. Type values on the Cost of ownership page`);
   const parts = sumParts(lines);
-  const runningCost = parts.filter((p) => p.key !== 'depreciation').reduce((sum, p) => sum + (p.value ?? 0), 0);
-  const tco = purchase === null || own.resale === null ? null : purchase - own.resale + runningCost;
+  const running = parts.filter((p) => p.key !== 'depreciation');
+  const runningCost = running.some((p) => p.value === null) ? null : running.reduce((sum, p) => sum + (p.value ?? 0), 0);
+  const tco = purchase === null || own.resale === null || runningCost === null ? null : purchase - own.resale + runningCost;
   const partSteps = PART_ORDER.filter((k) => k !== 'depreciation').flatMap((k): Step[] => {
     const ls = lines.filter((l) => l.part === k);
     const part = parts.find((p) => p.key === k);
@@ -700,5 +704,5 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
     { label: 'Total cost of ownership', formula: 'purchase − value at the end + running costs', value: tco, unit: currency, kind: 'result' },
     { label: 'Cost per km', formula: `÷ ${fx(totalKm, 0)} km`, value: tco === null ? null : tco / totalKm, unit: `${currency}/km`, kind: 'result' },
   ];
-  return { currency, purchase, resale: own.resale, parts, energyCost, runningCost, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings };
+  return { currency, purchase, resale: own.resale, parts, energyCost, runningCost, tco, costPerKm: tco === null ? null : tco / totalKm, energyPerKm, steps, warnings, missing };
 }

@@ -51,9 +51,10 @@ function decimals(step: number): number {
   return s.includes('.') ? s.length - s.indexOf('.') - 1 : 0;
 }
 
-interface NumberFieldProps extends InputActions<number> {
+interface NumberFieldProps extends InputActions<number | null> {
   label: string;
-  value: number;
+  /** Null = no value yet (a cost value the market's data lacks): the field asks for one. */
+  value: number | null;
   onChange: (v: number) => void;
   unit: string;
   min: number;
@@ -68,19 +69,21 @@ interface NumberFieldProps extends InputActions<number> {
 /** Label + slider + number input + unit, with ↺ / ⇉. The number input accepts any value in [min, max]. */
 export function NumberField({ label, value, onChange, unit, min, max, step = 1, sliderMax, hint, reset, applyAll, spread }: NumberFieldProps) {
   const id = useId();
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+  const show = (v: number | null) => (v === null ? '' : String(v));
+  const [text, setText] = useState(show(value));
+  useEffect(() => setText(show(value)), [value]);
   const commit = (raw: string) => {
     const v = Number(raw.replace(',', '.'));
     if (raw.trim() !== '' && Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-    else setText(String(value));
+    else setText(show(value));
   };
-  const fmt = (v: number | undefined) => `${num(v, decimals(step))}${unit.startsWith('/') || unit === '' ? '' : ' '}${unit}`.trim();
+  const fmt = (v: number | null | undefined) => (v === null ? 'missing' : `${num(v, decimals(step))}${unit.startsWith('/') || unit === '' ? '' : ' '}${unit}`.trim());
   const resetShown = !!reset && (reset.differs ?? reset.value !== value);
-  const standardText = reset?.text ?? fmt(reset?.value);
-  const spreadText = spread && spread.length > 1 ? `${fmt(Math.min(...spread)).replace(` ${unit}`, '')}–${fmt(Math.max(...spread))}` : null;
+  const standardText = reset?.text ?? (reset?.value === null ? "missing in the market's data" : fmt(reset?.value));
+  const nums = (spread ?? []).filter((v): v is number => v !== null);
+  const spreadText = nums.length > 1 ? `${fmt(Math.min(...nums)).replace(` ${unit}`, '')}–${fmt(Math.max(...nums))}` : null;
   return (
-    <div className="field">
+    <div className={`field${value === null ? ' missing' : ''}`}>
       <FieldHead id={id} label={label} current={fmt(value)} standardText={standardText} actions={{ reset, applyAll, resetShown }} />
       <input
         type="range"
@@ -88,7 +91,7 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
         min={min}
         max={sliderMax ?? max}
         step={step}
-        value={Math.min(value, sliderMax ?? max)}
+        value={Math.min(value ?? min, sliderMax ?? max)}
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <input
@@ -98,6 +101,7 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
         min={min}
         max={max}
         step={step}
+        placeholder={value === null ? 'missing' : undefined}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -107,6 +111,7 @@ export function NumberField({ label, value, onChange, unit, min, max, step = 1, 
         onBlur={(e) => commit(e.target.value)}
       />
       <span className="unit">{unit}</span>
+      {value === null && <span className="field-note missing-note">Not in this market&rsquo;s data yet: type a value to include it in the costs.</span>}
       {hint && <span className="field-note faint">{hint}</span>}
       <FieldNote resetShown={resetShown} standardText={standardText} spreadText={spreadText} />
     </div>

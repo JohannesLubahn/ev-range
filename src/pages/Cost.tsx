@@ -17,16 +17,34 @@ import { InputsPanel } from './StressTests';
 const SERIES: StackSeries[] = PART_ORDER.map((key, i) => ({ key, label: PART_LABELS[key], color: `var(--series-${i + 1})` }));
 const COLOR: Record<CostPartKey, string> = Object.fromEntries(SERIES.map((s) => [s.key, s.color])) as Record<CostPartKey, string>;
 
-/** A collapsible group of inputs; the summary line shows the main values and whether any differs from the standard. */
-function Group({ title, summary, keys, open, children }: { title: string; summary: string; keys: (keyof CostInputs)[]; open?: boolean; children: ReactNode }) {
+/**
+ * A collapsible group of inputs; the summary line shows the main values and whether any differs from the standard.
+ * A group with a value the market's data lacks (`gap`) starts open and says so.
+ */
+function Group({
+  title,
+  summary,
+  keys,
+  open,
+  gap,
+  children,
+}: {
+  title: string;
+  summary: string;
+  keys: (keyof CostInputs)[];
+  open?: boolean;
+  gap?: (k: keyof CostInputs) => boolean;
+  children: ReactNode;
+}) {
   const { scenario, standard } = useEngine();
   const changed = keys.some((k) => scenario.cost[k] !== standard.cost[k]);
+  const missing = !!gap && keys.some(gap);
   return (
-    <details className="input-group" open={open}>
+    <details className="input-group" open={open || missing}>
       <summary>
         <span className="input-group-title">{title}</span>
         <span className="faint input-group-summary">{summary}</span>
-        {changed && <span className="chip">changed</span>}
+        {missing ? <span className="chip warn">missing</span> : changed && <span className="chip">changed</span>}
       </summary>
       <div className="fields">{children}</div>
     </details>
@@ -50,6 +68,9 @@ export function CostPage() {
     .filter((id) => out.results[id].cost.tco !== null)
     .sort((x, y) => (out.results[x].cost.costPerKm ?? 0) - (out.results[y].cost.costPerKm ?? 0));
   const missing = ids.filter((id) => out.results[id].cost.tco === null);
+  const noPrice = missing.filter((id) => out.results[id].cost.purchase === null);
+  /** Values the market's data lacks that the ticked cars need (each named once). */
+  const gapItems = [...new Set(ids.flatMap((id) => out.results[id].cost.missing))];
   const name = (id: string) => derivedById[id].car.name;
   const part = (id: string, key: CostPartKey) => out.results[id].cost.parts.find((p) => p.key === key)?.value ?? null;
 
@@ -81,6 +102,11 @@ export function CostPage() {
   /** "3 % of the value", or with a petrol car ticked "3 / 2.5 % of the value (electric / petrol)". */
   const ev = (bev: string, ice: string, rest: string) => (anyIce ? `${bev} / ${ice}${rest} (electric / petrol)` : `${bev}${rest}`);
   const refKg = mc.value('tyre_reference_kg', 'BEV');
+  /** The market has no road-tax table for a ticked car's powertrain: the user types the road tax instead. */
+  const taxGap = ids.some((id) => !mc.roadTax.some((r) => r.powertrain === (derivedById[id].isIce ? 'ICE' : 'BEV') && r.basis !== 'age_years'));
+  /** An input shown on the page whose value the market's data lacks (and the user has not typed). */
+  const gap = (k: keyof CostInputs) =>
+    c[k] === null && (k.endsWith('Ice') ? anyIce : k === 'tyreSetPremium' ? anyPremium : k === 'roadTaxPerYear' ? taxGap : true);
 
   return (
     <div className="stack">
@@ -101,7 +127,7 @@ export function CostPage() {
         <div className="stack">
           <InputsPanel test="cost" title="Inputs" question={COST_CASE.question}>
             <div className="input-groups">
-              <Group
+              <Group gap={gap}
                 title="Use"
                 summary={`${num(c.years, 0)} years × ${compact(c.kmPerYear)} km${c.ascentPer100Km > 0 ? ` · hills ${num(c.ascentPer100Km, 0)} m/100 km` : ''}`}
                 keys={['years', 'kmPerYear', 'speedKmh', 'profile', 'cabinC', 'ascentPer100Km', 'slopePct']}
@@ -116,7 +142,7 @@ export function CostPage() {
                   Years, distance, driving and hills start as on the <a href="#battery-life">Battery life</a> page; ⇉ copies a value there.
                 </p>
               </Group>
-              <Group title="Energy" summary={`${num(c.energyPrice, 2)} ${cur}/kWh`} keys={['energyPrice']} open>
+              <Group gap={gap} title="Energy" summary={`${num(c.energyPrice, 2)} ${cur}/kWh`} keys={['energyPrice']} open>
                 <NumberField
                   label={`Electricity price (${cur})`}
                   unit="/kWh"
@@ -124,56 +150,71 @@ export function CostPage() {
                   max={40}
                   step={0.1}
                   hint={mc.market === 'TH' ? 'Standard: public DC chargers (5.3–9.5 THB/kWh). Charging at home: about 4.2, off-peak (TOU) about 2.6 THB/kWh.' : undefined}
-                  {...trip<number>('energyPrice')}
+                  {...trip<number | null>('energyPrice')}
                 />
                 {anyIce && <p className="faint">Petrol cars use their own price per litre from cars.csv.</p>}
               </Group>
-              <Group
+              <Group gap={gap}
                 title="Insurance & tax"
                 summary={ev(num(c.insuranceRateBev, 1), num(c.insuranceRateIce, 1), ' % of the value')}
-                keys={['insuranceRateBev', 'insuranceRateIce', 'insuranceMin', 'compulsoryInsurance']}
+                keys={['insuranceRateBev', 'insuranceRateIce', 'insuranceMin', 'compulsoryInsurance', 'roadTaxPerYear']}
               >
-                <NumberField label={anyIce ? 'Voluntary insurance, electric' : 'Voluntary insurance (class 1)'} unit="%" min={0} max={20} sliderMax={8} step={0.1} {...trip<number>('insuranceRateBev')} />
-                {anyIce && <NumberField label="Voluntary insurance, petrol" unit="%" min={0} max={20} sliderMax={8} step={0.1} {...trip<number>('insuranceRateIce')} />}
-                <NumberField label={`Lowest premium (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={30000} step={500} {...trip<number>('insuranceMin')} />
-                <NumberField label={`Compulsory insurance (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={5000} step={0.01} {...trip<number>('compulsoryInsurance')} />
+                <NumberField label={anyIce ? 'Voluntary insurance, electric' : 'Voluntary insurance (class 1)'} unit="%" min={0} max={20} sliderMax={8} step={0.1} {...trip<number | null>('insuranceRateBev')} />
+                {anyIce && <NumberField label="Voluntary insurance, petrol" unit="%" min={0} max={20} sliderMax={8} step={0.1} {...trip<number | null>('insuranceRateIce')} />}
+                <NumberField label={`Lowest premium (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={30000} step={500} {...trip<number | null>('insuranceMin')} />
+                <NumberField label={`Compulsory insurance (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={5000} step={0.01} {...trip<number | null>('compulsoryInsurance')} />
+                {taxGap && <NumberField label={`Road tax (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={5000} step={10} {...trip<number | null>('roadTaxPerYear')} />}
                 <p className="faint">
                   Voluntary insurance: % of the car&rsquo;s value at the start of each year, so it falls as the car loses value, down to the lowest
-                  premium. Road tax follows from the car&rsquo;s weight (petrol cars: engine size), see{' '}
-                  <a href="#assumptions" onClick={() => setTimeout(() => document.getElementById('road-tax')?.scrollIntoView(), 50)}>
-                    Assumptions
-                  </a>
-                  .
+                  premium.{' '}
+                  {taxGap ? (
+                    <>The market has no road-tax table yet: the road tax you type applies to every car.</>
+                  ) : (
+                    <>
+                      Road tax follows from the car&rsquo;s weight (petrol cars: engine size), see{' '}
+                      <a href="#assumptions" onClick={() => setTimeout(() => document.getElementById('road-tax')?.scrollIntoView(), 50)}>
+                        Assumptions
+                      </a>
+                      .
+                    </>
+                  )}
                 </p>
               </Group>
-              <Group
+              <Group gap={gap}
                 title="Servicing & repairs"
                 summary={ev(num(c.servicingBev, 0), num(c.servicingIce, 0), ` ${cur}/year`)}
                 keys={['servicingBev', 'servicingIce', 'repairsPct', 'warrantyYears', 'battery12vPrice', 'battery12vYears']}
               >
-                <NumberField label={`Servicing${anyIce ? ', electric' : ''} (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={50000} step={100} {...trip<number>('servicingBev')} />
-                {anyIce && <NumberField label={`Servicing, petrol (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={50000} step={100} {...trip<number>('servicingIce')} />}
-                <NumberField label="Repairs after the warranty" unit="%/yr" min={0} max={20} sliderMax={5} step={0.1} {...trip<number>('repairsPct')} />
-                <NumberField label="Warranty" unit="years" min={0} max={40} sliderMax={15} {...trip<number>('warrantyYears')} />
-                <NumberField label={`12 V battery (${cur})`} unit="" min={0} max={1_000_000} sliderMax={15000} step={100} {...trip<number>('battery12vPrice')} />
-                <NumberField label="12 V battery lasts" unit="years" min={1} max={20} sliderMax={10} {...trip<number>('battery12vYears')} />
+                <NumberField label={`Servicing${anyIce ? ', electric' : ''} (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={50000} step={100} {...trip<number | null>('servicingBev')} />
+                {anyIce && <NumberField label={`Servicing, petrol (${cur})`} unit="/year" min={0} max={1_000_000} sliderMax={50000} step={100} {...trip<number | null>('servicingIce')} />}
+                <NumberField label="Repairs after the warranty" unit="%/yr" min={0} max={20} sliderMax={5} step={0.1} {...trip<number | null>('repairsPct')} />
+                <NumberField label="Warranty" unit="years" min={0} max={40} sliderMax={15} {...trip<number | null>('warrantyYears')} />
+                <NumberField label={`12 V battery (${cur})`} unit="" min={0} max={1_000_000} sliderMax={15000} step={100} {...trip<number | null>('battery12vPrice')} />
+                <NumberField label="12 V battery lasts" unit="years" min={1} max={20} sliderMax={10} {...trip<number | null>('battery12vYears')} />
                 <p className="faint">Repairs: % of the purchase price each year after the warranty. Cars with their own servicing cost in cars.csv keep it.</p>
               </Group>
-              <Group title="Tyres" summary={`${compact(c.tyreSetRegular)} ${cur} per ${compact(c.tyreLifeKm)} km`} keys={['tyreSetRegular', 'tyreSetPremium', 'tyreLifeKm']}>
-                <NumberField label={`Set of 4${anyPremium ? ', regular car' : ''} (${cur})`} unit="" min={0} max={10_000_000} sliderMax={80000} step={500} {...trip<number>('tyreSetRegular')} />
-                {anyPremium && <NumberField label={`Set of 4, premium car (${cur})`} unit="" min={0} max={10_000_000} sliderMax={80000} step={500} {...trip<number>('tyreSetPremium')} />}
-                <NumberField label="Tyre life" unit="km" min={5000} max={200000} sliderMax={100000} step={1000} {...trip<number>('tyreLifeKm')} />
-                <p className="faint">
-                  The life applies at {num(refKg, 0)} kg; wear grows with the mass on the tyres, so a car of {num(refKg * 1.3, 0)} kg (car + load) gets
-                  {` ${num(100 / 1.3, 0)}`} % of it.
-                </p>
+              <Group gap={gap} title="Tyres" summary={`${compact(c.tyreSetRegular)} ${cur} per ${compact(c.tyreLifeKm)} km`} keys={['tyreSetRegular', 'tyreSetPremium', 'tyreLifeKm']}>
+                <NumberField label={`Set of 4${anyPremium ? ', regular car' : ''} (${cur})`} unit="" min={0} max={10_000_000} sliderMax={80000} step={500} {...trip<number | null>('tyreSetRegular')} />
+                {anyPremium && <NumberField label={`Set of 4, premium car (${cur})`} unit="" min={0} max={10_000_000} sliderMax={80000} step={500} {...trip<number | null>('tyreSetPremium')} />}
+                <NumberField label="Tyre life" unit="km" min={5000} max={200000} sliderMax={100000} step={1000} {...trip<number | null>('tyreLifeKm')} />
+                {refKg !== null && (
+                  <p className="faint">
+                    The life applies at {num(refKg, 0)} kg; wear grows with the mass on the tyres, so a car of {num(refKg * 1.3, 0)} kg (car + load) gets
+                    {` ${num(100 / 1.3, 0)}`} % of it.
+                  </p>
+                )}
               </Group>
-              <Group title="Value" summary={`−${ev(num(c.depreciationBev, 1), num(c.depreciationIce, 1), ' % per year')}`} keys={['depreciationBev', 'depreciationIce']}>
-                <NumberField label={`Loss of value${anyIce ? ', electric' : ''}`} unit="%/yr" min={0} max={50} sliderMax={25} step={0.1} {...trip<number>('depreciationBev')} />
-                {anyIce && <NumberField label="Loss of value, petrol" unit="%/yr" min={0} max={50} sliderMax={25} step={0.1} {...trip<number>('depreciationIce')} />}
+              <Group
+                gap={gap}
+                title="Value"
+                summary={c.depreciationBev === null ? '' : `−${ev(num(c.depreciationBev, 1), num(c.depreciationIce, 1), ' % per year')}`}
+                keys={['depreciationBev', 'depreciationIce']}
+              >
+                <NumberField label={`Loss of value${anyIce ? ', electric' : ''}`} unit="%/yr" min={0} max={50} sliderMax={25} step={0.1} {...trip<number | null>('depreciationBev')} />
+                {anyIce && <NumberField label="Loss of value, petrol" unit="%/yr" min={0} max={50} sliderMax={25} step={0.1} {...trip<number | null>('depreciationIce')} />}
                 <p className="faint">
-                  The car loses this % of its value each year; what is left at the end is the resale value. After {num(c.years, 0)} years an electric car
-                  keeps {num(100 * Math.pow(1 - c.depreciationBev / 100, c.years), 0)} % of its price.
+                  The car loses this % of its value each year; what is left at the end is the resale value.
+                  {c.depreciationBev !== null && ` After ${num(c.years, 0)} years an electric car keeps ${num(100 * Math.pow(1 - c.depreciationBev / 100, c.years), 0)} % of its price.`}
                 </p>
               </Group>
             </div>
@@ -186,7 +227,13 @@ export function CostPage() {
           ) : (
             <>
               <StackedRows rows={rows} series={SERIES} />
-              {missing.length > 0 && <p className="faint">No price in cars.csv: {missing.map(name).join(', ')}</p>}
+              {gapItems.length > 0 && (
+                <p className="notice">
+                  {a.marketNames[mc.market] ?? mc.market}&rsquo;s cost data lacks: {gapItems.join(', ')}. Type values in the inputs marked
+                  &ldquo;missing&rdquo; to get totals; the market does not borrow another market&rsquo;s values.
+                </p>
+              )}
+              {noPrice.length > 0 && <p className="faint">No price in cars.csv: {noPrice.map(name).join(', ')}</p>}
               <p className="faint">
                 Totals over {num(c.years, 0)} years and {compact(c.years * c.kmPerYear)} km in {cur}: purchase − value at the end + running costs. The
                 bar ends show the cost per km.
