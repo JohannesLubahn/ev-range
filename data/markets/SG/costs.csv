@@ -1,0 +1,15 @@
+item,powertrain,value,unit,why,source
+electricity_price,all,0.8,SGD/kWh,"Judgement within operator DC fast-charging rates checked in Sep 2026: Charge+ 0.75, CDG 0.76, Shell 0.86, SP 0.89 (range 0.65–0.89; GST inclusion not stated). Home tariff 0.31/kWh incl. GST (SP Group, Q4 2026)",
+compulsory_insurance,all,0,SGD/year,"Judgement: third-party cover is part of the comprehensive premium, so no separate premium is counted",
+insurance_rate_pct,BEV,1.5,% of the car's value per year,Judgement: the petrol rate plus the 15–20 % surcharge on electric cars quoted by SingSaver; no electric-car quote with a car value was found. The car's value includes the COE,
+insurance_rate_pct,ICE,1.3,% of the car's value per year,"Derived from Motorist.sg case quotes: Toyota Vios 1.12 %, Honda Civic 1.32 %, BMW 318i 1.33 % of the car's value",motorist-sg-new-cars
+servicing_per_year,BEV,500,SGD/year,"Judgement from a blog or maker figure (not re-confirmed): blog-level figure for an electric car at 15,000 km a year; BYD gives free servicing with some new cars",
+servicing_per_year,ICE,900,SGD/year,"Judgement from a blog or maker figure (not re-confirmed): blog-level figure for a petrol car at 15,000 km a year",
+tyre_set_regular,all,800,SGD per 4 tyres,Judgement from SingSaver tyre price ranges (fitted),
+tyre_set_premium,all,1200,SGD per 4 tyres,Judgement from SingSaver ranges for large wheels (fitted),
+warranty_years,BEV,6,years,Judgement from a blog or maker figure (not re-confirmed): bYD Singapore: 6 years vehicle (10-year battery warranty); promotion-linked,
+warranty_years,ICE,5,years,"Judgement from a blog or maker figure (not re-confirmed): honda Singapore: 60 months (36 months / 100,000 km from the factory plus the distributor's years 4–5)",
+battery_12v_price,all,250,SGD,Judgement: a 12 V battery fitted,
+battery_12v_years,all,4,years,Judgement: a 12 V battery lasts about 4 years,
+depreciation_pct,BEV,15,% per year,"Judgement: a Singapore car loses value mainly as its COE runs out (10 years), about 9.7 % of the price per year in a straight line (the 2026 PARF rebate is only about 3 % of the price). The model takes a % of the remaining value each year, so 15 % a year is used as a compromise: about 20 % of the price is left after 10 years (a straight line would leave about 3 %), but the early years are not overstated as much as with the 30 % that matches the 10-year end value",
+depreciation_pct,ICE,15,% per year,"Judgement: as for electric cars (COE-driven, same for both powertrains)",

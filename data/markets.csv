@@ -2,3 +2,5 @@ id,name,parent,currency,traffic,description,source
 TH,Thailand,WORLD,THB,left,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/markets/TH/",
 DE,Germany,EU,EUR,right,"List prices in EUR including 19 % VAT, before any purchase subsidy; running costs (electricity, insurance, Kfz-Steuer, servicing, tyres, resale) in data/markets/DE/",
 MY,Malaysia,WORLD,MYR,left,"Prices in MYR, on-the-road without insurance (Peninsular Malaysia); running costs in data/markets/MY/. The 15 electric cars are the most registered in Oct 2026 (JPJ via paultan)",paultan-my-ev-ranking
+ID,Indonesia,WORLD,IDR,left,"Prices in IDR, on-the-road list prices for Jakarta; running costs in data/markets/ID/. The 15 electric cars are the most sold by Gaikindo wholesales Jan–Aug 2026",detik-gaikindo-bev-2026
+SG,Singapore,WORLD,SGD,left,"Prices in SGD with COE as dealers list them; running costs in data/markets/SG/. Candidate list from brand registrations and the model lineup, not a model-level ranking (none is public). Fewer than 15 electric cars: others lacked sourced prices or plausible specs",motormetrics-sg-2026
