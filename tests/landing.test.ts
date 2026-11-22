@@ -20,12 +20,19 @@ const run = (patch: Partial<typeof DEFAULT_SLIDERS>, r = route) => landingTrip(c
 describe('landing scenario', () => {
   it('uses the user\'s defaults', () => {
     const c = landingConditions(DEFAULT_SLIDERS, route);
-    expect(c).toMatchObject({ airTemperatureC: 22, tyrePressurePct: 100, payloadKg: 120, drivingStylePct: 100, batteryKm: 0, thermalMode: 'managed', altitudeM: 400 });
+    expect(c).toMatchObject({ airTemperatureC: 22, tyrePressurePct: 100, payloadKg: 200, drivingStylePct: 100, batteryKm: 0, thermalMode: 'managed', altitudeM: 400 });
     expect(TEMPERATURE_STEPS.map((s) => s.value)).toEqual([-20, 0, 22, 30, 40]);
     expect(SUN_STEPS.map((s) => s.value)).toEqual([1100, 800, 500, 0]);
     expect(LOAD_STEPS.map((s) => s.value)).toEqual([120, 200, 500]);
     expect(TYRE_STEPS.map((s) => s.value)).toEqual([100, 80]);
     expect(STYLE_STEPS.map((s) => s.value)).toEqual([65, 100, 170]);
+  });
+  it('names the load and the tyres in words, with Normal and Good as the defaults', () => {
+    expect(LOAD_STEPS.map((s) => s.label)).toEqual(['Minimal', 'Normal', 'Packed']);
+    expect(TYRE_STEPS.map((s) => s.label)).toEqual(['Good', 'Bad']);
+    expect(LOAD_STEPS[DEFAULT_SLIDERS.load].label).toBe('Normal');
+    expect(TYRE_STEPS[DEFAULT_SLIDERS.tyres].label).toBe('Good');
+    for (const s of [...LOAD_STEPS, ...TYRE_STEPS]) expect(s.label).not.toMatch(/\d/);
   });
   it('takes the trip from the route', () => {
     expect(landingTripInputs(route)).toMatchObject({ distanceKm: 600, climbM: 300, ascentM: 900, slopePct: 4, profile: 'mixed', cabinC: 22 });

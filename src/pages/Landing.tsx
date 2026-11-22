@@ -12,6 +12,28 @@ import { lookupRoute, RouteError } from '../route/route';
 import { useEngine } from '../state/engine';
 import { useStore, type LandingState } from '../state/store';
 
+/** The links of a car's `source_url` (several, separated by ";"), each with the site's name as its text. */
+function sourceHosts(text: string | undefined): { url: string; host: string }[] {
+  return (text ?? '')
+    .split(/\s*;\s*|\s+/)
+    .filter((u) => /^https?:\/\//.test(u))
+    .map((url) => ({ url, host: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0] }));
+}
+function SourceLinks({ urls }: { urls: { url: string; host: string }[] }) {
+  return (
+    <>
+      {urls.map((u, i) => (
+        <span key={u.url}>
+          {i > 0 && ' · '}
+          <a href={u.url} target="_blank" rel="noreferrer">
+            {u.host}
+          </a>
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Fun-sized mode: market, one car, a route, five sliders and the long-trip result. Its own state (`landing`). */
 export function LandingPage() {
   const { ds, baseAssumptions } = useEngine();
@@ -168,7 +190,18 @@ export function LandingPage() {
       <div className="landing-result">
         {result ?? <p className="muted landing-hint">Type a start and a destination and press “Get route” to see the driving and charging time.</p>}
         <p className="landing-credit faint">
-          Map data © OpenStreetMap contributors · Routing: OSRM (FOSSGIS) · Elevation: Copernicus DEM via Open-Meteo. Starts at 95 %, new battery, charging 20 → 90 %, mixed roads, 22 °C inside.
+          <b>Calculation based on real physics:</b> air drag, rolling resistance, hills, battery chemistry and cabin heating, calibrated to each car’s rated range. Starts at 95 %, new battery, charging 20 → 90 %, mixed
+          roads, 22 °C inside.
+        </p>
+        <p className="landing-credit faint">
+          <b>Car data:</b> published specifications (rated range, battery size, weight, charging) from the makers, dealers and EV Database
+          {car && sourceHosts(car.car.raw.source_url).length > 0 && (
+            <>
+              {' '}
+              — for the {car.car.name}: <SourceLinks urls={sourceHosts(car.car.raw.source_url)} />
+            </>
+          )}
+          . <b>Route:</b> map data © OpenStreetMap contributors · routing: OSRM (FOSSGIS) · elevation: Copernicus DEM via Open-Meteo.
         </p>
       </div>
     </div>

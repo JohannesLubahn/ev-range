@@ -17,23 +17,30 @@ export const TEMPERATURE_STEPS: Step[] = [
   { value: 30, label: 'Hot' },
   { value: 40, label: 'Very hot' },
 ];
-/** Sunshine on the car (W/m²): user's steps, from the sun with long rays to the moon. Default: judgement. */
+/**
+ * Sunshine on the car (W/m²): user's steps, from the sun with long rays to the moon. Default: judgement. The steps are
+ * stored from the sunniest to the moon; the slider runs the other way (the sunniest at its right end, the user's
+ * choice 2026-11-22), so a saved index keeps its meaning (`reversed` in Scene.tsx).
+ */
 export const SUN_STEPS: Step[] = [
   { value: 1100, label: 'Blazing sun' },
   { value: 800, label: 'Sunny' },
   { value: 500, label: 'Cloudy' },
   { value: 0, label: 'Night' },
 ];
-/** Tyre pressure as % of the recommended pressure: user's two steps. */
+/** Tyre pressure as % of the recommended pressure: user's two steps, shown as Good (100 %) and Bad (80 %), no numbers. */
 export const TYRE_STEPS: Step[] = [
-  { value: 100, label: 'Inflated' },
-  { value: 80, label: 'Soft' },
+  { value: 100, label: 'Good' },
+  { value: 80, label: 'Bad' },
 ];
-/** Load in the car (kg): user's steps: one driver, two people, a full family car. */
+/**
+ * Load in the car (kg): user's steps 120 / 200 / 500, shown as Minimal (one driver), Normal (driver and passenger,
+ * the default) and Packed (family, baby and luggage), no kg numbers.
+ */
 export const LOAD_STEPS: Step[] = [
-  { value: 120, label: 'Just me' },
-  { value: 200, label: 'Two people' },
-  { value: 500, label: 'Family + luggage' },
+  { value: 120, label: 'Minimal' },
+  { value: 200, label: 'Normal' },
+  { value: 500, label: 'Packed' },
 ];
 /** Driving style (% of the WLTP accelerations): the existing presets Gentle 65 / Normal 100 / Sporty 170. */
 export const STYLE_STEPS: Step[] = [
@@ -55,7 +62,7 @@ export const DEFAULT_SLIDERS: LandingSliders = {
   temperature: 2, // 22 °C: user
   sun: 1, // 800 W/m²: judgement (the Long trip standard's value)
   tyres: 0, // 100 %: user
-  load: 0, // 120 kg: user
+  load: 1, // Normal, 200 kg: user (2026-11-22)
   style: 1, // Normal: user
 };
 

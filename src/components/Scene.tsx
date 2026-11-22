@@ -165,14 +165,17 @@ function Car({ sliders, driverRight }: { sliders: LandingSliders; driverRight: b
   const driverX = driverRight ? 282 : 198;
   const otherX = driverRight ? 198 : 282;
   const night = SUN_STEPS[sliders.sun].value === 0;
+  // A good tyre is a plain rounded block. A bad (80 % inflated) one keeps its width on top and only bulges out at the
+  // bottom, where it is squashed flat against the road; the car sits a little lower on it.
   const tyre = (x: number) => (
-    <rect
-      className={`car-tyre${soft ? ' soft' : ''}`}
-      x={x}
-      y="246"
-      width="64"
-      height="82"
-      rx="18"
+    <path
+      className="car-tyre"
+      transform={`translate(${x} 246)`}
+      d={
+        soft
+          ? 'M18 0H46Q64 0 64 18V36C64 54 80 60 80 73Q80 82 70 82H-6Q-16 82 -16 73C-16 60 0 54 0 36V18Q0 0 18 0Z'
+          : 'M18 0H46Q64 0 64 18V64Q64 82 46 82H18Q0 82 0 64V18Q0 0 18 0Z'
+      }
       fill="var(--car-tyre)"
     />
   );
@@ -191,7 +194,7 @@ function Car({ sliders, driverRight }: { sliders: LandingSliders; driverRight: b
       {tyre(76)}
       {tyre(340)}
       <g className="car-body">
-        <g className="car-load" style={{ transform: `translateY(${load === 2 ? 7 : 0}px)` }}>
+        <g className="car-load" style={{ transform: `translateY(${(load === 2 ? 7 : 0) + (soft ? 6 : 0)}px)` }}>
           {/* Roof luggage of the full car */}
           {load === 2 && (
             <g>
@@ -290,6 +293,7 @@ function SceneSlider({
   onChange,
   icon,
   valueText,
+  reversed = false,
 }: {
   className: string;
   name: string;
@@ -298,8 +302,12 @@ function SceneSlider({
   onChange: (i: number) => void;
   icon: ReactNode;
   valueText: string;
+  /** The first step sits at the right end of the slider (the saved index stays the step's index). */
+  reversed?: boolean;
 }) {
   const id = useId();
+  const last = steps.length - 1;
+  const pos = (i: number) => (reversed ? last - i : i);
   return (
     <div className={`scene-ctl ${className}`}>
       <label htmlFor={id} className="scene-ctl-head">
@@ -307,7 +315,7 @@ function SceneSlider({
         <span className="scene-ctl-name">{name}</span>
         <b className="scene-ctl-value">{valueText}</b>
       </label>
-      <input id={id} type="range" min={0} max={steps.length - 1} step={1} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-valuetext={valueText} />
+      <input id={id} type="range" min={0} max={last} step={1} value={pos(value)} onChange={(e) => onChange(pos(Number(e.target.value)))} aria-valuetext={valueText} />
     </div>
   );
 }
@@ -334,10 +342,10 @@ export function Scene({ sliders, onSlider, driverRight }: { sliders: LandingSlid
         </g>
       </svg>
       <SceneSlider className="ctl-temp" name="Weather" steps={TEMPERATURE_STEPS} value={sliders.temperature} onChange={(i) => onSlider('temperature', i)} icon={<ThermoIcon />} valueText={TEMPERATURE_STEPS[sliders.temperature].label} />
-      <SceneSlider className="ctl-sun" name="Sun" steps={SUN_STEPS} value={sliders.sun} onChange={(i) => onSlider('sun', i)} icon={<SunIcon />} valueText={SUN_STEPS[sliders.sun].label} />
+      <SceneSlider className="ctl-sun" name="Sun" steps={SUN_STEPS} value={sliders.sun} onChange={(i) => onSlider('sun', i)} icon={<SunIcon />} valueText={SUN_STEPS[sliders.sun].label} reversed />
       <SceneSlider className={`ctl-style ctl-${styleSide}`} name="Driving" steps={STYLE_STEPS} value={sliders.style} onChange={(i) => onSlider('style', i)} icon={<WheelIcon />} valueText={STYLE_STEPS[sliders.style].label} />
-      <SceneSlider className={`ctl-load ctl-${loadSide}`} name="Load" steps={LOAD_STEPS} value={sliders.load} onChange={(i) => onSlider('load', i)} icon={<WeightIcon />} valueText={`${LOAD_STEPS[sliders.load].value} kg`} />
-      <SceneSlider className="ctl-tyres" name="Tyres" steps={TYRE_STEPS} value={sliders.tyres} onChange={(i) => onSlider('tyres', i)} icon={<TyreIcon />} valueText={`${TYRE_STEPS[sliders.tyres].value} % inflated`} />
+      <SceneSlider className={`ctl-load ctl-${loadSide}`} name="Load" steps={LOAD_STEPS} value={sliders.load} onChange={(i) => onSlider('load', i)} icon={<WeightIcon />} valueText={LOAD_STEPS[sliders.load].label} />
+      <SceneSlider className="ctl-tyres" name="Tyres" steps={TYRE_STEPS} value={sliders.tyres} onChange={(i) => onSlider('tyres', i)} icon={<TyreIcon />} valueText={TYRE_STEPS[sliders.tyres].label} />
     </div>
   );
 }

@@ -518,9 +518,9 @@ five sliders; the rest is fixed.
 | Input | Values | Origin |
 |---|---|---|
 | Air temperature | −20 / 0 / **22** / 30 / 40 °C | the user's steps |
-| Sun | 1100 / **800** / 500 / 0 W/m² | steps: the user's; default 800: judgement |
-| Tyre pressure | **100** / 80 % of recommended | the user's |
-| Load | **120** / 200 / 500 kg | the user's |
+| Sun | 1100 / **800** / 500 / 0 W/m² (the sunniest at the slider's right end) | steps: the user's; default 800: judgement |
+| Tyre pressure | **Good** (100 %) / Bad (80 % of recommended) | the user's |
+| Load | Minimal 120 / **Normal 200** / Packed 500 kg (words, no numbers on the slider) | the user's |
 | Driving style | 65 / **100** / 170 % (Gentle / Normal / Sporty) | the user's (the existing presets) |
 | Start charge, cabin, battery | 95 %, 22 °C, managed, new (0 km) | the user's |
 | Driving profile | Mixed (the WLTP at its own speeds) | the user's |
