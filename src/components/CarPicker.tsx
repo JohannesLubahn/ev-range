@@ -3,7 +3,6 @@ import type { DerivedCar } from '../engine/derive';
 import { marketCostInputs } from '../engine/inputs';
 import { compact } from '../format';
 import {
-  ALL_MARKETS,
   EMPTY_FILTERS,
   filterOptions,
   hasFilters,
@@ -154,7 +153,6 @@ export function CarPickerContent() {
                 {m.name} ({m.currency})
               </option>
             ))}
-            <option value={ALL_MARKETS}>All markets (in {assumptionsFor(ALL_MARKETS).displayCurrency})</option>
           </select>
           <label htmlFor="list-sort" className="muted">
             Sort
@@ -313,7 +311,7 @@ export function CarsButton() {
   const setOpen = useStore((s) => s.setPickerOpen);
   return (
     <button type="button" className="btn" onClick={() => setOpen(true)} aria-haspopup="dialog">
-      Cars · <span className="num">{selectedIds.length}</span> · {market ? market.name : 'All markets'}
+      Cars · <span className="num">{selectedIds.length}</span> · {market?.name}
     </button>
   );
 }

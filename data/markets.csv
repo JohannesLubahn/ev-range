@@ -1,3 +1,3 @@
-id,name,parent,currency,description,source
-TH,Thailand,WORLD,THB,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/markets/TH/",
-DE,Germany,EU,EUR,"List prices in EUR including 19 % VAT, before any purchase subsidy; running costs (electricity, insurance, Kfz-Steuer, servicing, tyres, resale) in data/markets/DE/",
+id,name,parent,currency,traffic,description,source
+TH,Thailand,WORLD,THB,left,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/markets/TH/",
+DE,Germany,EU,EUR,right,"List prices in EUR including 19 % VAT, before any purchase subsidy; running costs (electricity, insurance, Kfz-Steuer, servicing, tyres, resale) in data/markets/DE/",

@@ -354,6 +354,7 @@ export function parseMarkets(text: string, warnings: string[]): Market[] {
       name: r.name || id,
       parent: (r.parent ?? '').trim().toUpperCase() || null,
       currency: (r.currency || 'THB').toUpperCase(),
+      traffic: (r.traffic ?? '').trim().toLowerCase() === 'left' ? 'left' : 'right',
       description: r.description ?? '',
       source: r.source ?? '',
     });
@@ -459,7 +460,7 @@ export function parseDataset(files: RawFiles): Dataset {
   }
 
   for (const c of cars) {
-    if (c.market && !marketIds.has(c.market)) warnings.push(`cars.csv, ${c.name}: market "${c.market}" is not in markets.csv (listed only under All markets)`);
+    if (c.market && !marketIds.has(c.market)) warnings.push(`cars.csv, ${c.name}: market "${c.market}" is not in markets.csv (not listed)`);
   }
 
   const bodyTypes: Record<string, BodyType> = {};

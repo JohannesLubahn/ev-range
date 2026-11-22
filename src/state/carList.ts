@@ -3,8 +3,8 @@ import { parseNumber } from '../data/parse';
 import type { DerivedCar } from '../engine/derive';
 import { compact } from '../format';
 
-/** Market id that lists every car, whatever its market. */
-export const ALL_MARKETS = 'all';
+/** The market shown when none is saved (or a saved one no longer exists). */
+export const DEFAULT_MARKET = 'TH';
 
 export interface Filters {
   search: string;
@@ -66,7 +66,7 @@ export const LIST_GROUPS: { id: ListGroupKey; label: string }[] = [
 ];
 
 export function inMarket(d: DerivedCar, market: string): boolean {
-  return market === ALL_MARKETS || d.car.market === market;
+  return d.car.market === market;
 }
 
 export function chemistryOf(d: DerivedCar): string {

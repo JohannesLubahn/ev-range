@@ -124,7 +124,7 @@ interface SharedState {
   selectedIds: string[] | null;
   assumptionOverrides: AssumptionOverrides;
   fxOverrides: Record<string, number>;
-  /** Market id from data/markets.csv, 'all' for every car; null = the first market of markets.csv. */
+  /** Market id from data/markets.csv, null = the default market (Thailand). A saved 'all' (removed option) also means that. */
   market?: string | null;
 }
 

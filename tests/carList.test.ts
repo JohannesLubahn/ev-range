@@ -9,7 +9,6 @@ import { marketCostInputs } from '../src/engine/inputs';
 import { runEngine } from '../src/engine/run';
 import { spreadsheetScenario } from '../src/engine/scenario';
 import {
-  ALL_MARKETS,
   EMPTY_FILTERS,
   filterOptions,
   listCars,
@@ -74,14 +73,14 @@ describe('data/markets.csv and the market', () => {
     const dEu = deriveAll(ds, fr).find((d) => d.car.id === 'hyundai-inster')!;
     expect(dEu.priceDisplay.value).toBe(24650);
   });
-  it('lists only the cars of the market; All markets lists every car', () => {
+  it('lists only the cars of the market; an unknown market lists none', () => {
     const shown = shownIds(derived, 'TH', EMPTY_FILTERS);
     expect(shown).not.toContain('hyundai-inster');
     expect(shown).toContain('byd-atto-3');
     const de = shownIds(derived, 'DE', EMPTY_FILTERS);
     expect(de).toContain('hyundai-inster');
     expect(de).not.toContain('byd-atto-3');
-    expect(shownIds(derived, ALL_MARKETS, EMPTY_FILTERS)).toHaveLength(ds.cars.length);
+    expect(shownIds(derived, 'all', EMPTY_FILTERS)).toHaveLength(0); // the removed All markets option lists nothing
     expect(byId('hyundai-inster').flags.some((f) => f.field === 'market')).toBe(false);
     const loose = deriveAll(parseDataset({ ...bundledFiles, cars: PER_MARKET }), a).find((d) => d.car.id === 'no-market')!;
     expect(loose.flags.some((f) => f.field === 'market')).toBe(true);

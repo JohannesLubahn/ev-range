@@ -10,7 +10,6 @@ import { BatteryCyclesTable } from '../components/BatteryCycles';
 import { ProfileTable } from '../components/Driving';
 import { TerrainTable } from '../components/Terrain';
 import { num } from '../format';
-import { ALL_MARKETS } from '../state/carList';
 import { useEngine } from '../state/engine';
 import { useStore } from '../state/store';
 
@@ -57,8 +56,8 @@ function SourceList({ sources }: { sources: Source[] }) {
 export function AssumptionsPage() {
   const { ds, baseAssumptions, assumptionsFor, market } = useEngine();
   // The assumptions as set here, before the market's currency and prices (data/markets.csv) replace some of them.
-  const a = assumptionsFor(ALL_MARKETS);
-  // Running costs and road tax: those of the market picked in the car list (All markets: the default cost market).
+  const a = assumptionsFor('');
+  // Running costs and road tax: those of the market picked in the car list .
   const costA = market ? assumptionsFor(market.id) : a;
   const overrides = useStore((s) => s.assumptionOverrides);
   const fxOverrides = useStore((s) => s.fxOverrides);
@@ -122,11 +121,7 @@ export function AssumptionsPage() {
               .map((d) => {
                 const fxMatch = /^fx_([A-Z]{3})$/i.exec(d.key);
                 const key = NUMERIC_KEYS[d.key] as Key | undefined;
-                const TEXT_KEYS: Record<string, 'defaultBasis' | 'displayCurrency' | 'costMarket'> = {
-                  default_basis: 'defaultBasis',
-                  display_currency: 'displayCurrency',
-                  cost_default_market: 'costMarket',
-                };
+                const TEXT_KEYS: Record<string, 'defaultBasis'> = { default_basis: 'defaultBasis' };
                 const textKey = TEXT_KEYS[d.key];
                 const current = fxMatch ? a.fx[fxMatch[1].toUpperCase()] : key ? (a[key] as number) : textKey ? (a[textKey] as string) : d.value;
                 const base = fxMatch
@@ -147,8 +142,6 @@ export function AssumptionsPage() {
                           <option key={b}>{b}</option>
                         ))}
                       </select>
-                    ) : d.key === 'display_currency' || d.key === 'cost_default_market' ? (
-                      <input id={id} type="text" value={String(current)} readOnly title="Set in data/assumptions.csv" />
                     ) : (
                       <input
                         id={id}

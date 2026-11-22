@@ -83,7 +83,7 @@ export interface Assumptions {
   testTemperatureC: number;
   defaultBasis: string;
   displayCurrency: string;
-  /** Market whose running costs apply (data/markets/<id>/): the chosen market; under All markets cost_default_market. */
+  /** Market whose running costs apply (data/markets/<id>/): the chosen market. */
   costMarket: string;
   /** All markets' and blocs' running costs and road tax, and each market's currency (from the dataset). */
   runningCosts: RunningCostRow[];

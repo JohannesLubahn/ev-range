@@ -99,7 +99,6 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 On Compare the car list is the left column; on the other pages the **Cars** button opens it.
 
 - **Market:** lists only the cars sold there. Prices and costs are shown in its currency, with its running costs.
-  **All markets** lists every car, converted to `display_currency`, with `cost_default_market`'s running costs.
 - **Sort:** model (A–Z), price, rated range, battery size, rated consumption, 0–100 km/h or seats; the arrow
   reverses the order. Cars without the value go last.
 - **Group:** none, brand, body type or price band (round steps). Sort and group combine, e.g. body type sorted by

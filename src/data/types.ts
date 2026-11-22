@@ -100,6 +100,8 @@ export interface Market {
   /** Bloc or market whose cost values this market inherits (data/blocs.csv); null = none. */
   parent: string | null;
   currency: string;
+  /** Side of the road (data/markets.csv `traffic`): which side the driver sits on follows from it. */
+  traffic: 'left' | 'right';
   description: string;
   source: string;
 }

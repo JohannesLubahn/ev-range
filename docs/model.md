@@ -441,8 +441,8 @@ The full list with links is on the Assumptions page (from `data/sources.csv`).
 6. Mixed currencies: each car has a currency; prices and cost overrides are converted with the exchange rates.
    The market picked in the car list (`data/markets.csv`) sets the currency shown and its running costs
    (`data/markets/<id>/`, plus inheritable values from its bloc and World, `data/blocs.csv`; since 21 Nov 2026 a
-   market without a value shows a gap instead of using `cost_default_market`'s). All markets keeps `display_currency`
-   and uses `cost_default_market`'s running costs.
+   market without a value shows a gap instead of borrowing another market's). The All markets option was removed in
+   Nov 2026; a saved `all` opens Thailand, the default market.
 7. The total cost had one "maintenance per year" (8,000 THB) for every car and nothing back at the end. Since
    20 Nov 2026 it is purchase − value at the end + energy, insurance, road tax, servicing & repairs and tyres, with
    the rules below (section "Cost of ownership").

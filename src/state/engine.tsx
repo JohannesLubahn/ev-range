@@ -7,7 +7,7 @@ import { deriveAll, type DataFlag, type DerivedCar } from '../engine/derive';
 import { runEngine, type EngineCache, type EngineOutput } from '../engine/run';
 import { standardScenario, withDefaults } from '../engine/scenario';
 import type { Assumptions, Scenario } from '../engine/types';
-import { ALL_MARKETS, inMarket, shownIds as computeShownIds } from './carList';
+import { DEFAULT_MARKET, inMarket, shownIds as computeShownIds } from './carList';
 import { useStore, type AssumptionOverrides } from './store';
 
 export interface EngineState {
@@ -16,7 +16,7 @@ export interface EngineState {
   baseAssumptions: Assumptions;
   /** Assumptions with the user's changes and the market's currency and prices. */
   a: Assumptions;
-  /** The market's id ('all' = every car) and its row of data/markets.csv (null for All markets). */
+  /** The market's id and its row of data/markets.csv. */
   marketId: string;
   market: Market | null;
   /** Assumptions as they would be in another market (for its cost defaults when switching). */
@@ -66,8 +66,13 @@ export function EngineProvider({ children }: { children: ReactNode }) {
   const ds = useMemo(() => parseDataset(carsCsv ? { ...bundledFiles, cars: carsCsv } : bundledFiles), [carsCsv]);
   const baseAssumptions = useMemo(() => assumptionsFromDataset(ds), [ds]);
   const userA = useMemo(() => applyOverrides(baseAssumptions, overrides, fx), [baseAssumptions, overrides, fx]);
+  // A saved 'all' (the removed All markets option) or an unknown market opens the default market.
   const marketId =
-    marketState === ALL_MARKETS || (marketState && ds.markets.some((m) => m.id === marketState)) ? marketState : (ds.markets[0]?.id ?? ALL_MARKETS);
+    marketState && ds.markets.some((m) => m.id === marketState)
+      ? marketState
+      : ds.markets.some((m) => m.id === DEFAULT_MARKET)
+        ? DEFAULT_MARKET
+        : (ds.markets[0]?.id ?? DEFAULT_MARKET);
   const market = ds.markets.find((m) => m.id === marketId) ?? null;
   const a = useMemo(() => applyMarket(userA, market), [userA, market]);
   // Without a saved scenario: the standard. Scenarios saved by an older version may lack newer fields (e.g. sunshine)

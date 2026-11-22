@@ -206,8 +206,8 @@ export function deriveCar(car: Car, ds: Dataset, a: Assumptions, wm: WeightModel
     car.batteryCycles !== null ? car.batteryCyclesSources : (chemDef?.ratedCyclesSources ?? []);
 
   // --- costs
-  if (!car.market) flag('info', 'market', 'No market set - listed only under All markets');
-  else if (!ds.markets.some((m) => m.id === car.market)) flag('info', 'market', `Market "${car.market}" is not in markets.csv - listed only under All markets`);
+  if (!car.market) flag('info', 'market', 'No market set - not listed in any market');
+  else if (!ds.markets.some((m) => m.id === car.market)) flag('info', 'market', `Market "${car.market}" is not in markets.csv - not listed`);
   let priceDisplay: Val<number | null>;
   if (car.price === null) {
     priceDisplay = { value: null, provenance: 'missing' };

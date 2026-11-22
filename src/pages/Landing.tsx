@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useRef, useState, type FormEvent } from 'rea
 import { StackedRows, TipLines } from '../components/Bars';
 import { consumptionColumn } from '../components/Consumption';
 import { Scene } from '../components/Scene';
+import { DEFAULT_MARKET } from '../state/carList';
 import { applyMarket } from '../engine/assumptions';
 import { deriveAll } from '../engine/derive';
 import type { Calibration } from '../engine/model';
@@ -40,7 +41,7 @@ export function LandingPage() {
   const landing = useStore((s) => s.landing);
   const setLanding = useStore((s) => s.setLanding);
 
-  const marketId = ds.markets.some((m) => m.id === landing.market) ? (landing.market as string) : (ds.markets[0]?.id ?? '');
+  const marketId = ds.markets.some((m) => m.id === landing.market) ? (landing.market as string) : (ds.markets.find((m) => m.id === DEFAULT_MARKET)?.id ?? ds.markets[0]?.id ?? '');
   const market = ds.markets.find((m) => m.id === marketId) ?? null;
   const a = useMemo(() => applyMarket(baseAssumptions, market), [baseAssumptions, market]);
   const derived = useMemo(() => deriveAll(ds, a), [ds, a]);
@@ -88,7 +89,7 @@ export function LandingPage() {
 
   const setSlider: React.ComponentProps<typeof Scene>['onSlider'] = (key, i) => setLanding({ sliders: { ...landing.sliders, [key]: i } } as Partial<LandingState>);
   // Left-hand traffic (Thailand) means the driver sits on the right of the car, so on the viewer's left.
-  const driverRight = marketId !== 'TH';
+  const driverRight = market?.traffic !== 'left';
 
   let result = null;
   if (trip && car && landing.route) {

@@ -131,8 +131,6 @@ export function assumptionsFromDataset(ds: Dataset): Assumptions {
     if (v !== null) (a[field] as number) = v;
   }
   if (ds.assumptions.default_basis?.value) a.defaultBasis = ds.assumptions.default_basis.value.toUpperCase();
-  if (ds.assumptions.display_currency?.value) a.displayCurrency = ds.assumptions.display_currency.value.toUpperCase();
-  if (ds.assumptions.cost_default_market?.value) a.costMarket = ds.assumptions.cost_default_market.value.toUpperCase();
   a.runningCosts = ds.runningCosts;
   a.roadTax = ds.roadTax;
   a.marketCurrencies = Object.fromEntries(ds.markets.map((m) => [m.id, m.currency]));
