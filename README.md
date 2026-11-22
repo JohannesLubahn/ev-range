@@ -29,7 +29,9 @@ the model behaves, checked against measurements) and **Assumptions** (every cons
 - **Not on GitHub:** `CLAUDE.md` (the AI assistant's working notes), `scripts/ods_to_csv.py` (the import from the
   author's spreadsheet) and `scripts/inline_build.mjs` (the single-file build). They stay on the author's computer
   (`.gitignore`), so `npm run import-ods` and `npm run build:single` only work there.
-- **Outside requests:** none. The fonts (IBM Plex Sans / Mono, Space Grotesk, SIL Open Font License) come with the
+- **Outside requests:** none when the page opens. Only the start page's "Get route" button contacts three free
+  services: Nominatim (finds the places), the FOSSGIS OSRM server (road distance) and Open-Meteo (heights); both are
+  named in the legal notice (`content/legal.md`). The fonts (IBM Plex Sans / Mono, Space Grotesk, SIL Open Font License) come with the
   app (`src/fonts.css`, from the `@fontsource` packages; Latin characters, others use the system font). Links in the
   source list open only when you click them.
 

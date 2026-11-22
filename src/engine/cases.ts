@@ -479,7 +479,7 @@ function chargingTime(m: CarModel, fromPct: number, toPct: number, onboardKw: nu
   return { hours, steps };
 }
 
-export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
+export function longTrip(m: CarModel, i: LongTripInputs, opts: { startPct?: number } = {}): LongTripResult {
   const seg = m.segment({
     label: 'Driving',
     distanceKm: i.distanceKm,
@@ -492,7 +492,11 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
   const bat = m.battery(seg.meanPowerKw, seg.rmsFactor, seg.timeH);
   const perCharge = bat.deliverable(i.chargeToPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh;
   const energy = seg.totalKwh + bat.thermalKwh;
-  const chargings = perCharge > 0 ? Math.max(0, energy / perCharge - 1) : Infinity;
+  // Without a start charge the trip begins with one full charge window; with one (the landing page: 95 %) the first
+  // leg only has what lies between the start charge and the lower limit of the window.
+  const firstLeg =
+    opts.startPct === undefined ? perCharge : Math.max(0, bat.deliverable(opts.startPct, i.chargeFromPct, seg.meanPowerKw, seg.rmsFactor).kwh);
+  const chargings = perCharge > 0 ? Math.max(0, (energy - firstLeg) / perCharge) : Infinity;
   const onboardCharging = m.onboard(i.climateWhileCharging ? i.cabinC : null).totalKw;
   const ct = chargingTime(m, i.chargeFromPct, i.chargeToPct, onboardCharging);
   const timeDrivingH = seg.timeH;
@@ -521,7 +525,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
       value: perCharge,
       unit: u,
     },
-    { label: 'Charging stops', formula: `${fx(energy, 1)} ÷ ${fx(perCharge, 1)} − 1 (start with a charged battery)`, value: chargings, unit: '', kind: 'subtotal' },
+    { label: 'Charging stops', formula: opts.startPct === undefined ? `${fx(energy, 1)} ÷ ${fx(perCharge, 1)} − 1 (start with a charged battery)` : `(${fx(energy, 1)} − ${fx(firstLeg, 1)} for the first leg from ${pct(opts.startPct)}) ÷ ${fx(perCharge, 1)}`, value: chargings, unit: '', kind: 'subtotal' },
     {
       label: 'Onboard systems while charging',
       formula: i.climateWhileCharging && i.cabinC !== null ? `electronics + heating/AC holding ${fx(i.cabinC, 0)} °C` : 'electronics only (heating/AC off)',
@@ -538,7 +542,7 @@ export function longTrip(m: CarModel, i: LongTripInputs): LongTripResult {
     energyKwh: energy,
     capacityPerChargeKwh: perCharge,
     chargings,
-    stops: Number.isFinite(chargings) ? Math.ceil(Math.max(0, chargings) - 1e-9) : Infinity,
+    stops: Number.isFinite(chargings) ? Math.max(0, Math.ceil(chargings - 1e-9)) : Infinity,
     timePerChargeH: ct.hours,
     timeDrivingH,
     timeChargingH,

@@ -509,3 +509,27 @@ What drives the differences:
 - **Cost** is higher for every car (by about 1–4 THB/km): it now counts the loss of value, insurance, road tax,
   servicing, repairs and tyres instead of one maintenance figure, plus the onboard systems and charging losses. The
   Hyundai Inster rises most because its EUR price is now converted to THB. The MG Windsors have no price.
+
+## 8. The start page (Fun-sized mode)
+
+The start page has its own scenario, separate from the Enthusiast tests (`src/landing/scenario.ts`). The visitor sets
+five sliders; the rest is fixed.
+
+| Input | Values | Origin |
+|---|---|---|
+| Air temperature | −20 / 0 / **22** / 30 / 40 °C | the user's steps |
+| Sun | 1100 / **800** / 500 / 0 W/m² | steps: the user's; default 800: judgement |
+| Tyre pressure | **100** / 80 % of recommended | the user's |
+| Load | **120** / 200 / 500 kg | the user's |
+| Driving style | 65 / **100** / 170 % (Gentle / Normal / Sporty) | the user's (the existing presets) |
+| Start charge, cabin, battery | 95 %, 22 °C, managed, new (0 km) | the user's |
+| Driving profile | Mixed (the WLTP at its own speeds) | the user's |
+| Charging stops | 20 → 90 %, heating/AC on while charging, humidity 60 % | judgement (the Long trip standard) |
+
+The result is the Long trip model with a start charge: the first leg has only the energy between 95 % and 20 %, every
+further leg a full 20 → 90 % window (`longTrip(..., { startPct })`).
+
+**Route.** Distance comes from OpenStreetMap (OSRM). The heights come from the Copernicus DEM (90 m) via Open-Meteo,
+sampled every 500 m (at most 400 points, judgement). Altitude change = last − first height. Total climb sums the rises
+with a zigzag filter that ignores moves under 10 m (DEM noise; judgement). Slope = total climb ÷ the distance of the
+steps that rise, kept between 0.5 and 20 %. The mean height sets the altitude condition (air density).

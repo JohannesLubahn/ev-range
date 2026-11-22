@@ -54,6 +54,13 @@
   --car-indicator: #f3a73b;
   --car-shadow: rgba(11, 11, 11, 0.12);
   --car-glow: 0;
+  --car-sun: #f7b500;
+  --car-moon: #e8e2c2;
+  --car-cloud: #ffffff;
+  --car-skin: #f2c9a0;
+  --car-shirt: #e8574a;
+  --car-shirt-2: #6a8de0;
+  --car-seat: #f3a73b;
   --radius: 8px;
   --radius-sm: 5px;
 }
@@ -113,6 +120,13 @@
     --car-indicator: #f0a030;
     --car-shadow: rgba(0, 0, 0, 0.65);
     --car-glow: 0.55;
+    --car-sun: #ffc61a;
+    --car-moon: #f1ecc9;
+    --car-cloud: #b8c4cf;
+    --car-skin: #e8bb8f;
+    --car-shirt: #e8574a;
+    --car-shirt-2: #6a8de0;
+    --car-seat: #f3a73b;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
@@ -162,6 +176,13 @@
   --car-indicator: #f0a030;
   --car-shadow: rgba(0, 0, 0, 0.65);
   --car-glow: 0.55;
+  --car-sun: #ffc61a;
+  --car-moon: #f1ecc9;
+  --car-cloud: #b8c4cf;
+  --car-skin: #e8bb8f;
+  --car-shirt: #e8574a;
+  --car-shirt-2: #6a8de0;
+  --car-seat: #f3a73b;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
@@ -480,30 +501,22 @@ body::before {
 
 /* ------------------------------------------------------------------ fun-sized landing page */
 main.wrap.landing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-block: 32px;
+  padding-block: 20px 32px;
 }
-.cartoon-car {
-  display: block;
-  width: min(560px, 100%);
-  height: auto;
-}
-.cartoon-car .car-body {
+.scene-art .car-body {
   animation: car-bob 3.2s ease-in-out infinite;
 }
-.cartoon-car .car-shadow {
+.scene-art .car-shadow {
   transform-box: fill-box;
   transform-origin: center;
   animation: car-shadow 3.2s ease-in-out infinite;
 }
-.cartoon-car .car-lamp {
+.scene-art .car-lamp {
   transform-box: fill-box;
   transform-origin: center;
   animation: car-blink 6s ease-in-out infinite;
 }
-.cartoon-car .car-glow {
+.scene-art .car-glow {
   opacity: var(--car-glow);
 }
 @keyframes car-bob {
@@ -1882,4 +1895,215 @@ table {
 }
 .version-table td:nth-child(3) {
   width: 100%;
+}
+
+/* ------------------------------------------------------------------ landing page: form, scene, result */
+.landing-page {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.landing-form {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px 12px;
+}
+.landing-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink-2);
+  min-width: 0;
+}
+.landing-form select,
+.landing-form input[type='text'] {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  min-width: 0;
+  width: 100%;
+}
+.landing-go {
+  grid-column: 1 / -1;
+  height: 42px;
+  justify-content: center;
+  font-weight: 600;
+}
+.landing-error {
+  margin: 0;
+  color: var(--bad-ink);
+}
+.landing-route {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.landing-route b {
+  color: var(--ink);
+}
+.landing-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.landing-hint {
+  margin: 0;
+  text-align: center;
+}
+.landing-credit {
+  margin: 0;
+  font-size: 12px;
+}
+
+.scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 900 / 440;
+}
+.scene-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.scene .car-tyre {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.3s ease;
+}
+.scene .car-tyre.soft {
+  transform: scale(1.12, 0.86);
+}
+.scene .car-load {
+  transition: transform 0.3s ease;
+}
+.scene .sun-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sun-spin 40s linear infinite;
+}
+@keyframes sun-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.scene-ctl {
+  position: absolute;
+  width: 25%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.scene-ctl-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.scene-ctl-icon {
+  flex: none;
+  color: var(--accent);
+}
+.scene-ctl-value {
+  margin-left: auto;
+  color: var(--ink);
+  font-family: var(--font-display);
+  white-space: nowrap;
+}
+.scene-ctl input[type='range'] {
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.scene-ctl input[type='range']::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.scene-ctl input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -9px;
+  border-radius: 50%;
+  border: 3px solid var(--surface);
+  background: var(--accent);
+  box-shadow: 0 1px 4px rgba(11, 11, 11, 0.35);
+}
+.scene-ctl input[type='range']::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.scene-ctl input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid var(--surface);
+  background: var(--accent);
+}
+.ctl-temp {
+  left: 12%;
+  top: 3%;
+}
+.ctl-sun {
+  right: 17%;
+  top: 3%;
+}
+.ctl-left {
+  left: 1%;
+  top: 40%;
+}
+.ctl-right {
+  right: 1%;
+  top: 40%;
+}
+.ctl-tyres {
+  left: 1%;
+  top: 76%;
+}
+/* Phones: the drawing on top, the five sliders in a grid below it, without the callout lines. */
+@media (max-width: 760px) {
+  .scene {
+    aspect-ratio: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .scene-art {
+    grid-column: 1 / -1;
+    height: auto;
+    aspect-ratio: 900 / 440;
+  }
+  .scene-callouts {
+    display: none;
+  }
+  .scene-ctl {
+    position: static;
+    width: auto;
+    box-shadow: none;
+  }
+  .landing-form {
+    grid-template-columns: 1fr;
+  }
 }

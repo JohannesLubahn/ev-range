@@ -5,6 +5,8 @@ import { TEST_KEYS, type TestKey } from '../engine/inputs';
 import { spreadsheetScenario, standardScenario } from '../engine/scenario';
 import type { Assumptions, Conditions, CostInputs, ModelSettings, Scenario } from '../engine/types';
 import { type Filters, type ListGroupKey, type ListSort, migrateFilters } from './carList';
+import { clampIndex, DEFAULT_SLIDERS, LOAD_STEPS, STYLE_STEPS, SUN_STEPS, TEMPERATURE_STEPS, TYRE_STEPS, type LandingSliders } from '../landing/scenario';
+import type { RouteResult } from '../route/route';
 import { load, save } from './storage';
 
 export type View = 'compare' | 'stress-tests' | 'battery-life' | 'cost' | 'cars' | 'physics' | 'assumptions' | 'notes' | FooterView;
@@ -33,6 +35,36 @@ export type StressTab = Exclude<StressKey, 'batteryLife'>;
 const STRESS_TABS: StressTab[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip'];
 export type SortKey = 'overall' | 'name' | CaseKey;
 export type Theme = 'system' | 'light' | 'dark';
+/** The Fun-sized landing page's own state: separate from the Enthusiast site's market, car and scenario. */
+export interface LandingState {
+  market: string | null;
+  carId: string | null;
+  from: string;
+  to: string;
+  route: RouteResult | null;
+  sliders: LandingSliders;
+}
+export function normalizeLanding(raw: unknown): LandingState {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const sl = (r.sliders && typeof r.sliders === 'object' ? r.sliders : {}) as Record<string, unknown>;
+  const rt = r.route as Partial<RouteResult> | null | undefined;
+  const route =
+    rt && ['distanceKm', 'climbM', 'ascentM', 'slopePct', 'meanAltitudeM'].every((k) => Number.isFinite((rt as Record<string, unknown>)[k])) ? (rt as RouteResult) : null;
+  return {
+    market: typeof r.market === 'string' ? r.market : null,
+    carId: typeof r.carId === 'string' ? r.carId : null,
+    from: typeof r.from === 'string' ? r.from : '',
+    to: typeof r.to === 'string' ? r.to : '',
+    route,
+    sliders: {
+      temperature: clampIndex(sl.temperature, TEMPERATURE_STEPS, DEFAULT_SLIDERS.temperature),
+      sun: clampIndex(sl.sun, SUN_STEPS, DEFAULT_SLIDERS.sun),
+      tyres: clampIndex(sl.tyres, TYRE_STEPS, DEFAULT_SLIDERS.tyres),
+      load: clampIndex(sl.load, LOAD_STEPS, DEFAULT_SLIDERS.load),
+      style: clampIndex(sl.style, STYLE_STEPS, DEFAULT_SLIDERS.style),
+    },
+  };
+}
 /** Fun-sized (the default): a clean landing page without the tabs. Enthusiast: the full site. */
 export type Mode = 'fun' | 'enthusiast';
 /** True for an address that names a page of the full site (a tab, or an old alias of one). */
@@ -110,6 +142,7 @@ export interface AppState extends SharedState {
   sort: { key: SortKey; dir: 1 | -1 };
   theme: Theme;
   mode: Mode;
+  landing: LandingState;
   drawer: { carId: string; caseKey: CaseKey } | null;
   stressTab: StressTab;
   physicsCars: string[];
@@ -135,6 +168,7 @@ export interface AppState extends SharedState {
   setLayout: (l: 'table' | 'cards') => void;
   setTheme: (t: Theme) => void;
   setMode: (m: Mode) => void;
+  setLanding: (p: Partial<LandingState>) => void;
   openDrawer: (carId: string, caseKey: CaseKey) => void;
   closeDrawer: () => void;
   setStressTab: (t: StressTab) => void;
@@ -198,6 +232,7 @@ export const useStore = create<AppState>((set, get) => ({
   sort: load<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'overall', dir: 1 }),
   theme: load<Theme>('theme', 'system'),
   mode: load<Mode>('mode', 'fun') === 'enthusiast' ? 'enthusiast' : 'fun',
+  landing: normalizeLanding(load<unknown>('landing', {})),
   drawer: null,
   stressTab: parseStressTab(load<unknown>('stressTab', 'noCharger')),
   physicsCars: load<string[]>('physicsCars', []),
@@ -247,6 +282,7 @@ export const useStore = create<AppState>((set, get) => ({
   setLayout: (l) => set({ layout: l }),
   setTheme: (t) => set({ theme: t }),
   setMode: (m) => set({ mode: m }),
+  setLanding: (p) => set({ landing: { ...get().landing, ...p } }),
   openDrawer: (carId, caseKey) => set({ drawer: { carId, caseKey } }),
   closeDrawer: () => set({ drawer: null }),
   setStressTab: (t) => set({ stressTab: t }),
@@ -281,7 +317,7 @@ useStore.subscribe((s, prev) => {
   const pairs: [keyof AppState, string][] = [
     ['scenario', 'scenario'], ['settings', 'settings'], ['selectedIds', 'selected'], ['assumptionOverrides', 'assumptions'],
     ['fxOverrides', 'fx'], ['carsCsv', 'carsCsv'], ['carsCsvName', 'carsCsvName'], ['presetId', 'preset'],
-    ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'], ['mode', 'mode'],
+    ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'], ['mode', 'mode'], ['landing', 'landing'],
     ['stressTab', 'stressTab'], ['physicsCars', 'physicsCars'], ['refTest', 'refTest'],
   ];
   for (const [k, storageKey] of pairs) if (s[k] !== prev[k]) save(storageKey, s[k]);

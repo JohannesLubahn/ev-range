@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CalcDrawer } from './components/CalcDrawer';
 import { CarPickerDrawer } from './components/CarPicker';
-import { CartoonCar } from './components/CartoonCar';
 import { Footer } from './components/Footer';
 import { IconMonitor, IconMoon, IconSun } from './components/Icons';
 import { Logo } from './components/Logo';
@@ -10,6 +9,7 @@ import { AssumptionsPage } from './pages/Assumptions';
 import { CarsPage } from './pages/Cars';
 import { ComparePage } from './pages/Compare';
 import { CostPage } from './pages/Cost';
+import { LandingPage } from './pages/Landing';
 import { LegalPage } from './pages/Legal';
 import { NotesPage } from './pages/Notes';
 import { PhysicsPage } from './pages/Physics';
@@ -136,7 +136,7 @@ export function App() {
             </ul>
           </details>
         )}
-        {landing && <CartoonCar />}
+        {landing && <LandingPage />}
         {!fun && view === 'compare' && <ComparePage />}
         {!fun && view === 'stress-tests' && <StressTestsPage />}
         {!fun && view === 'battery-life' && <BatteryLifePage />}
