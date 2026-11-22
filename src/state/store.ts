@@ -33,6 +33,13 @@ export type StressTab = Exclude<StressKey, 'batteryLife'>;
 const STRESS_TABS: StressTab[] = ['trafficJam', 'noCharger', 'sprint', 'longTrip'];
 export type SortKey = 'overall' | 'name' | CaseKey;
 export type Theme = 'system' | 'light' | 'dark';
+/** Fun-sized (the default): a clean landing page without the tabs. Enthusiast: the full site. */
+export type Mode = 'fun' | 'enthusiast';
+/** True for an address that names a page of the full site (a tab, or an old alias of one). */
+export function isEnthusiastHash(hash: string): boolean {
+  const h = hash.replace(/^#/, '');
+  return VIEWS.some((v) => v.id === h) || (VIEW_ALIASES[h] !== undefined && VIEW_ALIASES[h] !== 'legal');
+}
 
 export type { Filters } from './carList';
 
@@ -102,6 +109,7 @@ export interface AppState extends SharedState {
   layout: 'table' | 'cards';
   sort: { key: SortKey; dir: 1 | -1 };
   theme: Theme;
+  mode: Mode;
   drawer: { carId: string; caseKey: CaseKey } | null;
   stressTab: StressTab;
   physicsCars: string[];
@@ -126,6 +134,7 @@ export interface AppState extends SharedState {
   setSort: (key: SortKey) => void;
   setLayout: (l: 'table' | 'cards') => void;
   setTheme: (t: Theme) => void;
+  setMode: (m: Mode) => void;
   openDrawer: (carId: string, caseKey: CaseKey) => void;
   closeDrawer: () => void;
   setStressTab: (t: StressTab) => void;
@@ -188,6 +197,7 @@ export const useStore = create<AppState>((set, get) => ({
   layout: load<'table' | 'cards'>('layout', 'table'),
   sort: load<{ key: SortKey; dir: 1 | -1 }>('sort', { key: 'overall', dir: 1 }),
   theme: load<Theme>('theme', 'system'),
+  mode: load<Mode>('mode', 'fun') === 'enthusiast' ? 'enthusiast' : 'fun',
   drawer: null,
   stressTab: parseStressTab(load<unknown>('stressTab', 'noCharger')),
   physicsCars: load<string[]>('physicsCars', []),
@@ -236,6 +246,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setLayout: (l) => set({ layout: l }),
   setTheme: (t) => set({ theme: t }),
+  setMode: (m) => set({ mode: m }),
   openDrawer: (carId, caseKey) => set({ drawer: { carId, caseKey } }),
   closeDrawer: () => set({ drawer: null }),
   setStressTab: (t) => set({ stressTab: t }),
@@ -270,7 +281,7 @@ useStore.subscribe((s, prev) => {
   const pairs: [keyof AppState, string][] = [
     ['scenario', 'scenario'], ['settings', 'settings'], ['selectedIds', 'selected'], ['assumptionOverrides', 'assumptions'],
     ['fxOverrides', 'fx'], ['carsCsv', 'carsCsv'], ['carsCsvName', 'carsCsvName'], ['presetId', 'preset'],
-    ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'],
+    ['savedPresets', 'presets'], ['filters', 'filters'], ['market', 'market'], ['listSort', 'listSort'], ['listGroup', 'listGroup'], ['layout', 'layout'], ['sort', 'sort'], ['theme', 'theme'], ['mode', 'mode'],
     ['stressTab', 'stressTab'], ['physicsCars', 'physicsCars'], ['refTest', 'refTest'],
   ];
   for (const [k, storageKey] of pairs) if (s[k] !== prev[k]) save(storageKey, s[k]);

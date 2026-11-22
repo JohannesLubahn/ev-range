@@ -43,6 +43,17 @@
   --font-display: 'Space Grotesk', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --car-body: #1f9a8a;
+  --car-body-shade: #137468;
+  --car-glass: #cfe4ee;
+  --car-shine: rgba(255, 255, 255, 0.5);
+  --car-tyre: #2b2b29;
+  --car-trim: #e9ebe6;
+  --car-lamp: #fff4c2;
+  --car-dark: #0c4740;
+  --car-indicator: #f3a73b;
+  --car-shadow: rgba(11, 11, 11, 0.12);
+  --car-glow: 0;
   --radius: 8px;
   --radius-sm: 5px;
 }
@@ -91,6 +102,17 @@
     --ord-3: #3987e5;
     --ord-4: #256abf;
     --ord-5: #184f95;
+    --car-body: #45b8a7;
+    --car-body-shade: #2c8a7d;
+    --car-glass: #20343d;
+    --car-shine: rgba(255, 255, 255, 0.22);
+    --car-tyre: #33332f;
+    --car-trim: #c3c2b7;
+    --car-lamp: #fff1a8;
+    --car-dark: #0f3d37;
+    --car-indicator: #f0a030;
+    --car-shadow: rgba(0, 0, 0, 0.65);
+    --car-glow: 0.55;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
@@ -129,6 +151,17 @@
   --series-7: #9085e9;
   --series-8: #e66767;
   --track: #2a2a28;
+  --car-body: #45b8a7;
+  --car-body-shade: #2c8a7d;
+  --car-glass: #20343d;
+  --car-shine: rgba(255, 255, 255, 0.22);
+  --car-tyre: #33332f;
+  --car-trim: #c3c2b7;
+  --car-lamp: #fff1a8;
+  --car-dark: #0f3d37;
+  --car-indicator: #f0a030;
+  --car-shadow: rgba(0, 0, 0, 0.65);
+  --car-glow: 0.55;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
@@ -385,6 +418,121 @@ body::before {
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ mode switch (Fun-sized / Enthusiast) */
+.mode-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mode-switch:hover {
+  border-color: var(--ink-3);
+}
+.mode-switch-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 1px 3px rgba(11, 11, 11, 0.2);
+  transition: transform 0.25s ease;
+}
+.mode-switch[data-mode='enthusiast'] .mode-switch-thumb {
+  transform: translateX(100%);
+}
+.mode-switch-label {
+  position: relative;
+  padding: 0 16px;
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.25s ease;
+}
+.mode-switch-label[data-active] {
+  color: var(--accent-ink);
+}
+@media (max-width: 420px) {
+  .brand-name {
+    display: none;
+  }
+  .mode-switch {
+    font-size: 13px;
+  }
+  .mode-switch-label {
+    padding: 0 11px;
+  }
+}
+
+/* ------------------------------------------------------------------ fun-sized landing page */
+main.wrap.landing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 32px;
+}
+.cartoon-car {
+  display: block;
+  width: min(560px, 100%);
+  height: auto;
+}
+.cartoon-car .car-body {
+  animation: car-bob 3.2s ease-in-out infinite;
+}
+.cartoon-car .car-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: car-shadow 3.2s ease-in-out infinite;
+}
+.cartoon-car .car-lamp {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: car-blink 6s ease-in-out infinite;
+}
+.cartoon-car .car-glow {
+  opacity: var(--car-glow);
+}
+@keyframes car-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes car-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.96);
+  }
+}
+@keyframes car-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
 }
 /* Narrow screens: brand and theme button on the first row, the (scrollable) navigation below. */
 @media (max-width: 860px) {
