@@ -812,13 +812,13 @@ export function parseRoadTax(text: string, market: string, warnings: string[]): 
     if (!(r.powertrain ?? '').trim() && !(r.basis ?? '').trim()) continue;
     const where = `markets/${market}/road_tax.csv, ${r.powertrain} ${r.basis} ${r.above}–${r.up_to}`;
     const powertrain = r.powertrain === 'BEV' || r.powertrain === 'ICE' ? r.powertrain : null;
-    const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'co2_g_km' || r.basis === 'age_years' ? r.basis : null;
+    const basis = r.basis === 'weight_kg' || r.basis === 'engine_cc' || r.basis === 'co2_g_km' || r.basis === 'power_kw' || r.basis === 'age_years' ? r.basis : null;
     const kind = r.kind === 'band' || r.kind === 'per_unit' || r.kind === 'discount_pct' ? r.kind : null;
     const above = parseNumber(r.above);
     const upTo = parseNumber(r.up_to);
     const amount = parseNumber(r.amount);
     if (!powertrain || !basis || !kind || above === null || amount === null || (upTo !== null && upTo <= above)) {
-      warnings.push(`${where}: needs powertrain BEV/ICE, basis weight_kg/engine_cc/co2_g_km/age_years, kind band/per_unit/discount_pct, numbers with up_to > above`);
+      warnings.push(`${where}: needs powertrain BEV/ICE, basis weight_kg/engine_cc/co2_g_km/power_kw/age_years, kind band/per_unit/discount_pct, numbers with up_to > above`);
       continue;
     }
     if ((basis === 'age_years') !== (kind === 'discount_pct')) {

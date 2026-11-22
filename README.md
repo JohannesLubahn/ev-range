@@ -58,7 +58,7 @@ in LibreOffice; in dev mode the app reloads as soon as you save a file.
 | `data/blocs.csv` | Blocs that pass cost values on to their markets: `WORLD` (top) and `EU`. Only for inherited cost values, not for which cars a market sells. |
 | `data/costs/items.csv` | The **template** of a market's costs: every cost item with label, unit, money (yes/no), **inherit** (may come from the bloc / World) and required. |
 | `data/markets/<id>/costs.csv` | **Running costs of one market or bloc** (in the market's currency): electricity price, insurance, servicing, tyres, repairs, 12 V battery, loss of value; per powertrain where they differ; each with why and source ids (blank = judgement). `WORLD/` holds the values every market shares (tyre life, tyre reference mass, repairs). |
-| `data/markets/<id>/road_tax.csv` | Road tax of one market: electric cars by curb weight (bands), petrol cars by engine size (per cc) and CO₂, discount for older cars. |
+| `data/markets/<id>/road_tax.csv` | Road tax of one market: electric cars by curb weight or motor power (bands), petrol cars by engine size (per cc) and CO₂, discount for older cars. |
 | `data/terrain.csv` | Terrain presets (Flat / Rolling / Hilly / Mountain): climb per 100 km and typical slope, with why and source. |
 | `data/profiles.csv` | Driving profiles (Steady, City, Rural, Highway, Motorway, Mixed, the traffic jam): speed trace (cycle and phases), what the speed set means, the speeds each allows, with why and sources. |
 | `data/real_world_fuel.csv` | Measured drives of petrol cars (route or profile, speed, air, AC, load, l/100 km, sources): petrol cars with rows are calibrated on them instead of their official (lab) value. |

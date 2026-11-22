@@ -669,6 +669,7 @@ export function cost(m: CarModel, ci: CostInputs): CostResult {
       massKg: d.curbMassKg.value + m.ctx.conditions.payloadKg,
       engineCc: d.car.engineCc,
       co2GPerKm: d.car.co2GPerKm,
+      powerKw: d.car.powerKw,
       servicingPerYear: convert(d.car.maintenancePerYear),
       insurancePerYear: convert(d.car.insurancePerYear),
       tyreSetPrice: convert(d.car.tyreSetPrice),

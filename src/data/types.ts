@@ -163,10 +163,10 @@ export interface RoadTaxRow {
   market: string;
   powertrain: 'BEV' | 'ICE';
   /**
-   * What the tax depends on: curb weight, engine size, CO₂ emissions, or (discount rows) the car's age in years.
+   * What the tax depends on: curb weight, engine size, CO₂ emissions, motor power, or (discount rows) the car's age in years.
    * A market can tax one powertrain on several bases (Germany, petrol: engine size + CO₂): the parts add up.
    */
-  basis: 'weight_kg' | 'engine_cc' | 'co2_g_km' | 'age_years';
+  basis: 'weight_kg' | 'engine_cc' | 'co2_g_km' | 'power_kw' | 'age_years';
   /** The row applies above this value, up to and including `upTo` (null = no limit). */
   above: number;
   upTo: number | null;

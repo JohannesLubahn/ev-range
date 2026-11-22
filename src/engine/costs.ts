@@ -86,8 +86,8 @@ export interface RoadTaxBase {
 }
 
 type TaxBasis = Exclude<RoadTaxRow['basis'], 'age_years'>;
-const TAX_UNIT: Record<TaxBasis, string> = { weight_kg: 'kg', engine_cc: 'cc', co2_g_km: 'g/km' };
-const TAX_MISSING: Record<TaxBasis, string> = { weight_kg: 'Curb weight', engine_cc: 'Engine size (engine_cc)', co2_g_km: 'CO₂ emissions (co2_g_km)' };
+const TAX_UNIT: Record<TaxBasis, string> = { weight_kg: 'kg', engine_cc: 'cc', co2_g_km: 'g/km', power_kw: 'kW' };
+const TAX_MISSING: Record<TaxBasis, string> = { weight_kg: 'Curb weight', engine_cc: 'Engine size (engine_cc)', co2_g_km: 'CO₂ emissions (co2_g_km)', power_kw: 'Motor power (power_kw)' };
 
 const thousands = (v: number, digits = 0) => v.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
@@ -108,10 +108,10 @@ function taxPart(own: RoadTaxRow[], x: number, unit: string): RoadTaxBase & { am
   };
 }
 
-export function roadTaxBase(rules: RoadTaxRow[], pt: Powertrain, weightKg: number, engineCc: number | null, co2GPerKm: number | null = null): RoadTaxBase {
+export function roadTaxBase(rules: RoadTaxRow[], pt: Powertrain, weightKg: number, engineCc: number | null, co2GPerKm: number | null = null, powerKw: number | null = null): RoadTaxBase {
   const own = rules.filter((r) => r.powertrain === pt && r.basis !== 'age_years').sort((x, y) => x.above - y.above);
   if (own.length === 0) return { amount: null, note: `missing in the market's data (road_tax.csv has no ${pt} rows)` };
-  const values: Record<TaxBasis, number | null> = { weight_kg: weightKg, engine_cc: engineCc, co2_g_km: co2GPerKm };
+  const values: Record<TaxBasis, number | null> = { weight_kg: weightKg, engine_cc: engineCc, co2_g_km: co2GPerKm, power_kw: powerKw };
   const bases = [...new Set(own.map((r) => r.basis as TaxBasis))];
   let amount = 0;
   const notes: string[] = [];
@@ -153,6 +153,8 @@ export interface OwnershipCar {
   engineCc: number | null;
   /** Official CO₂ emissions (g/km), for road taxes that depend on CO₂. */
   co2GPerKm: number | null;
+  /** Motor power (kW), for road taxes that depend on it (Malaysia: electric cars). */
+  powerKw?: number | null;
   /** The car's own prices from its market's offers.csv, in the display currency (null = the rule). */
   servicingPerYear: number | null;
   insurancePerYear: number | null;
@@ -272,7 +274,7 @@ export function ownership(car: OwnershipCar, ci: CostInputs, years: number, tota
   else lines.push({ part: 'insurance', label: 'Compulsory insurance', value: compulsory * years, formula: `${money(compulsory)} × ${thousands(years)} years` });
 
   // Road tax.
-  const tax = roadTaxBase(mc.roadTax, pt, car.curbKg, car.engineCc, car.co2GPerKm);
+  const tax = roadTaxBase(mc.roadTax, pt, car.curbKg, car.engineCc, car.co2GPerKm, car.powerKw ?? null);
   if (tax.warning) warnings.push(tax.warning);
   if (tax.amount === null && ci.roadTaxPerYear !== null)
     lines.push({ part: 'tax', label: 'Road tax', value: ci.roadTaxPerYear * years, formula: `${money(ci.roadTaxPerYear)}/year (typed: the market has no road-tax table) × ${thousands(years)} years` });

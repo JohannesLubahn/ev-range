@@ -1,3 +1,4 @@
 id,name,parent,currency,traffic,description,source
 TH,Thailand,WORLD,THB,left,"Prices in THB; running costs (electricity, insurance, tax, servicing, tyres, resale) in data/markets/TH/",
 DE,Germany,EU,EUR,right,"List prices in EUR including 19 % VAT, before any purchase subsidy; running costs (electricity, insurance, Kfz-Steuer, servicing, tyres, resale) in data/markets/DE/",
+MY,Malaysia,WORLD,MYR,left,"Prices in MYR, on-the-road without insurance (Peninsular Malaysia); running costs in data/markets/MY/. The 15 electric cars are the most registered in Oct 2026 (JPJ via paultan)",paultan-my-ev-ranking

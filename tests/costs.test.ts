@@ -325,3 +325,14 @@ describe('extra costs and credits (user request 2026-11-21: on top of everything
     expect(bev.steps.find((s) => s.label === 'Total cost of ownership')?.formula).toBe('purchase − value at the end + running costs + your extras');
   });
 });
+
+describe('road tax by motor power (Malaysia)', () => {
+  const rows = (kw: [number, number | null, number][]) =>
+    kw.map(([above, upTo, amount]) => ({ market: 'MY', powertrain: 'BEV' as const, basis: 'power_kw' as const, above, upTo, amount, kind: 'band' as const, sources: [], why: '' }));
+  const table = rows([[0, 50, 20], [50, 60, 30], [60, 70, 40]]);
+  it('takes the band of the motor power and says so when the power is missing', () => {
+    expect(roadTaxBase(table, 'BEV', 1500, null, null, 70).amount).toBe(40);
+    expect(roadTaxBase(table, 'BEV', 1500, null, null, 50.5).amount).toBe(30);
+    expect(roadTaxBase(table, 'BEV', 1500, null, null, null).warning).toMatch(/Motor power/);
+  });
+});

@@ -45,7 +45,7 @@ describe('cars.csv and the offers of each market', () => {
     expect(de.notes.startsWith('Test offer. ')).toBe(true); // the offer's notes, then the car's
     expect(de.raw.source_url).toBe(ds.cars.find((c) => c.specId === '3')!.raw.source_url.split(' ; ').filter((u) => !u.includes('rodfaifa')).join(' ; '));
     // The German cars are no longer offered anywhere.
-    expect(d.loadWarnings).toContainEqual(expect.stringContaining("cars.csv: 11 cars in no market's offers.csv: 18 Hyundai Inster Standard Range"));
+    expect(d.loadWarnings).toContainEqual(expect.stringMatching(/cars\.csv: \d+ cars in no market's offers\.csv: 18 Hyundai Inster Standard Range/));
   });
 
   it('reports offers that do not fit: an unknown number, a name without the brand, a bloc selling cars', () => {
